@@ -12,7 +12,7 @@ export const AuthApi = {
   },
 
   // Current user — backend checks the cookie and returns user data
-  async me() {
-    return api.get("/auth/me");
+  async check() {
+    return api.get("/auth/check");
   },
 };

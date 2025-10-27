@@ -14,8 +14,12 @@ import "./assets/vendors/simple-line-icons/css/simple-line-icons.css";
 import "./assets/vendors/css/vendor.bundle.base.css";
 import "./assets/vendors/bootstrap-datepicker/bootstrap-datepicker.min.css";
 import "./assets/css/select2.min.css";
+import "./assets/css/select2-bootstrap-5-theme.min.css";
+import "./assets/vendors/datatables.net-bs4/dataTables.bootstrap4.css";
+import "./assets/js/select.dataTables.min.css";
 
 import "./assets/css/style.css";
+import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 
 
 const root = ReactDOM.createRoot(document.getElementById('root'));

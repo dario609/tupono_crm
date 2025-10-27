@@ -16,10 +16,11 @@ const Login = () => {
     setMessage({ type: "", text: "" });
 
     try {
-      const res = await AuthApi.login({email, password, rememberme: remember})
+      await AuthApi.login({email, password, rememberme: remember})
       setMessage({ type: "success", text: "Login successful!" });
-      setTimeout(() => (window.location.href = "/dashboard"), 1000);
-    } catch (err) {
+      setTimeout(() => (window.location.href = "/dashboard"), 300);
+    } 
+    catch (err) {
       setMessage({ type: "error", text: err.message });
     }
   };
