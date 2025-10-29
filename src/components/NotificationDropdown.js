@@ -42,7 +42,7 @@ export default function NotificationDropdown({
           style={{ cursor: "pointer" }}
           onClick={handleViewAll}
         >
-          <p className="mb-0 fw-medium">
+          <p className="mb-0 fw-medium" style={{fontSize: '15px'}}>
             You have {totalUnreadCount || 0} new notification
             {totalUnreadCount === 1 ? "" : "s"}
           </p>

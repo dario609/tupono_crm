@@ -1,5 +1,5 @@
 // src/pages/Login.jsx
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { AuthApi } from "../../api/authApi";
 import logo from "../../assets/images/logo.png";
 import "bootstrap/dist/css/bootstrap.min.css";
@@ -10,6 +10,14 @@ const Login = () => {
   const [remember, setRemember] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [message, setMessage] = useState({ type: "", text: "" });
+  
+  useEffect(() => {
+   const logoutMsg = sessionStorage.getItem("logoutMessage")
+   if(logoutMsg) {
+    setMessage({type: 'success', text: logoutMsg})
+    sessionStorage.removeItem("logoutMessage")
+   }
+  },[])
 
   const handleSubmit = async (e) => {
     e.preventDefault();

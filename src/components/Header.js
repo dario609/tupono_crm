@@ -14,10 +14,18 @@ const Header = ({ user, unreadCount = 0, adminUnreadCount = 0 }) => {
   const toggleSidebar = () => {
     document.body.classList.toggle('sidebar-icon-only');
   }
+  
+  const toggleOffcanvas = () => {
+    const sidebar = document.querySelector('.sidebar-offcanvas');
+    if(sidebar) {
+      sidebar.classList.toggle('active')
+    }
+  }
 
   const handleLogout = async () => {
     try {
-      await AuthApi.logout();
+      const res = await AuthApi.logout();
+      sessionStorage.setItem("logoutMessage", res.msg);
       navigate("/");
     }
     catch(err) {
@@ -135,7 +143,7 @@ const Header = ({ user, unreadCount = 0, adminUnreadCount = 0 }) => {
         <button
           className="navbar-toggler navbar-toggler-right d-lg-none align-self-center"
           type="button"
-          data-bs-toggle="offcanvas"
+          onClick={toggleOffcanvas}
         >
           <span className="mdi mdi-menu"></span>
         </button>

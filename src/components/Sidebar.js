@@ -1,9 +1,7 @@
 import React, { useState } from "react";
 import { NavLink } from "react-router-dom";
-// import "../assets/css/sidebar.css"; // Custom CSS for sidebar styling
 
 const Sidebar = ({ user, permissions }) => {
-  // Track open dropdowns
   const [openMenu, setOpenMenu] = useState(null);
 
   const toggleMenu = (menuId) => {
@@ -18,16 +16,14 @@ const Sidebar = ({ user, permissions }) => {
   return (
     <nav className="sidebar sidebar-offcanvas" id="sidebar">
       <ul className="nav">
-        {/* Dashboard */}
         <li className="nav-item">
-          <NavLink to="/dashboard" className="nav-link">
+          <NavLink to="/admin/dashboard" className="nav-link">
             <i className="mdi text-primary mdi-home-account menu-icon"></i>
             <span className="menu-title">Dashboard</span>
           </NavLink>
         </li>
 
-        {/* Roles & Permissions */}
-        {canView("roles_permissions") && (
+        {/* {canView("roles_permissions") && ( */}
           <li className="nav-item">
             <a
               href="#!"
@@ -41,16 +37,15 @@ const Sidebar = ({ user, permissions }) => {
             <div className={`collapse ${openMenu === "roles" ? "show" : ""}`}>
               <ul className="nav flex-column sub-menu">
                 <li className="nav-item">
-                  <NavLink to="/roles" className="nav-link">
+                  <NavLink to="/admin/roles-permissions" className="nav-link">
                     <i className="bi bi-chevron-double-right"></i> Roles
                   </NavLink>
                 </li>
               </ul>
             </div>
           </li>
-        )}
+        {/* )} */}
 
-        {/* Users Management */}
         {canView("user_management") && (
           <li className="nav-item">
             <a

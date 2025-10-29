@@ -4,7 +4,7 @@ import { Navigate, Outlet } from "react-router-dom";
 import { AuthApi } from "./authApi";
 
 const PrivateRoute = () => {
-  const [isAuth, setIsAuth] = useState(null); // null = loading
+  const [isAuth, setIsAuth] = useState(null); 
 
   useEffect(() => {
     const verifyAuth = async () => {

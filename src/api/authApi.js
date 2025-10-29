@@ -1,3 +1,4 @@
+
 import api from "./axiosInstance";
 
 export const AuthApi = {
@@ -15,4 +16,8 @@ export const AuthApi = {
   async check() {
     return api.get("/auth/check");
   },
+
+  async resetPassword(email) {
+    return api.post("/auth/forgot-password",{email})
+  }
 };

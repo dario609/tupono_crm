@@ -18,8 +18,13 @@ import "./assets/css/select2-bootstrap-5-theme.min.css";
 import "./assets/vendors/datatables.net-bs4/dataTables.bootstrap4.css";
 import "./assets/js/select.dataTables.min.css";
 
+// import $ from "jquery";
 import "./assets/css/style.css";
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
+// import "./assets/js/chart.js";
+// import "./assets/vendors/js/vendor.bundle.base.js";
+// import "./assets/vendors/bootstrap-datepicker/bootstrap-datepicker.min.js";
+// import "./assets/vendors/progressbar.js/progressbar.min.js";
 
 
 const root = ReactDOM.createRoot(document.getElementById('root'));

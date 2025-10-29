@@ -1,0 +1,125 @@
+  #clearSearch {
+      cursor: pointer;
+      font-size: 21px;
+      margin: 7px 7px 0px -25px;
+  }
+
+  .search-input-container {
+      display: flex;
+      flex-direction: row;
+      align-items: stretch;
+      flex-wrap: nowrap;
+      justify-content: flex-end;
+  }
+
+  .status {
+      cursor: pointer;
+  }
+
+  .status span {
+      font-size: 14px;
+  }
+
+  .modal-footer {
+      border-top-color: #f0f3f6;
+      display: block;
+      padding: 0.5rem 0.75rem;
+  }
+
+  .btn-icon {
+      border-radius: 22% !important;
+      padding: 4px !important;
+  }
+
+  .custom-switch-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+  font-size: 0.9rem;
+}
+
+.custom-switch-input {
+  display: none;
+}
+
+.custom-switch-label {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  position: relative;
+  width: 90px;
+  height: 34px;
+  background-color: #dd2923;
+  border-radius: 50px;
+  transition: background-color 0.3s ease;
+  padding: 0 10px;
+  box-sizing: border-box;
+}
+
+.custom-switch-label .switch-handle {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 26px;
+  height: 26px;
+  background-color: #fff;
+  border-radius: 50%;
+  transition: left 0.15s ease-in-out;
+  z-index: 2;
+}
+
+.custom-switch-input:checked + .custom-switch-label {
+  background-color: #28a745;
+}
+
+.custom-switch-input:checked + .custom-switch-label .switch-handle {
+  left: 60px;
+  transform: scale(1.05);
+}
+
+.switch-text {
+  position: absolute;
+  font-size: 13px;
+  font-weight: 500;
+  color: white;
+  width: 100%;
+  text-align: center;
+  z-index: 1;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+.switch-text.on {
+  opacity: 0;
+}
+
+.switch-text.off {
+  opacity: 1;
+}
+
+.custom-switch-input:checked + .custom-switch-label .switch-text.on {
+  opacity: 1;
+}
+
+.custom-switch-input:checked + .custom-switch-label .switch-text.off {
+  opacity: 0;
+}
+
+.custom-switch-input:disabled + .custom-switch-label {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.table thead th {
+  background-color: #233142;
+  color: #fff;
+  vertical-align: middle;
+}
+
+.table tbody td {
+  vertical-align: middle;
+}
+.table-responsive {
+    margin-bottom: 10px;
+}
