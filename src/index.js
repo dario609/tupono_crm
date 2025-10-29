@@ -17,6 +17,7 @@ import "./assets/css/select2.min.css";
 import "./assets/css/select2-bootstrap-5-theme.min.css";
 import "./assets/vendors/datatables.net-bs4/dataTables.bootstrap4.css";
 import "./assets/js/select.dataTables.min.css";
+import "./assets/css/permissions.css";
 
 // import $ from "jquery";
 import "./assets/css/style.css";

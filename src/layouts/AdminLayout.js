@@ -3,7 +3,6 @@ import Header from "../components/Header";
 import Sidebar from "../components/Sidebar";
 import Footer from "../components/Footer";
 
-
 import "../assets/css/admin_layout.css"; // <-- we'll move your inline CSS here
 
 const AdminLayout = ({ children }) => {

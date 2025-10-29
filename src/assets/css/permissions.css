@@ -1,0 +1,345 @@
+ .permissions.form-switch {
+     /* padding-left: 2.5em; */
+     padding: 0px;
+     margin-bottom: 10px;
+     border-radius: 5px;
+ }
+
+ .form-switch {
+     display: flex;
+     align-items: center;
+     justify-content: center;
+ }
+
+ .form-switch .form-check-input {
+     width: 2.5em;
+     height: 1.3em;
+     margin-right: 0.5em;
+     cursor: pointer;
+     margin-left:  0.5em;
+ }
+
+ /* Custom style for switch: make unchecked switch border visible on white bg */
+ .form-switch .form-check-input:not(:checked) {
+     background-color: #fff;
+     border: 2px solid #bbb;
+     box-shadow: 0 0 0 1px #bbb;
+      margin-left:  0.5em;
+ }
+
+ .form-switch .form-check-input:checked {
+     background-color: #0d6efd;
+     border-color: #0d6efd;
+     box-shadow: none;
+      margin-left:  0.5em;
+ }
+
+ input[type="checkbox"] {
+     width: 1.5em;
+     height: 1.5em;
+     cursor: pointer;
+ }
+
+ input[type="checkbox"]:indeterminate {
+     background-color: #ccc;
+     border: 2px dashed #999;
+ }
+
+ /* ===== Custom Bootstrap-like Modal Styling ===== */
+
+/* Top placement */
+.modal-dialog-top {
+  margin-top: 60px !important; /* distance from top */
+}
+
+
+/* Shadow + border radius */
+.modal-content {
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow:
+    0 5px 15px rgba(0, 0, 0, 0.3),
+    0 2px 8px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+}
+
+/* Remove unwanted body/footer line */
+.modal-body {
+  border-bottom: none !important;
+  padding-bottom: 0;
+}
+
+.modal-footer {
+  border-top: 1px solid #e5e5e5;
+  background-color: #fff;
+  padding: 0.75rem 1rem;
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
+}
+
+/* Backdrop dimming */
+.modal.fade.show {
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+/* Smooth modal container shadow and backdrop blur */
+.modal.show .modal-dialog {
+  backdrop-filter: blur(2px);
+}
+
+/* ===== Permissions Table Styling ===== */
+.permissions-table-wrapper {
+  overflow-x: auto;
+  border-radius: 8px;
+  -webkit-overflow-scrolling: touch;
+  background-color: #fff;
+}
+
+/* Maintain consistent column widths */
+.permissions-table {
+  width: 100%;
+  min-width: 700px;
+  border-collapse: separate !important;
+  border-spacing: 0;
+  table-layout: fixed;
+}
+
+/* Fix header background */
+.permissions-table thead {
+  background-color: #243a6f !important;
+  color: #fff !important;
+}
+
+.permissions-table thead th {
+  background-color: #243a6f !important;
+  color: #fff !important;
+  border-bottom: 0 !important;
+  text-align: center;
+  vertical-align: middle;
+  font-weight: 600;
+  padding: 0.75rem;
+}
+
+/* Ensure the "Module Name" column is wider */
+.permissions-table .module-col {
+  width: 250px;
+  min-width: 250px;
+  text-align: left !important;
+  padding-left: 1rem;
+}
+
+/* Keep other permission columns equal */
+.permissions-table .perm-col {
+  width: 120px;
+  min-width: 120px;
+}
+
+/* Borders */
+.permissions-table td,
+.permissions-table th {
+  border: 1px solid #dee2e6 !important;
+}
+
+/* Scroll behavior for mobile */
+@media (max-width: 768px) {
+  .permissions-table .module-col {
+    width: 180px;
+  }
+  .permissions-table .perm-col {
+    width: 90px;
+  }
+}
+
+/* Keep header fixed for long tables */
+.permissions-table-wrapper {
+  position: relative;
+}
+
+.permissions-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+/* Center align switches cleanly */
+.form-switch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Prevent weird wrapping */
+th, td {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+ .custom-switch-wrapper {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        position: relative;
+        font-size: 0.9rem;
+    }
+
+    .custom-switch-input {
+        display: none;
+    }
+
+    .custom-switch-label {
+        display: inline-flex;
+        align-items: center;
+        cursor: pointer;
+        position: relative;
+        width: 60px;
+        height: 28px;
+        background-color: #ccc;
+        border-radius: 50px;
+        transition: background-color 0.3s ease;
+    }
+
+    .custom-switch-label .switch-handle {
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 24px;
+        height: 24px;
+        background-color: #fff;
+        border-radius: 50%;
+        transition: left 0.3s ease;
+        z-index: 1;
+    }
+
+    .custom-switch-input:checked+.custom-switch-label {
+        background-color: #28a745;
+    }
+
+    .custom-switch-input:checked+.custom-switch-label .switch-handle {
+        left: 34px;
+    }
+
+    /* Text styles */
+    .switch-text {
+        position: absolute;
+        font-size: 12px;
+        color: white;
+        width: 100%;
+        text-align: center;
+        z-index: 0;
+        pointer-events: none;
+    }
+
+    .switch-text.on {
+        left: -10px;
+        top: 10px;
+        opacity: 0;
+        transition: opacity 0.2s;
+    }
+
+    .switch-text.off {
+        right: -12px;
+        top: 10px;
+        opacity: 1;
+        transition: opacity 0.2s;
+    }
+
+    .custom-switch-input:checked+.custom-switch-label .switch-text.on {
+        opacity: 1;
+    }
+
+    .custom-switch-input:checked+.custom-switch-label .switch-text.off {
+        opacity: 0;
+    }
+
+    /* Disabled state */
+    .custom-switch-input:disabled+.custom-switch-label {
+        opacity: 0.6;
+        /* cursor: not-allowed; */
+    }
+
+    .custom-switch-wrapper {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        position: relative;
+        font-size: 0.9rem;
+    }
+
+    .custom-switch-input {
+        display: none;
+    }
+
+    .custom-switch-label {
+        display: inline-flex;
+        align-items: center;
+        cursor: pointer;
+        position: relative;
+        width: 90px;
+        /* Increased width */
+        height: 34px;
+        /* Slightly taller */
+        background-color: #dd2923;
+        border-radius: 50px;
+        transition: background-color 0.3s ease;
+        padding: 0 10px;
+        box-sizing: border-box;
+    }
+
+    .custom-switch-label .switch-handle {
+        position: absolute;
+        top: 4px;
+        left: 4px;
+        width: 26px;
+        height: 26px;
+        background-color: #fff;
+        border-radius: 50%;
+        /* transition: left 0.3s ease; */
+        transition: left 0.15s ease-in-out;
+        z-index: 2;
+    }
+
+    .custom-switch-input:checked+.custom-switch-label {
+        background-color: #28a745;
+    }
+
+    .custom-switch-input:checked+.custom-switch-label .switch-handle {
+        left: 60px;
+        transform: scale(1.05);
+        /* Adjusted for wider switch */
+    }
+
+    /* Text styles */
+    .switch-text {
+        position: absolute;
+        font-size: 13px;
+        font-weight: 500;
+        color: white;
+        width: 100%;
+        text-align: center;
+        z-index: 1;
+        pointer-events: none;
+        transition: opacity 0.3s;
+    }
+
+    .switch-text.on {
+        opacity: 0;
+    }
+
+    .switch-text.off {
+        opacity: 1;
+    }
+
+    .custom-switch-input:checked+.custom-switch-label .switch-text.on {
+        opacity: 1;
+    }
+
+    .custom-switch-input:checked+.custom-switch-label .switch-text.off {
+        opacity: 0;
+    }
+
+    /* Disabled state */
+    .custom-switch-input:disabled+.custom-switch-label {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }

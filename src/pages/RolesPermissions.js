@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import axios, { Axios } from "axios";
 import Swal from "sweetalert2";
 import AdminLayout from "../layouts/AdminLayout";
+import { Modal, Button, Form } from "react-bootstrap";
+import { RolesApi } from "../api/rolesApi";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "../assets/css/roles.css";
 
@@ -23,16 +25,71 @@ const RolesPermissions = () => {
   const [editRole, setEditRole] = useState({ id: "", name: "" });
   const [selectedRole, setSelectedRole] = useState(null);
 
-  // ===================== Fetch Roles =====================
+  const [permissions, setPermissions] = useState([
+    {
+      level_name: "Roles & Permissions",
+      input_name: "roles_permissions",
+      value: ["is_view", "is_add", "is_edit", "is_delete"],
+    },
+    {
+      level_name: "User Management",
+      input_name: "user_management",
+      value: ["is_view", "is_add", "is_edit", "is_delete"],
+    },
+    {
+      level_name: "Project Management",
+      input_name: "project_management",
+      value: ["is_view", "is_add", "is_edit", "is_delete"],
+    },
+    {
+      level_name: "Task Management",
+      input_name: "task_management",
+      value: ["is_view", "is_add", "is_edit", "is_delete"],
+    },
+    {
+      level_name: "Calendar Management",
+      input_name: "calendar_management",
+      value: ["is_view"],
+    },
+    {
+      level_name: "Document/File Management",
+      input_name: "document_file_management",
+      value: ["is_view", "is_add", "is_edit", "is_delete"],
+    },
+    {
+      level_name: "Message/Support Management",
+      input_name: "message_support_management",
+      value: ["is_view", "is_add"],
+    },
+  ]);
+
+  // Toggle single checkbox
+  const togglePermission = (moduleIndex, perm) => {
+    setPermissions((prev) => {
+      const updated = [...prev];
+      updated[moduleIndex][perm] = !updated[moduleIndex][perm];
+      return updated;
+    });
+  };
+
+  const toggleAllPermissions = (type) => {
+    const permKey = `is_${type}`;
+    const allChecked = permissions.every((m) => m.value.includes(permKey));
+    setPermissions((prev) =>
+      prev.map((m) => ({
+        ...m,
+        [permKey]: !allChecked && m.value.includes(permKey) ? true : false,
+      }))
+    );
+  };
+
   const fetchRoles = async () => {
     try {
       setLoading(true);
-      const res = await axios.get("/api/roles", {
-        params: { search, perpage: perPage, page },
-      });
+      const res = await RolesApi.getRoles({ search: search || "", perpage: perPage, page });
 
-      setRoles(res.data.data || []);
-      setTotalPages(res.data.last_page || 1);
+      setRoles(res.data || []);
+      setTotalPages(res.last_page || 1);
     } catch (err) {
       console.error(err);
       setError("Failed to fetch roles");
@@ -45,10 +102,17 @@ const RolesPermissions = () => {
     fetchRoles();
   }, [search, perPage, page]);
 
+  useEffect(() => {
+    const loader = document.querySelector(".loader-overlay");
+    if (!loader) return;
+
+    loader.style.display = loading ? "flex" : "none";
+  }, [loading]);
+
   const handleAddRole = async (e) => {
     e.preventDefault();
     try {
-      await axios.post("/api/roles", { role_name: roleName });
+      await RolesApi.createRole({ role_name: roleName });
       setRoleName("");
       setShowAdd(false);
       Swal.fire("Success", "Role created successfully", "success");
@@ -82,7 +146,7 @@ const RolesPermissions = () => {
     if (!confirm.isConfirmed) return;
 
     try {
-      await axios.delete(`/api/roles/${id}`);
+      await RolesApi.deleteRole({ roleId: id });
       Swal.fire("Deleted!", "The role has been deleted.", "success");
       fetchRoles();
     } catch (err) {
@@ -96,21 +160,21 @@ const RolesPermissions = () => {
       icon: "warning",
       showCancelButton: true,
       confirmButtonText: "Yes",
+      cancelButtonText: "No",
+      confirmButtonColor: "#3085d6", // Blue (default confirm)
+      cancelButtonColor: "#d33",     // Red cancel
     });
     if (!confirm.isConfirmed) return;
 
     try {
-      await axios.patch(`/api/roles/${role.id}/status`, {
-        status: role.status === 1 ? 0 : 1,
+      await RolesApi.manageRoleStatus({
+        roleId: role._id,
       });
       fetchRoles();
-    } catch {
+    } catch (err) {
       Swal.fire("Error", "Failed to change status", "error");
     }
   };
-
-  const nextPage = () => page < totalPages && setPage(page + 1);
-  const prevPage = () => page > 1 && setPage(page - 1);
 
   return (
     <AdminLayout>
@@ -125,6 +189,7 @@ const RolesPermissions = () => {
             >
               <i className="menu-icon mdi mdi-plus-circle"></i> Add Role
             </button>
+
           </li>
         </ul>
       </div>
@@ -186,7 +251,7 @@ const RolesPermissions = () => {
                     </div>
                   </div>
 
-                  <div className="table-responsive">
+                  <div className="table-responsive roles-table-wrapper">
                     <table className="table table-striped table-bordered table-responsive">
                       <thead>
                         <tr>
@@ -194,7 +259,7 @@ const RolesPermissions = () => {
                           <th>Role</th>
                           <th style={{ width: "115px" }}>Module Permission</th>
                           <th style={{ width: "105px" }}>Status</th>
-                          <th style={{ width: "120px" }} className="text-center">
+                          <th style={{ width: "140px" }}>
                             Actions
                           </th>
                         </tr>
@@ -232,13 +297,13 @@ const RolesPermissions = () => {
                                 <div className="custom-switch-wrapper">
                                   <input
                                     type="checkbox"
-                                    id={`switch_status_${item.id}`}
+                                    id={`switch_status_${item._id}`}
                                     className="custom-switch-input"
-                                    checked={item.status === 0}
+                                    checked={item.status === 'active'}
                                     onChange={() => toggleStatus(item)}
                                   />
                                   <label
-                                    htmlFor={`switch_status_${item.id}`}
+                                    htmlFor={`switch_status_${item._id}`}
                                     className="custom-switch-label"
                                   >
                                     <span className="switch-text on">Active</span>
@@ -277,7 +342,7 @@ const RolesPermissions = () => {
                                 <button
                                   className="btn btn-danger btn-sm btn-rounded"
                                   title="Delete"
-                                  onClick={() => handleDelete(item.id)}
+                                  onClick={() => handleDelete(item._id)}
                                 >
                                   <svg
                                     xmlns="http://www.w3.org/2000/svg"
@@ -307,31 +372,58 @@ const RolesPermissions = () => {
                     <div className="col-sm-12 col-md-5">
                       <div className="dataTables_info" id="DataTables_Table_0_info" role="status">
                         <p>Showing {(page - 1) * perPage + 1} to{" "}
-                        {Math.min(page * perPage, roles.length * page)} of{" "}
-                        {roles.length * totalPages} entries</p>
+                          {(page - 1) * perPage + roles.length} of{" "}
+                          {roles.length} entries</p>
                       </div>
                     </div>
                     <div className="col-sm-12 col-md-7">
-                      <div class="dataTables_paginate paging_simple_numbers" id="DataTables_Table_0_paginate">
+                      <div
+                        className="dataTables_paginate paging_simple_numbers"
+                        id="DataTables_Table_0_paginate"
+                      >
                         <nav aria-label="Page navigation example">
-                          <ul class="pagination justify-content-end">
-                            <li class="page-item disabled">
-                              <a class="page-link" href="javascript:void(0);" aria-label="Previous">
-                                <i class="fa fa-angle-left left-left-ang" aria-hidden="true"></i>
-                              </a>
+                          <ul className="pagination justify-content-end">
+                            {/* Previous button */}
+                            <li className={`page-item ${page === 1 ? "disabled" : ""}`}>
+                              <button
+                                className="page-link"
+                                onClick={() => page > 1 && setPage(page - 1)}
+                                aria-label="Previous"
+                              >
+                                <i className="fa fa-angle-left left-left-ang" aria-hidden="true"></i>
+                              </button>
                             </li>
-                            <li class="page-item  active ">
-                              <a class="page-link popto" href="javascript:void(0);" onclick="next_page('1')">1</a>
-                            </li>
-                            <li class="page-item disabled">
-                              <a class="page-link" href="javascript:void(0);" aria-label="Next">
-                                <i class="fa fa-angle-right left-left-ang" aria-hidden="true"></i>
-                              </a>
+
+                            {/* Dynamic page numbers */}
+                            {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                              <li
+                                key={pageNum}
+                                className={`page-item ${pageNum === page ? "active" : ""}`}
+                              >
+                                <button
+                                  className="page-link popto"
+                                  onClick={() => setPage(pageNum)}
+                                >
+                                  {pageNum}
+                                </button>
+                              </li>
+                            ))}
+
+                            {/* Next button */}
+                            <li className={`page-item ${page === totalPages ? "disabled" : ""}`}>
+                              <button
+                                className="page-link"
+                                onClick={() => page < totalPages && setPage(page + 1)}
+                                aria-label="Next"
+                              >
+                                <i className="fa fa-angle-right left-left-ang" aria-hidden="true"></i>
+                              </button>
                             </li>
                           </ul>
                         </nav>
                       </div>
                     </div>
+
                   </div>
                   {/* )} */}
                 </div>
@@ -342,43 +434,46 @@ const RolesPermissions = () => {
       </section>
 
       {/* ========== Add Role Modal ========== */}
-      {showAdd && (
-        <div className="modal fade show d-block" tabIndex="-1">
-          <div className="modal-dialog modal-md modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5>Create Role</h5>
-                <button className="btn-close" onClick={() => setShowAdd(false)}></button>
-              </div>
-              <form onSubmit={handleAddRole}>
-                <div className="modal-body pt-2">
-                  <label>Role Title</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    required
-                    value={roleName}
-                    onChange={(e) => setRoleName(e.target.value)}
-                    maxLength={50}
-                  />
-                </div>
-                <div className="modal-footer text-center justify-content-center">
-                  <button
-                    type="button"
-                    className="btn btn-danger btn-sm"
-                    onClick={() => setShowAdd(false)}
-                  >
-                    Cancel
-                  </button>
-                  <button type="submit" className="btn btn-primary btn-sm">
-                    Save
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        show={showAdd}
+        onHide={() => setShowAdd(false)}
+        centered
+        backdrop={true}
+        keyboard={true}
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Create Role</Modal.Title>
+        </Modal.Header>
+        <Form onSubmit={handleAddRole}>
+          <Modal.Body>
+            <Form.Group controlId="roleName">
+              <Form.Label>Role Title</Form.Label>
+              <Form.Control
+                type="text"
+                placeholder="Role Title"
+                required
+                value={roleName}
+                onChange={(e) => setRoleName(e.target.value)}
+                maxLength={50}
+              />
+            </Form.Group>
+          </Modal.Body>
+          <Modal.Footer className="text-center justify-content-center">
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={() => setShowAdd(false)}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" size="sm">
+              Save
+            </Button>
+          </Modal.Footer>
+        </Form>
+      </Modal>
+
+
 
       {/* ========== Edit Role Modal ========== */}
       {showEdit && (
@@ -425,7 +520,7 @@ const RolesPermissions = () => {
       {showPermissions && (
         <div className="modal fade show d-block" tabIndex="-1">
           <div className="modal-dialog modal-xl modal-dialog-centered">
-            <div className="modal-content">
+            <div className="modal-content shadow-lg">
               <div className="modal-header">
                 <h5>
                   Module Permissions (
@@ -437,8 +532,73 @@ const RolesPermissions = () => {
                 ></button>
               </div>
               <div className="modal-body pt-2">
-                <p>Permission table goes here...</p>
+                <div className="table-responsive permissions-table-wrapper">
+                  <table className="table table-striped table-bordered align-middle mb-0 permissions-table">
+                    <thead>
+                      <tr>
+                        <th className="module-col">Module Name</th>
+                        {["view", "add", "edit", "delete"].map((type) => (
+                          <th key={type} className="perm-col text-center">
+                            <div className="permissions form-switch d-flex align-items-center justify-content-center">
+                              <input
+                                type="checkbox"
+                                className="form-check-input"
+                                id={`${type}_all`}
+                                checked={permissions.every(
+                                  (p) => p[type] || p.value?.includes(`is_${type}`)
+                                )}
+                                onChange={() => toggleAllPermissions(type)}
+                              />
+                              <label
+                                style={{fontSize: '15px',marginTop: '3px'}}
+                                htmlFor={`${type}_all`}
+                                className="form-check-label ms-1 text-capitalize fw-semibold text-white"
+                              >
+                                {type}
+                              </label>
+                            </div>
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+
+                    <tbody>
+                      {permissions.map((module, moduleIndex) => (
+                        <tr key={module.input_name}>
+                          <td className="text-nowrap fw-semibold">{module.level_name}</td>
+                          {["is_view", "is_add", "is_edit", "is_delete"].map((perm) => {
+                            const isAvailable = module.value.includes(perm);
+                            const checked = !!module[perm];
+                            const uniqueId = `${module.input_name}_${perm}`;
+
+                            return (
+                              <td key={perm} className="text-center align-middle">
+                                {isAvailable ? (
+                                  <div className="form-switch permissions d-flex align-items-center justify-content-center">
+                                    <input
+                                      type="checkbox"
+                                      className="form-check-input"
+                                      id={uniqueId}
+                                      checked={checked}
+                                      onChange={() => togglePermission(moduleIndex, perm)}
+                                    />
+                                    <label htmlFor={uniqueId} className="form-check-label"></label>
+                                  </div>
+                                ) : (
+                                  <span className="text-muted">-</span>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+
               </div>
+
               <div className="modal-footer text-center justify-content-center">
                 <button
                   type="button"

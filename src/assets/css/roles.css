@@ -123,3 +123,58 @@
 .table-responsive {
     margin-bottom: 10px;
 }
+/* Make table scrollable horizontally */
+.roles-table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 8px;
+}
+
+/* Keep table neat and aligned */
+.roles-table-wrapper table {
+  width: 100%;
+  min-width: 600px;
+  table-layout: auto;
+  border-collapse: collapse;
+}
+
+/* Fix width for action buttons */
+.roles-table-wrapper th,
+.roles-table-wrapper td {
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+/* Prevent hiding the delete icon */
+.roles-table-wrapper td:last-child {
+  min-width: 140px;
+  text-align: center;
+}
+
+/* Adjust buttons for mobile */
+@media (max-width: 768px) {
+  .roles-table-wrapper table {
+    min-width: 700px; /* force horizontal scroll instead of hiding */
+  }
+
+  .roles-table-wrapper td button {
+    margin: 2px !important;
+    padding: 8px 10px !important;
+  }
+
+  .roles-table-wrapper .btn-rounded {
+    border-radius: 6px !important;
+  }
+
+  .roles-table-wrapper th,
+  .roles-table-wrapper td {
+    font-size: 13px !important;
+  }
+}
+
+/* Improve table header visibility */
+.table-dark th {
+  background-color: #243a6f !important;
+  color: #fff !important;
+  font-weight: 600;
+}
