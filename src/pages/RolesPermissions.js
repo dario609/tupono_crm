@@ -4,6 +4,7 @@ import Swal from "sweetalert2";
 import AdminLayout from "../layouts/AdminLayout";
 import { Modal, Button, Form } from "react-bootstrap";
 import { RolesApi } from "../api/rolesApi";
+import { basePermissionList } from "../constants";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "../assets/css/roles.css";
 
@@ -25,63 +26,73 @@ const RolesPermissions = () => {
   const [editRole, setEditRole] = useState({ id: "", name: "" });
   const [selectedRole, setSelectedRole] = useState(null);
 
-  const [permissions, setPermissions] = useState([
-    {
-      level_name: "Roles & Permissions",
-      input_name: "roles_permissions",
-      value: ["is_view", "is_add", "is_edit", "is_delete"],
-    },
-    {
-      level_name: "User Management",
-      input_name: "user_management",
-      value: ["is_view", "is_add", "is_edit", "is_delete"],
-    },
-    {
-      level_name: "Project Management",
-      input_name: "project_management",
-      value: ["is_view", "is_add", "is_edit", "is_delete"],
-    },
-    {
-      level_name: "Task Management",
-      input_name: "task_management",
-      value: ["is_view", "is_add", "is_edit", "is_delete"],
-    },
-    {
-      level_name: "Calendar Management",
-      input_name: "calendar_management",
-      value: ["is_view"],
-    },
-    {
-      level_name: "Document/File Management",
-      input_name: "document_file_management",
-      value: ["is_view", "is_add", "is_edit", "is_delete"],
-    },
-    {
-      level_name: "Message/Support Management",
-      input_name: "message_support_management",
-      value: ["is_view", "is_add"],
-    },
-  ]);
+  const [permissions, setPermissions] = useState([]);
 
-  // Toggle single checkbox
+  const handleSavePermissions = async () => {
+    if (!selectedRole?._id) {
+      Swal.fire("Error", "No role selected", "error");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const payload = permissions.map((perm) => ({
+        role_id: selectedRole._id,
+        menu_name: perm.input_name,
+        is_view: perm.is_view ? 1 : 0,
+        is_add: perm.is_add ? 1 : 0,
+        is_edit: perm.is_edit ? 1 : 0,
+        is_delete: perm.is_delete ? 1 : 0,
+      }));
+
+      await RolesApi.savePermissions({
+        roleId: selectedRole._id,
+        permissions: payload,
+      });
+
+      Swal.fire("Success", "Permissions updated successfully!", "success");
+      setShowPermissions(false);
+    } catch (err) {
+      console.error(err);
+      Swal.fire(
+        "Error",
+        err.response?.data?.message || "Failed to update permissions",
+        "error"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const togglePermission = (moduleIndex, perm) => {
     setPermissions((prev) => {
-      const updated = [...prev];
-      updated[moduleIndex][perm] = !updated[moduleIndex][perm];
-      return updated;
+      return prev.map((module, index) =>
+        index === moduleIndex
+          ? { ...module, [perm]: !module[perm] }
+          : module
+      );
     });
   };
 
+
   const toggleAllPermissions = (type) => {
     const permKey = `is_${type}`;
-    const allChecked = permissions.every((m) => m.value.includes(permKey));
-    setPermissions((prev) =>
-      prev.map((m) => ({
-        ...m,
-        [permKey]: !allChecked && m.value.includes(permKey) ? true : false,
-      }))
-    );
+
+    setPermissions((prev) => {
+      const allChecked = prev.every(
+        (m) => !m.value.includes(permKey) || m[permKey] === true
+      );
+      return prev.map((module) => {
+        if (!module.value.includes(permKey)) return module;
+        return {
+          ...module,
+          [permKey]: !allChecked,
+        };
+      });
+    });
   };
+
 
   const fetchRoles = async () => {
     try {
@@ -175,6 +186,46 @@ const RolesPermissions = () => {
       Swal.fire("Error", "Failed to change status", "error");
     }
   };
+
+  const handleOpenPermissions = async (role) => {
+    setSelectedRole(role);
+    setShowPermissions(true);
+
+    try {
+      setLoading(true)
+      const res = await RolesApi.getPermissions({ roleId: role._id })
+      if (res.data?.length) {
+        const loadedPerms = basePermissionList.map(module => {
+          const dbPerm = res.data.find(p => p.menu_name === module.input_name)
+          return {
+            ...module,
+            is_view: dbPerm?.is_view === true,
+            is_add: dbPerm?.is_add === true,
+            is_edit: dbPerm?.is_edit === true,
+            is_delete: dbPerm?.is_delete === true,
+          }
+        })
+
+        setPermissions(loadedPerms);
+      }
+      else {
+        const resetPerms = basePermissionList.map(m => ({
+          ...m,
+          is_view: false,
+          is_add: false,
+          is_edit: false,
+          is_delete: false,
+        }));
+        setPermissions(resetPerms)
+      }
+    }
+    catch (err) {
+      console.error(err);
+      Swal.fire("Error", "Failed to load permissions", "error");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <AdminLayout>
@@ -284,15 +335,13 @@ const RolesPermissions = () => {
                                 <button
                                   className="btn btn-primary btn-sm"
                                   onClick={() => {
-                                    setSelectedRole(item);
-                                    setShowPermissions(true);
+                                    handleOpenPermissions(item)
                                   }}
                                 >
                                   Set Permissions
                                 </button>
                               </td>
 
-                              {/* Status Switch */}
                               <td>
                                 <div className="custom-switch-wrapper">
                                   <input
@@ -537,28 +586,32 @@ const RolesPermissions = () => {
                     <thead>
                       <tr>
                         <th className="module-col">Module Name</th>
-                        {["view", "add", "edit", "delete"].map((type) => (
-                          <th key={type} className="perm-col text-center">
-                            <div className="permissions form-switch d-flex align-items-center justify-content-center">
-                              <input
-                                type="checkbox"
-                                className="form-check-input"
-                                id={`${type}_all`}
-                                checked={permissions.every(
-                                  (p) => p[type] || p.value?.includes(`is_${type}`)
-                                )}
-                                onChange={() => toggleAllPermissions(type)}
-                              />
-                              <label
-                                style={{fontSize: '15px',marginTop: '3px'}}
-                                htmlFor={`${type}_all`}
-                                className="form-check-label ms-1 text-capitalize fw-semibold text-white"
-                              >
-                                {type}
-                              </label>
-                            </div>
-                          </th>
-                        ))}
+                        {["view", "add", "edit", "delete"].map((type) => {
+                          const permKey = `is_${type}`;
+
+                          return (
+                            <th key={type} className="perm-col text-center">
+                              <div className="permissions form-switch d-flex align-items-center justify-content-center">
+                                <input
+                                  type="checkbox"
+                                  className="form-check-input"
+                                  id={`${type}_all`}
+                                  checked={permissions.every(
+                                    (p) => !p.value?.includes(permKey) || p[permKey] === true
+                                  )}
+                                  onChange={() => toggleAllPermissions(type)}
+                                />
+                                <label
+                                  style={{ fontSize: "15px", marginTop: "3px" }}
+                                  htmlFor={`${type}_all`}
+                                  className="form-check-label ms-1 text-capitalize fw-semibold text-white"
+                                >
+                                  {type}
+                                </label>
+                              </div>
+                            </th>
+                          );
+                        })}
                       </tr>
                     </thead>
 
@@ -595,10 +648,7 @@ const RolesPermissions = () => {
                     </tbody>
                   </table>
                 </div>
-
-
               </div>
-
               <div className="modal-footer text-center justify-content-center">
                 <button
                   type="button"
@@ -607,7 +657,7 @@ const RolesPermissions = () => {
                 >
                   Cancel
                 </button>
-                <button type="button" className="btn btn-primary btn-sm">
+                <button type="button" className="btn btn-primary btn-sm" onClick={handleSavePermissions}>
                   Save
                 </button>
               </div>
