@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios, { Axios } from "axios";
 import Swal from "sweetalert2";
-import AdminLayout from "../layouts/AdminLayout";
 import { Modal, Button, Form } from "react-bootstrap";
 import { RolesApi } from "../api/rolesApi";
 import { basePermissionList } from "../constants";
@@ -228,7 +227,7 @@ const RolesPermissions = () => {
   }
 
   return (
-    <AdminLayout>
+    <>
       <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-24">
         <h6 className="fw-semibold mb-0 mt-2">Roles &amp; Permission</h6>
         <ul className="d-flex align-items-center mt-3 mb-1">
@@ -665,7 +664,7 @@ const RolesPermissions = () => {
           </div>
         </div>
       )}
-    </AdminLayout>
+    </>
   );
 };
 

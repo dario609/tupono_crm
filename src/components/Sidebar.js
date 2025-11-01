@@ -9,9 +9,9 @@ const Sidebar = ({ user, permissions }) => {
   };
 
   const canView = (key) =>
-    user?.id === 1 || permissions?.[key]?.is_view === 1;
+    permissions?.[key]?.is_view === 1;
   const canAdd = (key) =>
-    user?.id === 1 || permissions?.[key]?.is_add === 1;
+    permissions?.[key]?.is_add === 1;
 
   return (
     <nav className="sidebar sidebar-offcanvas" id="sidebar">
@@ -23,7 +23,7 @@ const Sidebar = ({ user, permissions }) => {
           </NavLink>
         </li>
 
-        {/* {canView("roles_permissions") && ( */}
+        {canView("roles_permissions") && (
           <li className="nav-item">
             <a
               href="#!"
@@ -44,7 +44,7 @@ const Sidebar = ({ user, permissions }) => {
               </ul>
             </div>
           </li>
-        {/* )} */}
+        )} 
 
         {canView("user_management") && (
           <li className="nav-item">
