@@ -7,6 +7,7 @@ import ForgotPassword from "./pages/auth/ForgotPassword";
 import RolesPermissions from "./pages/RolesPermissions";
 import UsersPage from "./pages/Users";
 import CreateUser from "./pages/Users/Create";
+import EditUser from "./pages/Users/Edit";
 import { AuthProvider } from "./context/AuthProvider";
 import AdminLayout from "./layouts/AdminLayout";
 import './App.css';
@@ -27,6 +28,7 @@ function App() {
             <Route path="/admin/roles-permissions" element={<RolesPermissions />} />
             <Route path="/users" element={<UsersPage />} />
             <Route path="/users/create" element={<CreateUser />} />
+            <Route path="/users/:id/edit" element={<EditUser />} />
           </Route>
         </Route>
 

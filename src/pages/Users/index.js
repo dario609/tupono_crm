@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 
 const UsersPage = ({ user, permissions }) => {
     const [loading, setLoading] = useState(false);
     const [rows, setRows] = useState([]);
+    const navigate = useNavigate();
     const [search, setSearch] = useState("");
     const [perpage, setPerpage] = useState(10);
     const [page, setPage] = useState(1);
@@ -290,8 +291,8 @@ const UsersPage = ({ user, permissions }) => {
                                                                     </svg>
                                                                 </button>
                                                             )}
-                                                            {canEdit && (
-                                                                <button className="btn badge-success btn-sm btn-rounded btn-icon" title="Edit">
+                            {canEdit && (
+                              <button className="btn badge-success btn-sm btn-rounded btn-icon" title="Edit" onClick={() => navigate(`/users/${r._id}/edit`)}>
                                                                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="feather feather-edit-2 align-middle">
                                                                         <polygon points="16 3 21 8 8 21 3 21 3 16 16 3"></polygon>
                                                                     </svg>
