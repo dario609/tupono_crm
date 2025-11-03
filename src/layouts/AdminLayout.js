@@ -12,7 +12,7 @@ const AdminLayout = ({ children }) => {
 
   return (
     <div className="container-scroller with-welcome-text">
-      <div className="loader-overlay" style={{ display: loading ? "block" : "none" }}>
+      <div className="loader-overlay" style={{ display: loading ? "flex" : "none" }}>
         <div className="loader"></div>
       </div>
       <Header />

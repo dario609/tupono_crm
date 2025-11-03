@@ -54,17 +54,77 @@ input[type="date"] {
   position: relative;
   width: 100%;
   height: 2.3rem;
-  color: transparent;
+  color: #212529; /* show native text normally when a value is set */
+  -webkit-text-fill-color: #212529;
   background-color: transparent;
   z-index: 1;
 }
-input[type="date"]:before {
+/* Placeholder mode: when data-date is dd/mm/yyyy we hide native text and show ghost */
+input[type="date"][data-date="dd/mm/yyyy"] {
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  caret-color: transparent;
+}
+input[type="date"][data-date="dd/mm/yyyy"]::-webkit-datetime-edit { color: transparent; }
+input[type="date"][data-date="dd/mm/yyyy"]::selection { background: transparent; }
+input[type="date"][data-date="dd/mm/yyyy"]:before {
   content: attr(data-date);
   position: absolute;
   top: 6px;
   left: 10px;
-  color: #aaa;
+  color: #9aa0a6; /* placeholder-like */
   pointer-events: none;
   z-index: 0;
   font-size: 14px;
+}
+
+/* Disable ghost when a real date is selected */
+input[type="date"]:not([data-date="dd/mm/yyyy"]):before { content: none; }
+
+/* Skeleton loader */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background-color: #eef1f5;
+  border-radius: 4px;
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.6) 50%, rgba(255,255,255,0) 100%);
+  animation: skeleton-loading 1.2s ease-in-out infinite;
+}
+
+@keyframes skeleton-loading {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.skeleton-line {
+  height: 14px;
+  width: 100%;
+}
+.skeleton-sm { height: 12px; }
+.skeleton-md { height: 16px; }
+.skeleton-lg { height: 20px; }
+
+/* Select color improvements */
+select.form-control,
+select.form-select {
+  color: #212529 !important; /* enforce dark text for selected value */
+}
+select.form-control:required:invalid,
+select.form-select:required:invalid {
+  color: #9aa0a6 !important; /* placeholder when empty */
+}
+select.form-control option,
+select.form-select option {
+  color: #212529;
+}
+select.form-control option[disabled],
+select.form-select option[disabled],
+option[value=""][disabled] {
+  color: #9aa0a6;
 }

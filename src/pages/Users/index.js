@@ -130,12 +130,47 @@ const UsersPage = ({ user, permissions }) => {
   };
 
     const handleDelete = async (id) => {
-        const res = await fetch(`http://localhost:5000/api/admin/users/${id}`, {
-            method: "DELETE",
-            credentials: "include",
+        const confirm = await Swal.fire({
+            title: 'Are you sure?',
+            text: 'Are you sure you want to delete this user? This action cannot be undone. Please confirm before proceeding.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Yes, delete it!',
+            cancelButtonText: 'Cancel'
         });
-        if (res.ok) {
-            load({ page });
+        if (!confirm.isConfirmed) return;
+
+        try {
+            const res = await fetch(`http://localhost:5000/api/admin/users/${id}`, {
+                method: 'DELETE',
+                credentials: 'include',
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || data?.success === false) {
+                throw new Error(data?.message || 'Failed to delete user');
+            }
+            await Swal.fire({
+                title: 'Deleted!',
+                text: data?.message || 'User deleted successfully',
+                icon: 'success',
+                timer: 2000,
+                showConfirmButton: false,
+            });
+            const newTotal = Math.max(0, total - 1);
+            const newPage = rows.length === 1 && page > 1 ? page - 1 : page;
+            setTotal(newTotal);
+            await load({ page: newPage });
+        }
+        catch (err) {
+            await Swal.fire({
+                title: 'Error!',
+                text: err.message || 'There was an error deleting the user. Please try again',
+                icon: 'error',
+                timer: 3000,
+                showConfirmButton: false,
+            });
         }
     };
 

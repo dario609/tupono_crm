@@ -177,9 +177,19 @@ const Sidebar = ({ user, permissions }) => {
                   </NavLink>
                 </li>
                 <li className="nav-item">
+                  <NavLink to="/docs/rohe-hapu" className="nav-link">
+                    <i className="bi bi-chevron-double-right"></i> Rohe & Hapū
+                  </NavLink>
+                </li>
+                <li className="nav-item">
                   <NavLink to="/documents" className="nav-link">
                     <i className="bi bi-chevron-double-right"></i> Folders &
                     Documents
+                  </NavLink>
+                </li>
+                <li className="nav-item">
+                  <NavLink to="/templates/create" className="nav-link">
+                    <i className="bi bi-chevron-double-right"></i> Report Templates
                   </NavLink>
                 </li>
               </ul>

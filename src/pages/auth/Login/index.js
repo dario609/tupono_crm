@@ -25,7 +25,7 @@ const Login = () => {
     try {
       await AuthApi.login({email, password, rememberme: remember})
       setMessage({ type: "success", text: "Login successful!" });
-      setTimeout(() => (window.location.href = "/dashboard"), 300);
+      setTimeout(() => (window.location.href = "/admin/dashboard"), 300);
     } 
     catch (err) {
       setMessage({ type: "error", text: err.message });
