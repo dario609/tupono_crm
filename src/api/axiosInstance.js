@@ -11,17 +11,20 @@ const normalizeBaseUrl = (url) => {
   return normalized.replace(/\/+$/, "");
 };
 
-const inferredFallback = (() => {
-  const isProd = process.env.NODE_ENV === "production";
-  // When deployed (e.g., on Vercel) and no env var is provided, use Render API
-  if (isProd) return "https://tupono-crm-backend.onrender.com/api";
-  // Local development
-  return "http://localhost:5000/api";
-})();
+const getBaseUrl = () => {
+  const fromEnv = (process.env.REACT_APP_TUPONO_API_URL || "").trim();
+  // Only trust env var if it's a proper absolute URL
+  if (/^https?:\/\//i.test(fromEnv)) return fromEnv.replace(/\/+$/, "");
 
-const API_BASE_URL = normalizeBaseUrl(
-  process.env.REACT_APP_TUPONO_API_URL || inferredFallback
-);
+  // Production default → Render backend
+  if (process.env.NODE_ENV === "production") {
+    return "https://tupono-crm-backend.onrender.com/api";
+  }
+  // Development default
+  return "http://localhost:5000/api";
+};
+
+const API_BASE_URL = normalizeBaseUrl(getBaseUrl());
 
 /**
  * Axios instance with cookie support
