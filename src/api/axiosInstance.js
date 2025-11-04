@@ -1,7 +1,27 @@
 // src/api/axiosInstance.js
 import axios from "axios";
-// Load base URL from environment or fallback
-const API_BASE_URL = process.env.REACT_APP_TUPONO_API_URL || "http://localhost:5000/api";
+
+// Normalize base URL to always be absolute (adds protocol if missing) and trims trailing slashes
+const normalizeBaseUrl = (url) => {
+  let normalized = (url || "").trim();
+  if (!/^https?:\/\//i.test(normalized)) {
+    const protocol = typeof window !== "undefined" && window.location?.protocol ? window.location.protocol : "http:";
+    normalized = `${protocol}//${normalized}`;
+  }
+  return normalized.replace(/\/+$/, "");
+};
+
+const inferredFallback = (() => {
+  const isProd = process.env.NODE_ENV === "production";
+  // When deployed (e.g., on Vercel) and no env var is provided, use Render API
+  if (isProd) return "https://tupono-crm-backend.onrender.com/api";
+  // Local development
+  return "http://localhost:5000/api";
+})();
+
+const API_BASE_URL = normalizeBaseUrl(
+  process.env.REACT_APP_TUPONO_API_URL || inferredFallback
+);
 
 /**
  * Axios instance with cookie support
