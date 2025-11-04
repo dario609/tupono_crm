@@ -14,7 +14,21 @@ const normalizeBaseUrl = (url) => {
 const getBaseUrl = () => {
   const fromEnv = (process.env.REACT_APP_TUPONO_API_URL || "").trim();
   // Only trust env var if it's a proper absolute URL
-  if (/^https?:\/\//i.test(fromEnv)) return fromEnv.replace(/\/+$/, "");
+  if (/^https?:\/\//i.test(fromEnv)) {
+    try {
+      const u = new URL(fromEnv);
+      const isLocal = /^(localhost|127\.|0\.0\.0\.0)/.test(u.hostname);
+      const isHttps = u.protocol === "https:";
+      if (process.env.NODE_ENV === "production") {
+        // In production, ignore localhost URLs; prefer Render default unless a proper HTTPS external URL is provided
+        if (!isLocal && isHttps) return fromEnv.replace(/\/+$/, "");
+        return "https://tupono-crm-backend.onrender.com/api";
+      }
+      return fromEnv.replace(/\/+$/, "");
+    } catch (_) {
+      // fall through to defaults
+    }
+  }
 
   // Production default → Render backend
   if (process.env.NODE_ENV === "production") {
