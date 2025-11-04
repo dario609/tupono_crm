@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 import Swal from "sweetalert2";
+import RoheApi from "../../../api/roheApi";
+import HapuListsApi from "../../../api/hapulistsApi";
 
 const RoheHapuPage = () => {
   const [rohes, setRohes] = useState([]);
@@ -11,17 +13,14 @@ const RoheHapuPage = () => {
 
   const loadRohes = async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/admin/rohe?perpage=-1", { credentials: "include" });
-      const json = await res.json();
+      const json = await RoheApi.list({ perpage: -1 });
       setRohes(json?.data || []);
     } catch {}
   };
 
   const loadHapu = async (roheId = "") => {
     try {
-      const q = roheId ? `?rohe_id=${encodeURIComponent(roheId)}` : "";
-      const res = await fetch(`http://localhost:5000/api/admin/hapulists${q}`, { credentials: "include" });
-      const json = await res.json();
+      const json = await HapuListsApi.list(roheId ? { rohe_id: roheId } : {});
       setHapu(json?.data || []);
     } catch {}
   };
@@ -40,13 +39,7 @@ const RoheHapuPage = () => {
     if (!name) return;
     try {
       setLoading(true);
-      const res = await fetch("http://localhost:5000/api/admin/rohe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ name }),
-      });
-      await res.json();
+      await RoheApi.create({ name });
       setNewRohe("");
       await loadRohes();
     } finally {
@@ -68,7 +61,7 @@ const RoheHapuPage = () => {
     if (!confirm.isConfirmed) return;
     try {
       setLoading(true);
-      await fetch(`http://localhost:5000/api/admin/rohe/${id}`, { method: "DELETE", credentials: "include" });
+      await RoheApi.remove(id);
       if (selectedRohe === id) setSelectedRohe("");
       await loadRohes();
       await loadHapu(selectedRohe);
@@ -83,13 +76,7 @@ const RoheHapuPage = () => {
     if (!name || !selectedRohe) return;
     try {
       setLoading(true);
-      const res = await fetch("http://localhost:5000/api/admin/hapulists", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ name, rohe_id: selectedRohe }),
-      });
-      await res.json();
+      await HapuListsApi.create({ name, rohe_id: selectedRohe });
       setNewHapu("");
       await loadHapu(selectedRohe);
     } finally {
@@ -111,7 +98,7 @@ const RoheHapuPage = () => {
     if (!confirm.isConfirmed) return;
     try {
       setLoading(true);
-      await fetch(`http://localhost:5000/api/admin/hapulists/${id}`, { method: "DELETE", credentials: "include" });
+      await HapuListsApi.remove(id);
       await loadHapu(selectedRohe);
       await Swal.fire({ title: 'Deleted!', text: 'Hapū deleted', icon: 'success', timer: 1500, showConfirmButton: false });
     } finally {

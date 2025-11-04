@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import UsersApi from "../../api/usersApi";
+import TeamsApi from "../../api/teamsApi";
 
 const CreateTeam = () => {
   const navigate = useNavigate();
@@ -23,8 +25,7 @@ const CreateTeam = () => {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/admin/users?perpage=-1", { credentials: "include" });
-        const json = await res.json();
+        const json = await UsersApi.list({ perpage: -1 });
         setUsers(json?.data || []);
       } catch {}
     })();
@@ -64,14 +65,8 @@ const CreateTeam = () => {
     }
     try {
       setLoading(true);
-      const res = await fetch("http://localhost:5000/api/admin/teams", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(form),
-      });
-      const data = await res.json();
-      if (!res.ok || data?.success === false) throw new Error(data?.message || "Failed to create team");
+      const data = await TeamsApi.create(form);
+      if (data?.success === false) throw new Error(data?.message || "Failed to create team");
       setSuccess("Team created successfully");
       setTimeout(() => navigate("/teams"), 900);
     } catch (err) {

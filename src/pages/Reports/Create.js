@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import ReportsApi from "../../api/reportsApi";
 
 const CreateReport = () => {
   const navigate = useNavigate();
@@ -49,14 +50,8 @@ const CreateReport = () => {
     }
     try {
       setLoading(true);
-      const res = await fetch("http://localhost:5000/api/admin/reports", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(form),
-      });
-      const data = await res.json();
-      if (!res.ok || data?.success === false) throw new Error(data?.message || "Failed to create report");
+      const data = await ReportsApi.create(form);
+      if (data?.success === false) throw new Error(data?.message || "Failed to create report");
       setSuccess("Report created successfully");
       setTimeout(() => navigate("/reports"), 900);
     } catch (err) {

@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { AuthApi } from "../api/authApi";
+import PermissionsApi from "../api/permissionsApi";
 
 const AuthContext = createContext({
   user: null,
@@ -15,25 +17,10 @@ export const AuthProvider = ({ children }) => {
   const load = async () => {
     try {
       setLoading(true);
-      // 1) Check current user
-      const uRes = await fetch("http://localhost:5000/api/auth/check", {
-        method: "GET",
-        credentials: "include",
-      });
-      if (uRes.ok) {
-        const uJson = await uRes.json();
-        if (uJson?.authenticated) setUser(uJson.user);
-      }
-
-      // 2) Load permissions map
-      const pRes = await fetch("http://localhost:5000/api/permissions/me", {
-        method: "GET",
-        credentials: "include",
-      });
-      if (pRes.ok) {
-        const pJson = await pRes.json();
-        setPermissions(pJson?.data || {});
-      }
+      const me = await AuthApi.check();
+      if (me?.authenticated) setUser(me.user);
+      const perms = await PermissionsApi.me();
+      setPermissions(perms?.data || {});
     } finally {
       setLoading(false);
     }

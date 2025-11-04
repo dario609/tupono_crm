@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
+import ProjectsApi from "../../api/projectsApi";
 
 const ProjectsPage = () => {
   const [loading, setLoading] = useState(false);
@@ -24,14 +25,11 @@ const ProjectsPage = () => {
     }).toString();
     setLoading(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/admin/projects?${q}`, { credentials: "include" });
-      if (res.ok) {
-        const json = await res.json();
-        setRows(json?.data || []);
-        setTotal(json?.total || 0);
-        setPage(json?.current_page || 1);
-        setPerpage(json?.per_page ?? 10);
-      }
+      const json = await ProjectsApi.list({ perpage: opts.perpage ?? perpage, page: opts.page ?? page, search: opts.search ?? search });
+      setRows(json?.data || []);
+      setTotal(json?.total || 0);
+      setPage(json?.current_page || 1);
+      setPerpage(json?.per_page ?? 10);
     } finally {
       setLoading(false);
     }
@@ -57,9 +55,8 @@ const ProjectsPage = () => {
     });
     if (!confirm.isConfirmed) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/admin/projects/${id}`, { method: 'DELETE', credentials: 'include' });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || data?.success === false) throw new Error(data?.message || 'Failed to delete project');
+      const data = await ProjectsApi.remove(id);
+      if (data?.success === false) throw new Error(data?.message || 'Failed to delete project');
       await Swal.fire({ title: 'Deleted!', text: data?.message || 'Project deleted successfully', icon: 'success', timer: 2000, showConfirmButton: false });
       const newTotal = Math.max(0, total - 1);
       const newPage = rows.length === 1 && page > 1 ? page - 1 : page;

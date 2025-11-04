@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import TemplatesApi from "../../api/templatesApi";
 
 const defaultField = () => ({ key: "", label: "", type: "text", width: 12, required: false, options: [], placeholder: "", defaultValue: "", order: 0 });
 
@@ -16,8 +17,7 @@ const Builder = () => {
     (async () => {
       if (!id) return;
       try {
-        const res = await fetch(`http://localhost:5000/api/admin/templates/${id}`, { credentials: 'include' });
-        const json = await res.json();
+        const json = await TemplatesApi.getById(id);
         if (json?.success && json?.data) setTemplate(json.data);
       } catch {}
     })();
@@ -52,11 +52,8 @@ const Builder = () => {
     setSuccess("");
     try {
       setLoading(true);
-      const method = id ? 'PUT' : 'POST';
-      const url = id ? `http://localhost:5000/api/admin/templates/${id}` : 'http://localhost:5000/api/admin/templates';
-      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(template) });
-      const json = await res.json();
-      if (!res.ok || json?.success === false) throw new Error(json?.message || 'Failed to save template');
+      const json = id ? await TemplatesApi.update(id, template) : await TemplatesApi.create(template);
+      if (json?.success === false) throw new Error(json?.message || 'Failed to save template');
       setSuccess('Template saved successfully');
       setTimeout(() => navigate('/templates/create'), 900);
     } catch (err) {

@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import RolesApi from "../../api/rolesApi";
+import UsersApi from "../../api/usersApi";
 
 const onlyLetters = (s) => s.replace(/[^a-zA-Z\s]/g, "");
 const onlyDigits = (s) => s.replace(/\D/g, "");
@@ -42,8 +44,7 @@ const CreateUser = () => {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/admin/roles?perpage=-1", { credentials: "include" });
-        const json = await res.json();
+        const json = await RolesApi.list({ perpage: -1 });
         setRoles(json?.data || []);
       } catch { }
     })();
@@ -107,14 +108,8 @@ const CreateUser = () => {
       const fd = new FormData();
       Object.entries(form).forEach(([k, v]) => fd.append(k, v ?? ""));
       if (profileImage) fd.append("profile_image", profileImage);
-      const res = await fetch("http://localhost:5000/api/admin/users", {
-        method: "POST",
-        // Do NOT set Content-Type; browser will set multipart boundary
-        credentials: "include",
-        body: fd,
-      });
-      const data = await res.json();
-      if (!res.ok || data?.success === false) {
+      const data = await UsersApi.create(fd);
+      if (data?.success === false) {
         throw new Error(data?.message || "Failed to create user");
       }
       setSuccess("User created successfully");

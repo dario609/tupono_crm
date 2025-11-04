@@ -1,5 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import UsersApi from "../../api/usersApi";
+import TeamsApi from "../../api/teamsApi";
+import RoheApi from "../../api/roheApi";
+import HapuListsApi from "../../api/hapulistsApi";
+import ProjectsApi from "../../api/projectsApi";
 
 const CreateProject = () => {
   const navigate = useNavigate();
@@ -32,14 +37,11 @@ const CreateProject = () => {
   useEffect(() => {
     (async () => {
       try {
-        const [uRes, tRes, rRes] = await Promise.all([
-          fetch("http://localhost:5000/api/admin/users?perpage=-1", { credentials: "include" }),
-          fetch("http://localhost:5000/api/admin/teams?perpage=-1", { credentials: "include" }),
-          fetch("http://localhost:5000/api/admin/rohe?perpage=-1", { credentials: "include" }),
+        const [uJson, tJson, rJson] = await Promise.all([
+          UsersApi.list({ perpage: -1 }),
+          TeamsApi.list({ perpage: -1 }),
+          RoheApi.list({ perpage: -1 }),
         ]);
-        const uJson = await uRes.json();
-        const tJson = await tRes.json();
-        const rJson = await rRes.json();
         setUsers(uJson?.data || []);
         setTeams(tJson?.data || []);
         setRohes(rJson?.data || []);
@@ -51,8 +53,7 @@ const CreateProject = () => {
     (async () => {
       if (!form.rohe) { setHapus([]); return; }
       try {
-        const res = await fetch(`http://localhost:5000/api/admin/hapulists?rohe_id=${encodeURIComponent(form.rohe)}`, { credentials: "include" });
-        const json = await res.json();
+        const json = await HapuListsApi.list({ rohe_id: form.rohe });
         setHapus(json?.data || []);
       } catch {}
     })();
@@ -121,14 +122,8 @@ const CreateProject = () => {
         status: form.status,
         description: form.description,
       };
-      const res = await fetch("http://localhost:5000/api/admin/projects", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      if (!res.ok || data?.success === false) throw new Error(data?.message || "Failed to create project");
+      const data = await ProjectsApi.create(payload);
+      if (data?.success === false) throw new Error(data?.message || "Failed to create project");
       setSuccess("Project created successfully");
       setTimeout(() => navigate("/projects"), 900);
     } catch (err) {

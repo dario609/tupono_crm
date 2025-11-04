@@ -1,5 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import UsersApi from "../../api/usersApi";
+import TeamsApi from "../../api/teamsApi";
+import RoheApi from "../../api/roheApi";
+import HapuListsApi from "../../api/hapulistsApi";
+import ProjectsApi from "../../api/projectsApi";
 
 const EditProject = () => {
   const { id } = useParams();
@@ -46,14 +51,11 @@ const EditProject = () => {
   useEffect(() => {
     (async () => {
       try {
-        const [uRes, tRes, rRes] = await Promise.all([
-          fetch("http://localhost:5000/api/admin/users?perpage=-1", { credentials: "include" }),
-          fetch("http://localhost:5000/api/admin/teams?perpage=-1", { credentials: "include" }),
-          fetch("http://localhost:5000/api/admin/rohe?perpage=-1", { credentials: "include" }),
+        const [uJson, tJson, rJson] = await Promise.all([
+          UsersApi.list({ perpage: -1 }),
+          TeamsApi.list({ perpage: -1 }),
+          RoheApi.list({ perpage: -1 }),
         ]);
-        const uJson = await uRes.json().catch(() => ({}));
-        const tJson = await tRes.json().catch(() => ({}));
-        const rJson = await rRes.json().catch(() => ({}));
         setUsers(uJson?.data || []);
         setTeams(tJson?.data || []);
         setRohes(rJson?.data || []);
@@ -65,11 +67,11 @@ const EditProject = () => {
   useEffect(() => {
     (async () => {
       try {
-        const byIdRes = await fetch(`http://localhost:5000/api/admin/projects/${id}`, { credentials: 'include' }).catch(() => null);
-        if (byIdRes && byIdRes.ok) {
-          const byId = await byIdRes.json().catch(() => ({}));
-          if (byId?.data) {
-            const p = byId.data;
+        // Fallback to list and find by id (no singular route available)
+        const list = await ProjectsApi.list({ perpage: -1, page: 1, search: "" });
+        const found = Array.isArray(list?.data) ? list.data.find((p) => p._id === id) : null;
+        if (found) {
+            const p = found;
             setForm({
               name: p.name || "",
               start_date: p.start_date ? new Date(p.start_date).toISOString().slice(0,10) : "",
@@ -81,26 +83,6 @@ const EditProject = () => {
               status: (p.status === 'inactive' || p.status === 1 || p.status === '1') ? '1' : '0',
               description: p.description || "",
             });
-            setPageLoading(false);
-            return;
-          }
-        }
-        const res = await fetch(`http://localhost:5000/api/admin/projects?perpage=-1&page=1&search=`, { credentials: 'include' });
-        const json = await res.json().catch(() => ({}));
-        const found = Array.isArray(json?.data) ? json.data.find((p) => p._id === id) : null;
-        if (found) {
-          const p = found;
-          setForm({
-            name: p.name || "",
-            start_date: p.start_date ? new Date(p.start_date).toISOString().slice(0,10) : "",
-            end_date: p.end_date ? new Date(p.end_date).toISOString().slice(0,10) : "",
-            owner: p.owner?._id || p.owner || "",
-            team_id: p.team_id?._id || p.team_id || "",
-            rohe: p.rohe?._id || p.rohe || "",
-            hapus: Array.isArray(p.hapus) ? p.hapus.map((h) => (typeof h === 'string' ? h : h?._id)).filter(Boolean) : [],
-            status: (p.status === 'inactive' || p.status === 1 || p.status === '1') ? '1' : '0',
-            description: p.description || "",
-          });
         }
         setPageLoading(false);
       } catch {}
@@ -111,8 +93,7 @@ const EditProject = () => {
     (async () => {
       if (!form.rohe) { setHapus([]); return; }
       try {
-        const res = await fetch(`http://localhost:5000/api/admin/hapulists?rohe_id=${encodeURIComponent(form.rohe)}`, { credentials: "include" });
-        const json = await res.json();
+        const json = await HapuListsApi.list({ rohe_id: form.rohe });
         setHapus(json?.data || []);
       } catch {}
     })();
@@ -154,14 +135,8 @@ const EditProject = () => {
         status: form.status,
         description: form.description,
       };
-      const res = await fetch(`http://localhost:5000/api/admin/projects/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      if (!res.ok || data?.success === false) throw new Error(data?.message || "Failed to update project");
+      const data = await ProjectsApi.update(id, payload);
+      if (data?.success === false) throw new Error(data?.message || "Failed to update project");
       setSuccess("Project updated successfully");
       setTimeout(() => navigate("/projects"), 900);
     } catch (err) {

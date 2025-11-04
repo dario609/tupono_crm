@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
+import RolesApi from "../../api/rolesApi";
+import UsersApi from "../../api/usersApi";
 
 const onlyLetters = (s) => s.replace(/[^a-zA-Z\s]/g, "");
 const onlyDigits = (s) => s.replace(/\D/g, "");
@@ -42,12 +44,10 @@ const EditUser = () => {
   useEffect(() => {
     (async () => {
       try {
-        const [rolesRes, userRes] = await Promise.all([
-          fetch("http://localhost:5000/api/admin/roles?perpage=-1", { credentials: "include" }),
-          fetch(`http://localhost:5000/api/admin/users/${id}`, { credentials: "include" }),
+        const [rolesJson, userJson] = await Promise.all([
+          RolesApi.list({ perpage: -1 }),
+          UsersApi.getById(id),
         ]);
-        const rolesJson = await rolesRes.json();
-        const userJson = await userRes.json();
         setRoles(rolesJson?.data || []);
         if (userJson?.success && userJson?.data) {
           const u = userJson.data;
@@ -109,13 +109,8 @@ const EditUser = () => {
       const fd = new FormData();
       Object.entries(form).forEach(([k, v]) => fd.append(k, v ?? ""));
       if (profileImage) fd.append("profile_image", profileImage);
-      const res = await fetch(`http://localhost:5000/api/admin/users/${id}`, {
-        method: "PUT",
-        credentials: "include",
-        body: fd,
-      });
-      const data = await res.json();
-      if (!res.ok || data?.success === false) throw new Error(data?.message || "Failed to update user");
+      const data = await UsersApi.update(id, fd);
+      if (data?.success === false) throw new Error(data?.message || "Failed to update user");
       setSuccess("User updated successfully");
       setTimeout(() => navigate("/users"), 900);
     } catch (err) {
@@ -127,11 +122,7 @@ const EditUser = () => {
 
   const removeProfile = async () => {
     try {
-      const res = await fetch(`http://localhost:5000/api/admin/users/${id}/profile-image/remove`, {
-        method: "POST",
-        credentials: "include",
-      });
-      const json = await res.json();
+      const json = await UsersApi.removeProfileImage(id);
       if (json?.success) setExistingProfile("");
     } catch {}
   };

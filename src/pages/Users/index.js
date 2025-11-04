@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
+import UsersApi from "../../api/usersApi";
+import PermissionsApi from "../../api/permissionsApi";
+import { AuthApi } from "../../api/authApi";
 
 const UsersPage = ({ user, permissions }) => {
     const [loading, setLoading] = useState(false);
@@ -27,16 +30,11 @@ const UsersPage = ({ user, permissions }) => {
         }).toString();
         setLoading(true);
         try {
-            const res = await fetch(`http://localhost:5000/api/admin/users?${q}`, {
-                credentials: "include",
-            });
-            if (res.ok) {
-                const json = await res.json();
-                setRows(json?.data || []);
-                setTotal(json?.total || 0);
-                setPage(json?.current_page || 1);
-                setPerpage(json?.per_page ?? 10);
-            }
+            const json = await UsersApi.list({ perpage: opts.perpage ?? perpage, page: opts.page ?? page, search: opts.search ?? search });
+            setRows(json?.data || []);
+            setTotal(json?.total || 0);
+            setPage(json?.current_page || 1);
+            setPerpage(json?.per_page ?? 10);
         } finally {
             setLoading(false);
         }
@@ -46,24 +44,14 @@ const UsersPage = ({ user, permissions }) => {
         // permissions for gating Add button
         (async () => {
             try {
-                const pRes = await fetch("http://localhost:5000/api/permissions/me", {
-                    credentials: "include",
-                });
-                if (pRes.ok) {
-                    const pJson = await pRes.json();
-                    setPerms(pJson?.data || {});
-                }
+                const pJson = await PermissionsApi.me();
+                setPerms(pJson?.data || {});
             } catch { }
         })();
         (async () => {
             try {
-                const uRes = await fetch("http://localhost:5000/api/auth/check", {
-                    credentials: "include",
-                });
-                if (uRes.ok) {
-                    const uJson = await uRes.json();
-                    if (uJson?.authenticated) setCurrentUser(uJson.user);
-                }
+                const uJson = await AuthApi.check();
+                if (uJson?.authenticated) setCurrentUser(uJson.user);
             } catch { }
         })();
         load({ page: 1 });
@@ -103,14 +91,8 @@ const UsersPage = ({ user, permissions }) => {
     try {
       setUpdatingId(id);
       const newStatus = nextChecked ? "0" : "1"; // 0 => active, 1 => inactive
-      const res = await fetch(`http://localhost:5000/api/admin/users/${id}/status`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ status: newStatus }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || data?.success === false) {
+      const data = await UsersApi.toggleStatus(id, newStatus);
+      if (data?.success === false) {
         throw new Error(data?.message || "Failed to update status");
       }
       // Align with server response (empstatus: 0 active, 1 inactive)
@@ -143,12 +125,8 @@ const UsersPage = ({ user, permissions }) => {
         if (!confirm.isConfirmed) return;
 
         try {
-            const res = await fetch(`http://localhost:5000/api/admin/users/${id}`, {
-                method: 'DELETE',
-                credentials: 'include',
-            });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok || data?.success === false) {
+            const data = await UsersApi.remove(id);
+            if (data?.success === false) {
                 throw new Error(data?.message || 'Failed to delete user');
             }
             await Swal.fire({

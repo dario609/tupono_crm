@@ -1,6 +1,11 @@
 import api from "./axiosInstance";
 
 export const RolesApi = {
+  // Compat alias used by pages: list(params)
+  list(params = {}) {
+    const { search = "", perpage = 10, page = 1 } = params || {};
+    return api.get("/admin/roles", { params: { search, perpage: perpage || "", page } });
+  },
   async getRoles({ search = "", perpage = 10, page = 1 }) {
     return api.get("/admin/roles", {
       params: { 
@@ -33,3 +38,5 @@ export const RolesApi = {
   },
 
 };
+
+export default RolesApi;

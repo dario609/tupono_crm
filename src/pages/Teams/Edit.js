@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import UsersApi from "../../api/usersApi";
+import TeamsApi from "../../api/teamsApi";
 
 const EditTeam = () => {
   const { id } = useParams();
@@ -25,12 +27,10 @@ const EditTeam = () => {
   useEffect(() => {
     (async () => {
       try {
-        const [uRes, tRes] = await Promise.all([
-          fetch("http://localhost:5000/api/admin/users?perpage=-1", { credentials: "include" }),
-          fetch(`http://localhost:5000/api/admin/teams/${id}`, { credentials: "include" }),
+        const [uJson, tJson] = await Promise.all([
+          UsersApi.list({ perpage: -1 }),
+          TeamsApi.getById(id),
         ]);
-        const uJson = await uRes.json().catch(() => ({}));
-        const tJson = await tRes.json().catch(() => ({}));
         setUsers(uJson?.data || []);
         if (tJson?.data) {
           setForm({
@@ -75,14 +75,8 @@ const EditTeam = () => {
     }
     try {
       setLoading(true);
-      const res = await fetch(`http://localhost:5000/api/admin/teams/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(form),
-      });
-      const data = await res.json();
-      if (!res.ok || data?.success === false) throw new Error(data?.message || "Failed to update team");
+      const data = await TeamsApi.update(id, form);
+      if (data?.success === false) throw new Error(data?.message || "Failed to update team");
       setSuccess("Team updated successfully");
       setTimeout(() => navigate("/teams"), 900);
     } catch (err) {
