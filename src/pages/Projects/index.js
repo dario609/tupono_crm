@@ -92,6 +92,9 @@ const ProjectsPage = () => {
       <td><div className="skeleton skeleton-sm" style={{ width: 90 }} /></td>
       <td><div className="skeleton skeleton-sm" style={{ width: 90 }} /></td>
       <td><div className="skeleton skeleton-sm" style={{ width: 70 }} /></td>
+      <td><div className="skeleton skeleton-line" style={{ width: "70%" }} /></td>
+      <td><div className="skeleton skeleton-line" style={{ width: "60%" }} /></td>
+      <td><div className="skeleton skeleton-line" style={{ width: "60%" }} /></td>
       <td><div className="skeleton skeleton-line" style={{ width: "60%" }} /></td>
       <td>
         <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
@@ -145,6 +148,9 @@ const ProjectsPage = () => {
                   <th>Project Name</th>
                   <th>Start Date</th>
                   <th>End Date</th>
+                  <th>Project Owner</th>
+                  <th>Rohe</th>
+                  <th>Hapū</th>
                   <th>Status</th>
                   <th>Created By</th>
                   <th style={{ width: 160, minWidth: 160 }} className="text-center">Actions</th>
@@ -154,6 +160,9 @@ const ProjectsPage = () => {
                 {(loading ? Array.from({ length: Math.min(10, perpage === -1 ? 10 : perpage) }) : rows).map((r, idx) => {
                   if (loading) return <SkeletonRow key={`sk-${idx}`} />;
                   const sn = perpage === -1 ? idx + 1 : (page - 1) * perpage + idx + 1;
+                  const ownerName = r.owner ? `${r.owner.first_name ?? ''} ${r.owner.last_name ?? ''}`.trim() : '-';
+                  const roheName = r.rohe?.name || '-';
+                  const hapuNames = Array.isArray(r.hapus) && r.hapus.length ? r.hapus.map(h => h?.name).filter(Boolean).join(', ') : '-';
                   const createdName = r.created_by ? `${r.created_by.first_name ?? ''} ${r.created_by.last_name ?? ''}`.trim() : '-';
                   const statusText = (() => {
                     if (typeof r.status === 'number') return r.status === 0 ? 'Active' : 'Inactive';
@@ -178,6 +187,9 @@ const ProjectsPage = () => {
                       </td>
                       <td>{r.start_date ? new Date(r.start_date).toLocaleDateString('en-GB') : ''}</td>
                       <td>{r.end_date ? new Date(r.end_date).toLocaleDateString('en-GB') : ''}</td>
+                      <td>{ownerName || '-'}</td>
+                      <td>{roheName}</td>
+                      <td>{hapuNames}</td>
                       <td>{statusText}</td>
                       <td>{createdName || '-'}</td>
                       <td className="text-center">
@@ -204,7 +216,7 @@ const ProjectsPage = () => {
                 })}
                 {!loading && rows.length === 0 && (
                   <tr className="text-center">
-                    <td colSpan={7} className="py-4">{loading ? "Loading..." : "No Records found"}</td>
+                    <td colSpan={10} className="py-4">{loading ? "Loading..." : "No Records found"}</td>
                   </tr>
                 )}
               </tbody>

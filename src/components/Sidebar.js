@@ -8,10 +8,10 @@ const Sidebar = ({ user, permissions }) => {
     setOpenMenu(openMenu === menuId ? null : menuId);
   };
 
-  const canView = (key) =>
-    permissions?.[key]?.is_view === 1;
-  const canAdd = (key) =>
-    permissions?.[key]?.is_add === 1;
+  const isSuperAdmin = (user?.role_id?.role_name === "Super Admin");
+  const canView = (key) => (isSuperAdmin || permissions?.[key]?.is_view === 1);
+  const canAdd = (key) => (isSuperAdmin || permissions?.[key]?.is_add === 1);
+  const canSeeProjects = isSuperAdmin || permissions?.["task_management"]?.is_view === 1 || !!user;
 
   return (
     <nav className="sidebar sidebar-offcanvas" id="sidebar">
@@ -108,7 +108,7 @@ const Sidebar = ({ user, permissions }) => {
         )}
 
         {/* Project Management */}
-        {canView("task_management") && (
+        {canSeeProjects && (
           <li className="nav-item">
             <a
               href="#!"

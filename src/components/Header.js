@@ -67,7 +67,7 @@ const Header = ({ user, unreadCount = 0, adminUnreadCount = 0 }) => {
         {/* Centered Welcome Text */}
         <ul className="navbar-nav d-flex flex-row align-items-center">
           <li className="nav-item fw-semibold d-lg-block ms-0">
-            <h5 className="welcome-text1">Welcome To Tupono Consulting Ltd.</h5>
+            <h5 className="welcome-text1">Nau mai ki Tupono.</h5>
           </li>
         </ul>
 

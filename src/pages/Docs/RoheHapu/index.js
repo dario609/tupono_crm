@@ -116,7 +116,7 @@ const RoheHapuPage = () => {
         <div className="col-md-6">
           <div className="box">
             <div className="box-body p-15 pt-2">
-              <h6>Ngā Rohe</h6>
+              <h6>Te Rohe me ngā Hapū</h6>
               <div className="input-group mb-2">
                 <input type="text" className="form-control" placeholder="Rohe name" value={newRohe} onChange={(e) => setNewRohe(e.target.value)} />
                 <button className="btn btn-primary" disabled={loading} onClick={addRohe}>Add</button>
