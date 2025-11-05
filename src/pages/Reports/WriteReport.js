@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import ReportsApi from "../../api/reportsApi";
 import UsersApi from "../../api/usersApi";
 import ProjectsApi from "../../api/projectsApi";
+import ReportContentsApi from "../../api/reportContentsApi";
 
 const createCell = () => ({ content: "", rowSpan: 1, colSpan: 1, hidden: false, master: null, bold: false, italic: false, align: "left", vAlign: "top" });
 
@@ -15,11 +16,19 @@ const WriteReport = () => {
   const [grid, setGrid] = useState(() => Array.from({ length: 8 }, () => Array.from({ length: 6 }, createCell)));
   const [users, setUsers] = useState([]);
   const [projects, setProjects] = useState([]);
+  const [templates, setTemplates] = useState([]);
+  const [selectedTemplate, setSelectedTemplate] = useState("");
   const [meta, setMeta] = useState({ start_date: "", end_date: "", created_date: "", created_by: "", report_type: "", report_phase: "", project_id: "" });
   const [showConfirm, setShowConfirm] = useState(false);
   const [confirmBusy, setConfirmBusy] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
   const [showSaveChoice, setShowSaveChoice] = useState(false);
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false);
+  const [tplName, setTplName] = useState("");
+  const [tplDesc, setTplDesc] = useState("");
+  const [tplBusy, setTplBusy] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [delBusy, setDelBusy] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -40,6 +49,14 @@ const WriteReport = () => {
       sel.removeAllRanges();
       sel.addRange(range);
     } catch { }
+  };
+
+  const deferPlaceCaret = (el) => {
+    try {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => placeCaretAtEnd(el));
+      });
+    } catch {}
   };
 
   const normalizeMastersIn = (next, r1, r2, c1, c2) => {
@@ -183,12 +200,14 @@ const WriteReport = () => {
     (async () => {
       try {
         setDataLoading(true);
-        const [resp, pj] = await Promise.all([
+        const [resp, pj, tp] = await Promise.all([
           UsersApi.list({ perpage: -1 }).catch(() => ({})),
           ProjectsApi.list({ perpage: -1 }).catch(() => ({})),
+          ReportContentsApi.list({ perpage: -1, isTemplate: 1 }).catch(() => ({})),
         ]);
         setUsers(resp?.data || []);
         setProjects(pj?.data || []);
+        setTemplates(tp?.data || []);
       } finally {
         setDataLoading(false);
       }
@@ -203,9 +222,16 @@ const WriteReport = () => {
   const handleInput = (r, c, html) => {
     setGrid((g) => { const next = g.map((row) => row.map((cell) => ({ ...cell }))); next[r][c].content = html; return next; });
     const el = editorRefs.current.get(`${r}-${c}`);
-    // Ensure caret remains at the end after re-render
-    requestAnimationFrame(() => placeCaretAtEnd(el));
+    // Ensure caret remains at the end after React updates
+    deferPlaceCaret(el);
   };
+
+  // After any grid update, keep caret at end for the focused cell
+  useEffect(() => {
+    if (!focus) return;
+    const el = editorRefs.current.get(`${focus.r}-${focus.c}`);
+    if (el) deferPlaceCaret(el);
+  }, [grid, focus]);
 
   const serialize = () => {
     const masters = [];
@@ -257,6 +283,88 @@ const WriteReport = () => {
     navigate('/reports');
   };
 
+  const onSaveTemplate = () => {
+    setTplName(name || 'Template');
+    setTplDesc(description || '');
+    setShowSaveTemplate(true);
+  };
+
+  const confirmSaveTemplate = async () => {
+    try {
+      setTplBusy(true); setError(""); setSuccess("");
+      const payload = {
+        name: (tplName || name || 'Template').trim(),
+        description: tplDesc || description || '',
+        isTemplate: true,
+        visibility: 'private',
+        sheet: serialize(),
+      };
+      const resp = await ReportContentsApi.create(payload);
+      const newId = resp?.data?.id;
+      if (newId) {
+        // Refresh templates list and keep the new one selected
+        try {
+          const listResp = await ReportContentsApi.list({ perpage: -1, isTemplate: 1 });
+          const items = listResp?.data || [];
+          setTemplates(items);
+        } catch { }
+        setSelectedTemplate(newId);
+      }
+      setSuccess('New Template created successfully');
+      setShowSaveTemplate(false);
+    } catch (e) {
+      setError(e.message || 'Failed to save template');
+    } finally {
+      setTplBusy(false);
+    }
+  };
+
+  const onUpdateCurrentTemplate = async () => {
+    if (!selectedTemplate) {
+      setError('Please select a template to update');
+      return;
+    }
+    try {
+      setTplBusy(true); setError(""); setSuccess("");
+      const payload = { sheet: serialize() };
+      const resp = await ReportContentsApi.update(selectedTemplate, payload);
+      if (resp?.success === false) throw new Error(resp?.message || 'Failed to update');
+      const got = await ReportContentsApi.getById(selectedTemplate).catch(() => null);
+      const item = got?.data; if (item) setTemplates((list) => list.map((t) => t._id === selectedTemplate ? item : t));
+      setSuccess('Template updated successfully');
+    } catch (e) {
+      setError(e.message || 'Failed to update template');
+    } finally {
+      setTplBusy(false);
+    }
+  };
+
+  const onDeleteTemplate = () => {
+    if (!selectedTemplate) { setError('Please select a template to delete'); return; }
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDeleteTemplate = async () => {
+    try {
+      setDelBusy(true); setError("");
+      await ReportContentsApi.remove(selectedTemplate);
+      // refresh list
+      try {
+        const listResp = await ReportContentsApi.list({ perpage: -1, isTemplate: 1 });
+        setTemplates(listResp?.data || []);
+      } catch { }
+      setSelectedTemplate("");
+      const r = 8, c = 6;
+      setRows(r); setCols(c); setGrid(Array.from({ length: r }, () => Array.from({ length: c }, createCell)));
+      setSuccess('Template deleted successfully');
+    } catch (e) {
+      setError(e.message || 'Failed to delete template');
+    } finally {
+      setDelBusy(false);
+      setShowDeleteConfirm(false);
+    }
+  };
+
   // selection helpers removed
 
   return (
@@ -265,7 +373,7 @@ const WriteReport = () => {
         <h6 className="fw-semibold mb-0 mt-3">Spreadsheet Report Editor</h6>
         <div className="d-flex align-items-center gap-2 mt-3">
           <button className="btn btn-primary btn-sm" onClick={() => setShowSaveChoice(true)} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
-          <button onClick={handleBack} className="btn btn-primary btn-sm inner-pages-button" style={{padding: '3px 10px'}}><i className="ti ti-arrow-circle-left ms-1"></i> Back</button>
+          <button onClick={handleBack} className="btn btn-primary btn-sm inner-pages-button" style={{ padding: '5px 10px' }}> Back</button>
         </div>
       </div>
 
@@ -289,16 +397,74 @@ const WriteReport = () => {
                   .btn-soft { border: 1px solid #d4e2ff; color: #2b5cff; background: #f6f9ff; padding: 6px 12px; border-radius: 8px; font-weight: 600; }
                   .btn-soft:hover { background: #edf4ff; }
                   .btn-danger-soft { border: 1px solid #f5d0d0; background: #fff5f5; color: #d22; }
+                  .template-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+                  .template-actions .btn { display: inline-flex; align-items: center; gap: 6px; }
                   @media (max-width: 576px) {
                     .sheet-scroll { max-height: 60vh; }
                     .sheet-toolbar { gap: 6px; }
                     .sheet-group .sheet-btn { padding: 6px 10px; }
-                    .mobile-mt { margin-top: 10px !important; }
-                    .mobile-mb { margin-bottom: 10px !important; }
+                    .mobile-mt { margin-top: 5px !important; }
+                    .mobile-mb { margin-bottom: 5px !important; }
+                    .template-actions { margin-top: 8px; gap: 6px; }
+                    .template-actions .btn { padding: 6px 10px; }
+                    .template-actions .btn .label { font-size: 12px; }
                   }
                 `}</style>
-                {success && (<div className="alert alert-success alert-dismissible fade show mt-2"><ul style={{ listStyle: 'none', marginBottom: 0}}><li>{success}</li></ul></div>)}
+                {success && (<div className="alert alert-success alert-dismissible fade show mt-2 p-2"><ul style={{ listStyle: 'none', marginBottom: 0 }}><li>{success}</li></ul></div>)}
                 {error && (<div className="alert alert-danger alert-dismissible fade show"><ul style={{ listStyle: 'none', marginBottom: 0 }}><li>{error}</li></ul></div>)}
+
+                {/* Template chooser */}
+                <div className="row mb-2 align-items-end">
+                  <div className="col-sm-6 col-md-3 mobile-mb mt-2">
+                    <label>Template</label>
+                    <select className="form-control" value={selectedTemplate} onChange={(e) => {
+                      const id = e.target.value; setSelectedTemplate(id);
+                      if (!id) {
+                        // reset to blank grid
+                        const r = 8, c = 6;
+                        setRows(r); setCols(c); setGrid(Array.from({ length: r }, () => Array.from({ length: c }, createCell)));
+                        return;
+                      }
+                      const t = templates.find((x) => x._id === id);
+                      const sheet = t?.sheet;
+                      if (!sheet) return;
+                      const srows = Math.max(1, parseInt(sheet.rows ?? 8, 10) || 8);
+                      const scols = Math.max(1, parseInt(sheet.cols ?? 6, 10) || 6);
+                      const base = Array.from({ length: srows }, () => Array.from({ length: scols }, createCell));
+                      if (Array.isArray(sheet.cells)) {
+                        sheet.cells.forEach((cell) => {
+                          const r = cell.r, c = cell.c;
+                          if (r < srows && c < scols) {
+                            base[r][c] = { ...base[r][c], rowSpan: cell.rowSpan || 1, colSpan: cell.colSpan || 1, content: cell.content || "", bold: !!cell.bold, italic: !!cell.italic, align: cell.align || "left", vAlign: cell.vAlign || 'top' };
+                            for (let rr = 0; rr < (cell.rowSpan || 1); rr++) {
+                              for (let cc = 0; cc < (cell.colSpan || 1); cc++) {
+                                if (rr === 0 && cc === 0) continue;
+                                const tr = r + rr, tc = c + cc; if (tr < srows && tc < scols) base[tr][tc] = { ...base[tr][tc], hidden: true, master: { r, c } };
+                              }
+                            }
+                          }
+                        });
+                      }
+                      setRows(srows); setCols(scols); setGrid(base);
+                    }}>
+                      <option value="">From scratch</option>
+                      {templates.map((t) => (
+                        <option key={t._id} value={t._id}>{t.name || 'Template'}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="col-sm-6 col-md-5 template-actions">
+                    <button className="btn btn-warning btn-sm" onClick={onSaveTemplate} disabled={saving} title="Save as Template">
+                      <span className="label">Save as new Template</span>
+                    </button>
+                    <button className="btn btn-success btn-sm" onClick={onUpdateCurrentTemplate} style={{ color: 'white', backgroundColor: 'darkgreen', border: 'none' }} disabled={tplBusy || !selectedTemplate} title="Update Template">
+                      <span className="label">Update Template</span>
+                    </button>
+                    <button className="btn btn-danger btn-sm" onClick={onDeleteTemplate} disabled={delBusy || !selectedTemplate} title="Delete Template">
+                      <span className="label">Delete Template</span>
+                    </button>
+                  </div>
+                </div>
 
                 {dataLoading ? (
                   <>
@@ -327,8 +493,8 @@ const WriteReport = () => {
                       <div className="col-md-4 mobile-mb"><label>Description</label><input className="form-control" placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} /></div>
                     </div>
                     <div className="row mb-2">
-                      <div className="col-sm-6 col-md-3 mobile-mb"><label>Start Date</label><input type="date" className="form-control" value={meta.start_date} onChange={(e) => setMeta((m) => ({ ...m, start_date: e.target.value }))} onMouseDown={(e)=>{try{ e.currentTarget.showPicker && e.currentTarget.showPicker(); }catch{}}} /></div>
-                      <div className="col-sm-6 col-md-3 mobile-mb"><label>End Date</label><input type="date" className="form-control" value={meta.end_date} onChange={(e) => setMeta((m) => ({ ...m, end_date: e.target.value }))} onMouseDown={(e)=>{try{ e.currentTarget.showPicker && e.currentTarget.showPicker(); }catch{}}} /></div>
+                      <div className="col-sm-6 col-md-3 mobile-mb"><label>Start Date</label><input type="date" className="form-control" value={meta.start_date} onChange={(e) => setMeta((m) => ({ ...m, start_date: e.target.value }))} onMouseDown={(e) => { try { e.currentTarget.showPicker && e.currentTarget.showPicker(); } catch { } }} /></div>
+                      <div className="col-sm-6 col-md-3 mobile-mb"><label>End Date</label><input type="date" className="form-control" value={meta.end_date} onChange={(e) => setMeta((m) => ({ ...m, end_date: e.target.value }))} onMouseDown={(e) => { try { e.currentTarget.showPicker && e.currentTarget.showPicker(); } catch { } }} /></div>
                       <div className="col-sm-6 col-md-3 mobile-mb"><label>Created Date</label><input type="date" className="form-control" value={meta.created_date} onChange={(e) => setMeta((m) => ({ ...m, created_date: e.target.value }))} /></div>
                       <div className="col-sm-6 col-md-3 mobile-mb"><label>Created By</label>
                         <select className="form-control" value={meta.created_by} onChange={(e) => setMeta((m) => ({ ...m, created_by: e.target.value }))}>
@@ -362,7 +528,7 @@ const WriteReport = () => {
                     </select>
                   </div>
                   <div className="col-sm-4 col-md-4 mobile-mb"><label>Hours</label>
-                    <input type="number" min="0" className="form-control" value={meta.hours || ''} onChange={(e)=> setMeta((m)=> ({ ...m, hours: e.target.value }))} placeholder="0" />
+                    <input type="number" min="0" className="form-control" value={meta.hours || ''} onChange={(e) => setMeta((m) => ({ ...m, hours: e.target.value }))} placeholder="0" />
                   </div>
                 </div>
 
@@ -393,37 +559,37 @@ const WriteReport = () => {
                     <div
                       style={{ position: 'relative', minWidth: 900, display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(120px, 1fr))`, gridAutoRows: 'minmax(44px, auto)', gap: 1, padding: 1, background: '#e9ecef', userSelect: 'none' }}
                     >
-                    {grid.map((row, r) => row.map((cell, c) => (
-                      cell.hidden ? null : (
-                        <div
-                          key={`cell-${r}-${c}`}
-                          data-r={r}
-                          data-c={c}
-                          onMouseDownCapture={(e) => { if (e.button !== 0) return; e.preventDefault(); onMouseDown(r, c); }}
-                          onMouseEnter={() => onMouseEnter(r, c)}
-                          style={{ gridColumn: `span ${cell.colSpan || 1}`, gridRow: `span ${cell.rowSpan || 1}`, background: '#fff', border: '1px solid #e9ecef', display: 'flex', alignItems: (cell.vAlign === 'middle' ? 'center' : (cell.vAlign === 'bottom' ? 'flex-end' : 'flex-start')) }}
-                        >
+                      {grid.map((row, r) => row.map((cell, c) => (
+                        cell.hidden ? null : (
                           <div
-                            contentEditable
-                            suppressContentEditableWarning
-                            ref={(el) => { const k = `${r}-${c}`; if (el) editorRefs.current.set(k, el); else editorRefs.current.delete(k); }}
-                            onFocus={() => setFocus({ r, c })}
-                            onInput={(e) => handleInput(r, c, e.currentTarget.innerHTML)}
-                            style={{ minHeight: 36, padding: '6px 8px', outline: 'none', fontWeight: cell.bold ? 700 : 400, fontStyle: cell.italic ? 'italic' : 'normal', textAlign: cell.align || 'left', width: '100%' }}
-                            dangerouslySetInnerHTML={{ __html: cell.content || '' }}
-                          />
-                        </div>
-                      )
-                    )))}
+                            key={`cell-${r}-${c}`}
+                            data-r={r}
+                            data-c={c}
+                            onMouseDownCapture={(e) => { if (e.button !== 0) return; e.preventDefault(); onMouseDown(r, c); }}
+                            onMouseEnter={() => onMouseEnter(r, c)}
+                            style={{ gridColumn: `span ${cell.colSpan || 1}`, gridRow: `span ${cell.rowSpan || 1}`, background: '#fff', border: '1px solid #e9ecef', display: 'flex', alignItems: (cell.vAlign === 'middle' ? 'center' : (cell.vAlign === 'bottom' ? 'flex-end' : 'flex-start')) }}
+                          >
+                            <div
+                              contentEditable
+                              suppressContentEditableWarning
+                              ref={(el) => { const k = `${r}-${c}`; if (el) editorRefs.current.set(k, el); else editorRefs.current.delete(k); }}
+                              onFocus={() => { setFocus({ r, c }); const el = editorRefs.current.get(`${r}-${c}`); deferPlaceCaret(el); }}
+                              onInput={(e) => handleInput(r, c, e.currentTarget.innerHTML)}
+                              style={{ minHeight: 36, padding: '6px 8px', outline: 'none', fontWeight: cell.bold ? 700 : 400, fontStyle: cell.italic ? 'italic' : 'normal', textAlign: cell.align || 'left', width: '100%' }}
+                              dangerouslySetInnerHTML={{ __html: cell.content || '' }}
+                            />
+                          </div>
+                        )
+                      )))}
                     </div>
                   </div>
                 </div>
 
                 {showConfirm && (
-                  <div className="confirm-overlay" role="dialog" aria-modal="true">
+                  <div className="confirm-overlay" role="dialog" aria-modal="true" onClick={(e) => { if (e.target === e.currentTarget) setShowConfirm(false); }}>
                     <div className="confirm-card">
                       <h6 className="fw-semibold mb-1">Save before leaving?</h6>
-                      <p className="text-muted mb-2" style={{fontSize: 14}}>You have unsaved changes. Save as draft or discard changes.</p>
+                      <p className="text-muted mb-2" style={{ fontSize: 14 }}>You have unsaved changes. Save as draft or discard changes.</p>
                       <div className="confirm-actions">
                         <button className="btn btn-primary btn-sm" onClick={onConfirmSave} disabled={confirmBusy}>{confirmBusy ? 'Saving...' : 'Save as Draft'}</button>
                         <button className="btn btn-sm btn-soft btn-danger-soft" onClick={onConfirmDiscard}>Discard</button>
@@ -433,13 +599,46 @@ const WriteReport = () => {
                 )}
 
                 {showSaveChoice && (
-                  <div className="confirm-overlay" role="dialog" aria-modal="true">
+                  <div className="confirm-overlay" role="dialog" aria-modal="true" onClick={(e) => { if (e.target === e.currentTarget) setShowSaveChoice(false); }}>
                     <div className="confirm-card">
                       <h6 className="fw-semibold mb-1">How do you want to save?</h6>
-                      <p className="text-muted mb-2" style={{fontSize: 14}}>Choose to save as draft or complete the report.</p>
+                      <p className="text-muted mb-2" style={{ fontSize: 14 }}>Choose to save as draft or complete the report.</p>
                       <div className="confirm-actions">
                         <button className="btn btn-sm btn-soft" onClick={() => { setShowSaveChoice(false); onSave('draft'); }} disabled={saving}>{saving ? 'Saving...' : 'Save as Draft'}</button>
                         <button className="btn btn-primary btn-sm" onClick={() => { setShowSaveChoice(false); onSave('complete'); }} disabled={saving}>{saving ? 'Saving...' : 'Complete & Save'}</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {showDeleteConfirm && (
+                  <div className="confirm-overlay" role="dialog" aria-modal="true" onClick={(e) => { if (e.target === e.currentTarget) setShowDeleteConfirm(false); }}>
+                    <div className="confirm-card">
+                      <h6 className="fw-semibold mb-1">Delete this template?</h6>
+                      <p className="text-muted mb-2" style={{ fontSize: 14 }}>This action cannot be undone.</p>
+                      <div className="confirm-actions">
+                        <button className="btn btn-sm btn-soft" onClick={() => setShowDeleteConfirm(false)} disabled={delBusy}>Cancel</button>
+                        <button className="btn btn-danger btn-sm" onClick={confirmDeleteTemplate} disabled={delBusy}>{delBusy ? 'Deleting...' : 'Delete'}</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {showSaveTemplate && (
+                  <div className="confirm-overlay" role="dialog" aria-modal="true" onClick={(e) => { if (e.target === e.currentTarget) setShowSaveTemplate(false); }}>
+                    <div className="confirm-card">
+                      <h6 className="fw-semibold mb-2">Save as a new Template</h6>
+                      <div className="mb-2">
+                        <label className="form-label" style={{ fontSize: 13 }}>Template Name</label>
+                        <input className="form-control" value={tplName} onChange={(e) => setTplName(e.target.value)} placeholder="e.g. Monthly Summary" />
+                      </div>
+                      <div className="mb-1">
+                        <label className="form-label" style={{ fontSize: 13 }}>Description (optional)</label>
+                        <input className="form-control" value={tplDesc} onChange={(e) => setTplDesc(e.target.value)} placeholder="Short description" />
+                      </div>
+                      <div className="confirm-actions">
+                        <button className="btn btn-sm btn-soft" onClick={() => setShowSaveTemplate(false)}>Cancel</button>
+                        <button className="btn btn-primary btn-sm" onClick={confirmSaveTemplate} disabled={tplBusy}>{tplBusy ? 'Saving...' : 'Save Template'}</button>
                       </div>
                     </div>
                   </div>

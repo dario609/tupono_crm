@@ -172,23 +172,27 @@ const EditReport = () => {
                 .confirm-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 12px; }
                 .btn-soft { border: 1px solid #d4e2ff; color: #2b5cff; background: #f6f9ff; padding: 6px 12px; border-radius: 8px; font-weight: 600; }
                 .btn-soft:hover { background: #edf4ff; }
+                @media (max-width: 576px) {
+                  .mobile-mt { margin-top: 3px !important; }
+                  .mobile-mb { margin-bottom: 3px !important; }
+                }
               `}</style>
 
               <div className="row mb-2 mt-2">
-                <div className="col-md-4"><label>Report Title</label><input className="form-control" value={name} onChange={(e) => setName(e.target.value)} /></div>
-                <div className="col-md-4"><label>Project</label>
+                <div className="col-md-4 mobile-mb mobile-mt"><label>Report Title</label><input className="form-control" value={name} onChange={(e) => setName(e.target.value)} /></div>
+                <div className="col-md-4 mobile-mb mobile-mt"><label>Project</label>
                   <select className="form-control" value={meta.project_id} onChange={(e) => setMeta((m) => ({ ...m, project_id: e.target.value }))}>
                     <option value="">Select project</option>
                     {projects.map((p) => (<option key={p._id} value={p._id}>{p.name || p.project_title || 'Project'}</option>))}
                   </select>
                 </div>
-                <div className="col-md-4"><label>Description</label><input className="form-control" value={description} onChange={(e) => setDescription(e.target.value)} /></div>
+                <div className="col-md-4 mobile-mb mobile-mt"><label>Description</label><input className="form-control" value={description} onChange={(e) => setDescription(e.target.value)} /></div>
               </div>
               <div className="row mb-2">
-                <div className="col-sm-6 col-md-3"><label>Start Date</label><input type="date" className="form-control" value={meta.start_date} onChange={(e) => setMeta((m) => ({ ...m, start_date: e.target.value }))} onMouseDown={(e)=>{try{ e.currentTarget.showPicker && e.currentTarget.showPicker(); }catch{}}} /></div>
-                <div className="col-sm-6 col-md-3"><label>End Date</label><input type="date" className="form-control" value={meta.end_date} onChange={(e) => setMeta((m) => ({ ...m, end_date: e.target.value }))} onMouseDown={(e)=>{try{ e.currentTarget.showPicker && e.currentTarget.showPicker(); }catch{}}} /></div>
-                <div className="col-sm-6 col-md-3"><label>Created Date</label><input type="date" className="form-control" value={meta.created_date} onChange={(e) => setMeta((m) => ({ ...m, created_date: e.target.value }))} /></div>
-                <div className="col-sm-6 col-md-3"><label>Created By</label>
+                <div className="col-sm-6 col-md-3 mobile-mb mobile-mt"><label>Start Date</label><input type="date" className="form-control" value={meta.start_date} onChange={(e) => setMeta((m) => ({ ...m, start_date: e.target.value }))} onMouseDown={(e)=>{try{ e.currentTarget.showPicker && e.currentTarget.showPicker(); }catch{}}} /></div>
+                <div className="col-sm-6 col-md-3 mobile-mb mobile-mt"><label>End Date</label><input type="date" className="form-control" value={meta.end_date} onChange={(e) => setMeta((m) => ({ ...m, end_date: e.target.value }))} onMouseDown={(e)=>{try{ e.currentTarget.showPicker && e.currentTarget.showPicker(); }catch{}}} /></div>
+                <div className="col-sm-6 col-md-3 mobile-mb mobile-mt"><label>Created Date</label><input type="date" className="form-control" value={meta.created_date} onChange={(e) => setMeta((m) => ({ ...m, created_date: e.target.value }))} /></div>
+                <div className="col-sm-6 col-md-3 mobile-mb mobile-mt"><label>Created By</label>
                   <select className="form-control" value={meta.created_by} onChange={(e) => setMeta((m) => ({ ...m, created_by: e.target.value }))}>
                     <option value="">Select User</option>
                     {users.map((u) => (
@@ -198,7 +202,7 @@ const EditReport = () => {
                 </div>
               </div>
               <div className="row mb-2">
-                <div className="col-sm-4 col-md-4"><label>Report Type</label>
+                <div className="col-sm-4 col-md-4 mobile-mb mobile-mt"><label>Report Type</label>
                   <select className="form-control" value={meta.report_type} onChange={(e) => setMeta((m) => ({ ...m, report_type: e.target.value }))}>
                     <option value="">Select type</option>
                     <option value="monthly">Monthly</option>
@@ -209,7 +213,7 @@ const EditReport = () => {
                     <option value="engagement_national">Engagement report national</option>
                   </select>
                 </div>
-                <div className="col-sm-4 col-md-4"><label>Report Phase</label>
+                <div className="col-sm-4 col-md-4 mobile-mb mobile-mt"><label>Report Phase</label>
                   <select className="form-control" value={meta.report_phase} onChange={(e) => setMeta((m) => ({ ...m, report_phase: e.target.value }))}>
                     <option value="">Select phase</option>
                     <option value="Phase1">Phase 1</option>
@@ -217,7 +221,7 @@ const EditReport = () => {
                     <option value="Phase3">Phase 3</option>
                   </select>
                 </div>
-                <div className="col-sm-4 col-md-4"><label>Hours</label>
+                <div className="col-sm-4 col-md-4 mobile-mb mobile-mt"><label>Hours</label>
                   <input type="number" min="0" className="form-control" value={meta.hours || ''} onChange={(e)=> setMeta((m)=> ({ ...m, hours: e.target.value }))} placeholder="0" />
                 </div>
               </div>

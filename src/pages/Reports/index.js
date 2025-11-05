@@ -69,7 +69,7 @@ const ReportsPage = () => {
 
   const pagesToShow = useMemo(() => {
     const items = [];
-    if (lastPage <= 1) return items;
+    if (lastPage <= 1) { items.push(1); return items; }
     const push = (n) => items.push(n);
     if (page > 3) push(1);
     if (page > 4) push("...");
@@ -210,7 +210,7 @@ const ReportsPage = () => {
           {total > 0 && (
             <div className="row p-2">
               <div className="col-sm-12 col-md-5">
-                <div className="dataTables_info" role="status" aria-live="polite">
+                <div className="dataTables_info" id="DataTables_Table_0_info" role="status" aria-live="polite">
                   <p>Showing {showingStarted} to {currentShowing} of {total} entries</p>
                 </div>
               </div>
