@@ -92,7 +92,7 @@ const Sidebar = ({ user, permissions }) => {
               <ul className="nav flex-column sub-menu">
                 {canAdd("project_management") && (
                   <li className="nav-item">
-                    <NavLink to="/reports/create" className="nav-link">
+                    <NavLink to="/reports/add" className="nav-link">
                       <i className="bi bi-chevron-double-right"></i> Add Report
                     </NavLink>
                   </li>

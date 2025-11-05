@@ -161,7 +161,10 @@ const UsersPage = ({ user, permissions }) => {
     // legacy-like pagination blocks
     const pagesToShow = useMemo(() => {
         const items = [];
-        if (lastPage <= 1) return items;
+        if (lastPage <= 1) {
+            if (total > 0) items.push(1);
+            return items;
+        }
         const push = (n) => items.push(n);
         if (page > 3) push(1);
         if (page > 4) push("...");
@@ -171,7 +174,7 @@ const UsersPage = ({ user, permissions }) => {
         if (page < lastPage - 3) push("...");
         if (page < lastPage - 2) push(lastPage);
         return items;
-    }, [page, lastPage]);
+    }, [page, lastPage, total]);
 
     const showingStarted = total === 0 ? 0 : (perpage === -1 ? 1 : (page - 1) * perpage + 1);
     const currentShowing = perpage === -1 ? total : Math.min(page * perpage, total);

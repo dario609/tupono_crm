@@ -69,7 +69,10 @@ const ProjectsPage = () => {
 
   const pagesToShow = useMemo(() => {
     const items = [];
-    if (lastPage <= 1) return items;
+    if (lastPage <= 1) {
+      if (total > 0) items.push(1);
+      return items;
+    }
     const push = (n) => items.push(n);
     if (page > 3) push(1);
     if (page > 4) push("...");
@@ -79,7 +82,7 @@ const ProjectsPage = () => {
     if (page < lastPage - 3) push("...");
     if (page < lastPage - 2) push(lastPage);
     return items;
-  }, [page, lastPage]);
+  }, [page, lastPage, total]);
 
   const showingStarted = total === 0 ? 0 : (perpage === -1 ? 1 : (page - 1) * perpage + 1);
   const currentShowing = perpage === -1 ? total : Math.min(page * perpage, total);
@@ -92,6 +95,7 @@ const ProjectsPage = () => {
       <td><div className="skeleton skeleton-sm" style={{ width: 90 }} /></td>
       <td><div className="skeleton skeleton-sm" style={{ width: 90 }} /></td>
       <td><div className="skeleton skeleton-sm" style={{ width: 70 }} /></td>
+      <td><div className="skeleton skeleton-line" style={{ width: "70%" }} /></td>
       <td><div className="skeleton skeleton-line" style={{ width: "70%" }} /></td>
       <td><div className="skeleton skeleton-line" style={{ width: "60%" }} /></td>
       <td><div className="skeleton skeleton-line" style={{ width: "60%" }} /></td>
@@ -150,6 +154,7 @@ const ProjectsPage = () => {
                   <th>End Date</th>
                   <th>Project Owner</th>
                   <th>Rohe</th>
+                  <th>Team Members</th>
                   <th>Hapū</th>
                   <th>Status</th>
                   <th>Created By</th>
@@ -162,6 +167,7 @@ const ProjectsPage = () => {
                   const sn = perpage === -1 ? idx + 1 : (page - 1) * perpage + idx + 1;
                   const ownerName = r.owner ? `${r.owner.first_name ?? ''} ${r.owner.last_name ?? ''}`.trim() : '-';
                   const roheName = r.rohe?.name || '-';
+                  const teamMembers = Array.isArray(r.team_members) && r.team_members.length ? r.team_members.join(', ') : '-';
                   const hapuNames = Array.isArray(r.hapus) && r.hapus.length ? r.hapus.map(h => h?.name).filter(Boolean).join(', ') : '-';
                   const createdName = r.created_by ? `${r.created_by.first_name ?? ''} ${r.created_by.last_name ?? ''}`.trim() : '-';
                   const statusText = (() => {
@@ -189,6 +195,7 @@ const ProjectsPage = () => {
                       <td>{r.end_date ? new Date(r.end_date).toLocaleDateString('en-GB') : ''}</td>
                       <td>{ownerName || '-'}</td>
                       <td>{roheName}</td>
+                      <td>{teamMembers}</td>
                       <td>{hapuNames}</td>
                       <td>{statusText}</td>
                       <td>{createdName || '-'}</td>
@@ -216,7 +223,7 @@ const ProjectsPage = () => {
                 })}
                 {!loading && rows.length === 0 && (
                   <tr className="text-center">
-                    <td colSpan={10} className="py-4">{loading ? "Loading..." : "No Records found"}</td>
+                    <td colSpan={11} className="py-4">{loading ? "Loading..." : "No Records found"}</td>
                   </tr>
                 )}
               </tbody>
@@ -226,7 +233,7 @@ const ProjectsPage = () => {
           {total > 0 && (
             <div className="row p-2">
               <div className="col-sm-12 col-md-5">
-                <div className="dataTables_info" role="status" aria-live="polite">
+                <div className="dataTables_info" id="DataTables_Table_0_info" role="status" aria-live="polite">
                   <p>Showing {showingStarted} to {currentShowing} of {total} entries</p>
                 </div>
               </div>

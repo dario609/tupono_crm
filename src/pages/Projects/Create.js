@@ -16,6 +16,7 @@ const CreateProject = () => {
   const [teams, setTeams] = useState([]);
   const [rohes, setRohes] = useState([]);
   const [hapus, setHapus] = useState([]);
+  const [teamMembers, setTeamMembers] = useState([]);
 
   const [form, setForm] = useState({
     name: "",
@@ -58,6 +59,20 @@ const CreateProject = () => {
       } catch {}
     })();
   }, [form.rohe]);
+
+  // Load team members when a team is selected
+  useEffect(() => {
+    (async () => {
+      if (!form.team_id) { setTeamMembers([]); return; }
+      try {
+        const json = await TeamsApi.getById(form.team_id);
+        const members = json?.data?.members || [];
+        setTeamMembers(members);
+      } catch {
+        setTeamMembers([]);
+      }
+    })();
+  }, [form.team_id]);
 
   const formatDateForDisplay = (v) => {
     if (!v) return "";
@@ -212,6 +227,13 @@ const CreateProject = () => {
                             <option key={t._id} value={t._id}>{t.title}</option>
                           ))}
                         </select>
+                        {teamMembers.length > 0 && (
+                          <div className="mt-2" style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                            {teamMembers.map((m) => (
+                              <span key={`tm-${m._id}`} className="badge badge-primary" style={{ padding: '3px 10px' }}>{m.name}</span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -263,7 +285,7 @@ const CreateProject = () => {
                               return (
                                 <span key={`tag-hapu-${hid}`} className="badge badge-primary" style={{ padding: '0px 7px' }}>
                                   {h.name}
-                                  <button type="button" className="btn btn-link btn-sm" onClick={() => removeHapuFromList(hid)} style={{ color: '#fff', textDecoration: 'none', marginLeft: 6, padding: '7px 2px' }}>×</button>
+                                  <button type="button" className="btn btn-link btn-sm" onClick={() => removeHapuFromList(hid)} style={{ color: '#fff', textDecoration: 'none', marginLeft: 6, padding: '3px 5px' }}>×</button>
                                 </span>
                               );
                             })}

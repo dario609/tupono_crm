@@ -9,7 +9,8 @@ import UsersPage from "./pages/Users";
 import CreateUser from "./pages/Users/Create";
 import EditUser from "./pages/Users/Edit";
 import ReportsPage from "./pages/Reports";
-import CreateReport from "./pages/Reports/Create";
+import WriteReport from "./pages/Reports/WriteReport";
+import EditReport from "./pages/Reports/Edit";
 import ProjectsPage from "./pages/Projects";
 import CreateProject from "./pages/Projects/Create";
 import EditProject from "./pages/Projects/Edit";
@@ -40,7 +41,8 @@ function App() {
             <Route path="/users/create" element={<CreateUser />} />
             <Route path="/users/:id/edit" element={<EditUser />} />
             <Route path="/reports" element={<ReportsPage />} />
-            <Route path="/reports/create" element={<CreateReport />} />
+            <Route path="/reports/add" element={<WriteReport />} />
+            <Route path="/reports/:id/edit" element={<EditReport />} />
             <Route path="/projects" element={<ProjectsPage />} />
             <Route path="/projects/create" element={<CreateProject />} />
             <Route path="/projects/:id/edit" element={<EditProject />} />

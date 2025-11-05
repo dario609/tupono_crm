@@ -88,10 +88,17 @@ const ReportsPage = () => {
   const SkeletonRow = () => (
     <tr aria-hidden="true">
       <td><div className="skeleton skeleton-sm" style={{ width: 28 }} /></td>
-      <td><div className="skeleton skeleton-line" style={{ width: "80%" }} /></td>
-      <td><div className="skeleton skeleton-sm" style={{ width: 70 }} /></td>
+      <td><div className="skeleton skeleton-line" style={{ width: "70%" }} /></td>
+      <td><div className="skeleton skeleton-line" style={{ width: "60%" }} /></td>
+      <td><div className="skeleton skeleton-line" style={{ width: "70%" }} /></td>
+      <td><div className="skeleton skeleton-sm" style={{ width: 60 }} /></td>
       <td><div className="skeleton skeleton-sm" style={{ width: 90 }} /></td>
       <td><div className="skeleton skeleton-sm" style={{ width: 90 }} /></td>
+      <td><div className="skeleton skeleton-sm" style={{ width: 90 }} /></td>
+      <td><div className="skeleton skeleton-line" style={{ width: "70%" }} /></td>
+      <td><div className="skeleton skeleton-line" style={{ width: "60%" }} /></td>
+      <td><div className="skeleton skeleton-sm" style={{ width: 50 }} /></td>
+      <td><div className="skeleton skeleton-sm" style={{ width: 50 }} /></td>
       <td>
         <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
           <div className="skeleton" style={{ width: 32, height: 32, borderRadius: 8 }} />
@@ -105,10 +112,7 @@ const ReportsPage = () => {
       <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-24 p-3">
         <h6 className="fw-semibold mb-0">Reports Management</h6>
         <div>
-          <NavLink to="/reports/create" className="btn btn-primary btn-rounded btn-fw me-2">
-            <i className="menu-icon mdi mdi-download"></i> Import Report
-          </NavLink>
-          <NavLink to="/reports/create" className="btn btn-primary btn-rounded btn-fw">
+          <NavLink to="/reports/add" className="btn btn-primary btn-rounded btn-fw">
             <i className="menu-icon mdi mdi-file-plus"></i> Add Report
           </NavLink>
         </div>
@@ -143,9 +147,16 @@ const ReportsPage = () => {
                 <tr>
                   <th style={{ width: "5%" }}>SN</th>
                   <th>Report Title</th>
+                  <th>Project</th>
+                  <th>Description</th>
                   <th>Status</th>
                   <th>Start Date</th>
                   <th>End Date</th>
+                  <th>Created Date</th>
+                  <th>Created By</th>
+                  <th>Report Type</th>
+                  <th>Report Phase</th>
+                  <th>Hours</th>
                   <th style={{ width: 120, minWidth: 120 }} className="text-center">Actions</th>
                 </tr>
               </thead>
@@ -153,15 +164,29 @@ const ReportsPage = () => {
                 {(loading ? Array.from({ length: Math.min(10, perpage === -1 ? 10 : perpage) }) : rows).map((r, idx) => {
                   if (loading) return <SkeletonRow key={`sk-${idx}`} />;
                   const sn = perpage === -1 ? idx + 1 : (page - 1) * perpage + idx + 1;
+                  const projectName = r.project_id?.name || r.project_id?.project_title || '-';
+                  const createdName = r.created_by ? `${r.created_by.first_name ?? ''} ${r.created_by.last_name ?? ''}`.trim() || r.created_by.email : '-';
                   return (
                     <tr key={r._id}>
                       <td>{sn}</td>
-                      <td>{r.project_title}</td>
-                      <td>{r.project_status || '-'}</td>
+                      <td>{r.project_title || '-'}</td>
+                      <td>{projectName}</td>
+                      <td>{r.project_description || '-'}</td>
+                      <td>{r.report_status || r.project_status || '-'}</td>
                       <td>{r.start_date ? new Date(r.start_date).toLocaleDateString('en-GB') : '-'}</td>
                       <td>{r.end_date ? new Date(r.end_date).toLocaleDateString('en-GB') : '-'}</td>
+                      <td>{r.created_date ? new Date(r.created_date).toLocaleDateString('en-GB') : '-'}</td>
+                      <td>{createdName}</td>
+                      <td>{r.report_type || '-'}</td>
+                      <td>{r.report_phase || '-'}</td>
+                      <td>{typeof r.hours === 'number' ? r.hours : (r.hours || 0)}</td>
                       <td className="actions-column">
                         <div style={{ display: 'flex', gap: 4, justifyContent: 'center', flexWrap: 'nowrap' }}>
+                          <NavLink className="btn badge-success btn-sm btn-rounded btn-icon" title="Edit" to={`/reports/${r._id}/edit`}>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="feather feather-edit-2 align-middle">
+                              <polygon points="16 3 21 8 8 21 3 21 3 16 16 3"></polygon>
+                            </svg>
+                          </NavLink>
                           <button className="btn badge-danger btn-sm btn-rounded btn-icon" title="Delete" onClick={() => handleDelete(r._id)}>
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="feather feather-trash align-middle">
                               <polyline points="3 6 5 6 21 6"></polyline>
@@ -175,7 +200,7 @@ const ReportsPage = () => {
                 })}
                 {!loading && rows.length === 0 && (
                   <tr className="text-center">
-                    <td colSpan={6} className="py-4">{loading ? "Loading..." : "No Records found"}</td>
+                    <td colSpan={13} className="py-4">{loading ? "Loading..." : "No Records found"}</td>
                   </tr>
                 )}
               </tbody>
