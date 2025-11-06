@@ -141,10 +141,27 @@ const Sidebar = ({ user, permissions }) => {
         {/* Calendar */}
         {canView("calendar_management") && (
           <li className="nav-item">
-            <NavLink to="/calendar" className="nav-link">
+            <a href="#!" className="nav-link" onClick={() => toggleMenu("calendar")}>
               <i className="mdi mdi-calendar-check-outline text-info menu-icon"></i>
-              <span className="menu-title">Calendar Management</span>
-            </NavLink>
+              <span className="menu-title">My Calendar</span>
+              <i className="menu-arrow"></i>
+            </a>
+            <div className={`collapse ${openMenu === "calendar" ? "show" : ""}`}>
+              <ul className="nav flex-column sub-menu">
+              {canAdd("calendar_management") && (
+                  <li className="nav-item">
+                    <NavLink to="/calendar/create" className="nav-link">
+                      <i className="bi bi-chevron-double-right"></i> Create Meeting
+                    </NavLink>
+                  </li>
+                )}
+                <li className="nav-item">
+                  <NavLink to="/calendar" className="nav-link">
+                    <i className="bi bi-chevron-double-right"></i> My Calendar
+                  </NavLink>
+                </li>
+              </ul>
+            </div>
           </li>
         )}
 
@@ -185,11 +202,6 @@ const Sidebar = ({ user, permissions }) => {
                   <NavLink to="/documents" className="nav-link">
                     <i className="bi bi-chevron-double-right"></i> Folders &
                     Documents
-                  </NavLink>
-                </li>
-                <li className="nav-item">
-                  <NavLink to="/templates/create" className="nav-link">
-                    <i className="bi bi-chevron-double-right"></i> Report Templates
                   </NavLink>
                 </li>
               </ul>

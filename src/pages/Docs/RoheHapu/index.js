@@ -109,7 +109,7 @@ const RoheHapuPage = () => {
   return (
     <div className="card mt-3">
       <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-24 p-3">
-        <h6 className="fw-semibold mb-0">Rohe & Hapu Management</h6>
+        <h6 className="fw-semibold mb-0">Ngā Rohe me ngā Hapū</h6>
       </div>
 
       <div className="row card-body pt-0">
@@ -118,21 +118,22 @@ const RoheHapuPage = () => {
             <div className="box-body p-15 pt-2">
               <h6>Te Rohe me ngā Hapū</h6>
               <div className="input-group mb-2">
-                <input type="text" className="form-control" placeholder="Rohe name" value={newRohe} onChange={(e) => setNewRohe(e.target.value)} />
+                <input type="text" className="form-control" placeholder="Te Rohe" value={newRohe} onChange={(e) => setNewRohe(e.target.value)} />
                 <button className="btn btn-primary" disabled={loading} onClick={addRohe}>Add</button>
               </div>
-              <ul className="list-group">
-                {rohes.map((r) => (
-                  <li key={r._id} className="list-group-item d-flex justify-content-between align-items-center">
-                    <span>{r.name}</span>
-                    <div>
-                      <button className="btn btn-sm btn-secondary me-2" onClick={() => { setSelectedRohe(r._id); loadHapu(r._id); }}>View Hapu</button>
-                      <button className="btn btn-sm btn-danger" onClick={() => deleteRohe(r._id)}>Delete</button>
-                    </div>
-                  </li>
-                ))}
-                {rohes.length === 0 && <li className="list-group-item">No Rohes</li>}
-              </ul>
+              {rohes.length > 0 && (
+                <ul className="list-group">
+                  {rohes.map((r) => (
+                    <li key={r._id} className="list-group-item d-flex justify-content-between align-items-center">
+                      <span>{r.name}</span>
+                      <div>
+                        <button className="btn btn-sm btn-secondary me-2" onClick={() => { setSelectedRohe(r._id); loadHapu(r._id); }}>View Hapu</button>
+                        <button className="btn btn-sm btn-danger" onClick={() => deleteRohe(r._id)}>Delete</button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
         </div>
@@ -140,28 +141,29 @@ const RoheHapuPage = () => {
         <div className="col-md-6">
           <div className="box">
             <div className="box-body p-15 pt-2">
-              <h6>Ngā Hapū</h6>
+              <h6>Te Rohe me ōna Hapū</h6>
               <div className="mb-2">
                 <select className="form-control form-select" value={selectedRohe} onChange={(e) => { setSelectedRohe(e.target.value); loadHapu(e.target.value); }}>
-                  <option value="">All Rohes</option>
+                  <option value="">Ngā Rohe Katoa</option>
                   {rohes.map((r) => (
                     <option key={r._id} value={r._id}>{r.name}</option>
                   ))}
                 </select>
               </div>
               <div className="input-group mb-2">
-                <input type="text" className="form-control" placeholder="Hapū name" value={newHapu} onChange={(e) => setNewHapu(e.target.value)} />
+                <input type="text" className="form-control" placeholder="Te Hapū" value={newHapu} onChange={(e) => setNewHapu(e.target.value)} />
                 <button className="btn btn-primary" disabled={loading || !selectedRohe} onClick={addHapu}>Add</button>
               </div>
-              <ul className="list-group">
-                {hapu.map((h) => (
-                  <li key={h._id} className="list-group-item d-flex justify-content-between align-items-center">
-                    <span>{h.name}</span>
-                    <button className="btn btn-sm btn-danger" onClick={() => deleteHapu(h._id)}>Delete</button>
-                  </li>
-                ))}
-                {hapu.length === 0 && <li className="list-group-item">No Hapū</li>}
-              </ul>
+              {hapu.length > 0 && (
+                <ul className="list-group">
+                  {hapu.map((h) => (
+                    <li key={h._id} className="list-group-item d-flex justify-content-between align-items-center">
+                      <span>{h.name}</span>
+                      <button className="btn btn-sm btn-danger" onClick={() => deleteHapu(h._id)}>Delete</button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
         </div>
