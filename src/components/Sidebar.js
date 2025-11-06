@@ -174,7 +174,7 @@ const Sidebar = ({ user, permissions }) => {
               onClick={() => toggleMenu("documents")}
             >
               <i className="menu-icon text-info mdi mdi-file-document-multiple"></i>
-              <span className="menu-title">Document Management</span>
+              <span className="menu-title">Ngā Mahi</span>
               <i className="menu-arrow"></i>
             </a>
             <div
@@ -184,13 +184,13 @@ const Sidebar = ({ user, permissions }) => {
                 {canAdd("document_file_management") && (
                   <li className="nav-item">
                     <NavLink to="/teams/create" className="nav-link">
-                      <i className="bi bi-chevron-double-right"></i> Add Team
+                      <i className="bi bi-chevron-double-right"></i> Rōpu Hou
                     </NavLink>
                   </li>
                 )}
                 <li className="nav-item">
                   <NavLink to="/teams" className="nav-link">
-                    <i className="bi bi-chevron-double-right"></i> Teams List
+                    <i className="bi bi-chevron-double-right"></i> Ngā Ropu
                   </NavLink>
                 </li>
                 <li className="nav-item">
@@ -200,8 +200,7 @@ const Sidebar = ({ user, permissions }) => {
                 </li>
                 <li className="nav-item">
                   <NavLink to="/documents" className="nav-link">
-                    <i className="bi bi-chevron-double-right"></i> Folders &
-                    Documents
+                    <i className="bi bi-chevron-double-right"></i> Ngā Kopaki
                   </NavLink>
                 </li>
               </ul>

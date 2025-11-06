@@ -18,6 +18,7 @@ import CreateTeam from "./pages/Teams/Create";
 import TeamsPage from "./pages/Teams";
 import EditTeam from "./pages/Teams/Edit";
 import RoheHapuPage from "./pages/Docs/RoheHapu";
+import DocumentsPage from "./pages/Docs/Documents";
 import CalendarPage from "./pages/Calendar";
 import CalendarCreate from "./pages/Calendar/Create";
 import { AuthProvider } from "./context/AuthProvider";
@@ -51,6 +52,7 @@ function App() {
             <Route path="/teams/create" element={<CreateTeam />} />
             <Route path="/teams/:id/edit" element={<EditTeam />} />
             <Route path="/docs/rohe-hapu" element={<RoheHapuPage />} />
+            <Route path="/documents" element={<DocumentsPage />} />
             <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/calendar/create" element={<CalendarCreate />} />
           </Route>
