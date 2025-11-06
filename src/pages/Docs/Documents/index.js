@@ -3,21 +3,39 @@ import DocsApi from '../../../api/docsApi';
 
 const tileStyles = {
   tile: (selected) => ({
-    width: 112,
-    height: 96,
-    borderRadius: 10,
-    border: 'none',
-    background: selected ? 'rgba(6,182,212,0.08)' : '#fff',
-    boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
-    padding: 6,
+    width: 120,
+    height: 110,
+    borderRadius: 12,
+    border: selected ? '2px solid #6366f1' : '2px solid transparent',
+    background: selected ? 'rgba(99, 102, 241, 0.08)' : '#fff',
+    boxShadow: selected 
+      ? '0 4px 12px rgba(99, 102, 241, 0.15), 0 2px 4px rgba(0,0,0,0.1)' 
+      : '0 2px 4px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)',
+    padding: 12,
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
     cursor: 'pointer',
     userSelect: 'none',
+    transition: 'all 0.2s ease',
+    ':hover': {
+      transform: 'translateY(-2px)',
+      boxShadow: '0 6px 16px rgba(0,0,0,0.12), 0 2px 4px rgba(0,0,0,0.08)',
+      borderColor: selected ? '#6366f1' : '#e2e8f0'
+    }
   }),
-  name: { marginTop: 6, fontSize: 12, textAlign: 'center', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  name: { 
+    marginTop: 8, 
+    fontSize: 13, 
+    fontWeight: 500,
+    textAlign: 'center', 
+    maxWidth: 110, 
+    overflow: 'hidden', 
+    textOverflow: 'ellipsis', 
+    whiteSpace: 'nowrap',
+    color: '#334155'
+  },
 };
 
 const DocumentsPage = () => {
@@ -33,6 +51,9 @@ const DocumentsPage = () => {
   const [contextMenu, setContextMenu] = useState(null); // {x,y,item}
   const [confirm, setConfirm] = useState(null); // {name, path}
   const [rename, setRename] = useState(null); // {path, name, value}
+  const [deleting, setDeleting] = useState(false); // Track if delete is in progress
+  const [folderUploadModal, setFolderUploadModal] = useState(null); // {folderName, fileCount, files}
+  const [uploadProgress, setUploadProgress] = useState(0); // Upload progress percentage
 
   const load = async (path = cwd) => {
     setLoading(true);
@@ -73,24 +94,132 @@ const DocumentsPage = () => {
   const onUpload = async (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
+    
+    // Prevent concurrent uploads
+    if (uploading) {
+      e.target.value = '';
+      return;
+    }
+    
     setUploading(true);
+    const fileName = f.name;
+    const filePath = ((cwd === '/' ? '' : cwd) + '/' + fileName);
+    
     try {
       await DocsApi.upload(cwd, f);
+      
+      // Success toast
       setToasts((t) => {
         const id = Date.now();
         setTimeout(() => setToasts((tt) => tt.filter(x => x.id !== id)), 2200);
-        return [...t, { id, text: `Uploaded ${f.name}` }];
+        return [...t, { id, text: `Uploaded ${fileName}` }];
       });
-      await load();
+      
+      // Optimistically update the grid using functional state update
+      setItems((prev) => {
+        // Check if item already exists (avoid duplicates)
+        const exists = prev.some((it) => it.path === filePath);
+        if (exists) return prev;
+        
+        // Add new item
+        const newItem = {
+          name: fileName,
+          type: 'file',
+          size: f.size || 0,
+          path: filePath,
+          modified: new Date().toISOString(),
+        };
+        return [...prev, newItem];
+      });
     } catch (err) {
+      const errorMsg = err?.message || err?.response?.data?.message || 'Upload failed';
+      console.error('Upload error:', err);
       setToasts((t) => {
         const id = Date.now();
         setTimeout(() => setToasts((tt) => tt.filter(x => x.id !== id)), 3000);
-        return [...t, { id, text: `Upload failed: ${err?.response?.data?.message || err.message || 'Server error'}` }];
+        return [...t, { id, text: `Upload failed: ${errorMsg}` }];
       });
     } finally {
       setUploading(false);
+      e.target.value = ''; // Reset file input
+    }
+  };
+
+  const onUploadFolderSelect = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) {
       e.target.value = '';
+      return;
+    }
+    
+    // Prevent concurrent uploads
+    if (uploading) {
+      e.target.value = '';
+      return;
+    }
+    
+    // Extract folder name from the first file's webkitRelativePath
+    const folderName = files[0]?.webkitRelativePath?.split('/')[0] || 'folder';
+    
+    // Show confirmation modal
+    setFolderUploadModal({
+      folderName,
+      fileCount: files.length,
+      files: files
+    });
+    
+    e.target.value = ''; // Reset file input
+  };
+
+  const doUploadFolder = async () => {
+    if (!folderUploadModal || uploading) return;
+    
+    const { folderName, files } = folderUploadModal;
+    setUploading(true);
+    setUploadProgress(0);
+    
+    // Simulate progress (since we can't track actual upload progress easily)
+    const progressInterval = setInterval(() => {
+      setUploadProgress(prev => {
+        if (prev >= 90) {
+          clearInterval(progressInterval);
+          return prev;
+        }
+        return prev + 10;
+      });
+    }, 200);
+    
+    try {
+      await DocsApi.uploadFolder(cwd, files, folderName);
+      clearInterval(progressInterval);
+      setUploadProgress(100);
+      
+      // Success toast
+      setToasts((t) => {
+        const id = Date.now();
+        setTimeout(() => setToasts((tt) => tt.filter(x => x.id !== id)), 2200);
+        return [...t, { id, text: `Uploaded folder "${folderName}" with ${files.length} file(s)` }];
+      });
+      
+      // Close modal and reload
+      setTimeout(async () => {
+        setFolderUploadModal(null);
+        setUploadProgress(0);
+        await load();
+      }, 500);
+    } catch (err) {
+      clearInterval(progressInterval);
+      const errorMsg = err?.message || err?.response?.data?.message || 'Upload failed';
+      console.error('Folder upload error:', err);
+      setToasts((t) => {
+        const id = Date.now();
+        setTimeout(() => setToasts((tt) => tt.filter(x => x.id !== id)), 3000);
+        return [...t, { id, text: `Folder upload failed: ${errorMsg}` }];
+      });
+      setFolderUploadModal(null);
+      setUploadProgress(0);
+    } finally {
+      setUploading(false);
     }
   };
   const onDelete = async (p) => {
@@ -166,12 +295,33 @@ const DocumentsPage = () => {
 
   const onPaste = async () => pasteInto(cwd);
 
-  const confirmDelete = (p, name) => setConfirm({ path: p, name });
+  const confirmDelete = (p, name) => {
+    // Prevent opening delete modal if a delete is already in progress
+    if (deleting) return;
+    setConfirm({ path: p, name });
+  };
+  
   const doDelete = async () => {
-    if (!confirm) return;
+    if (!confirm || deleting) return; // Prevent concurrent deletes
+    
     const p = confirm.path;
     const name = confirm.name;
     setConfirm(null);
+    setDeleting(true); // Mark delete as in progress
+    
+    // Optimistically remove the item from UI using functional update
+    const deletedPath = p;
+    setItems((prev) => {
+      // Use functional update to ensure consistency even with rapid deletions
+      const filtered = prev.filter((item) => item.path !== deletedPath);
+      return filtered;
+    });
+    
+    // Clear selection if deleted item was selected
+    if (selected === deletedPath) {
+      setSelected(null);
+    }
+    
     try {
       await DocsApi.remove(p);
       setToasts((t) => {
@@ -179,111 +329,307 @@ const DocumentsPage = () => {
         setTimeout(() => setToasts((tt) => tt.filter(x => x.id !== id)), 2200);
         return [...t, { id, text: `Deleted ${name}` }];
       });
-      await load();
+      // No need to reload - UI already updated optimistically
     } catch (err) {
+      // On error, reload to restore correct state
+      const errorMsg = err?.message || err?.response?.data?.message || 'Failed to delete item';
+      console.error('Delete error:', err);
+      await load();
       setToasts((t) => {
         const id = Date.now();
         setTimeout(() => setToasts((tt) => tt.filter(x => x.id !== id)), 3000);
-        return [...t, { id, text: `Delete failed: ${err?.response?.data?.message || err.message || 'Server error'}` }];
+        return [...t, { id, text: `Delete failed: ${errorMsg}` }];
       });
+    } finally {
+      setDeleting(false); // Always clear the deleting flag
     }
   };
 
   const selectedItem = items.find(i => i.path === selected);
 
-  // Button style helpers
-  const colors = { primary:'#06b6d4', indigo:'#6366f1', green:'#22c55e', danger:'#ef4444', slate:'#475569' };
-  const btnFilled = (bg) => ({ background:bg, color:'#fff', border:'none', borderRadius:999, padding:'8px 16px', fontWeight:700, boxShadow:'0 1px 2px rgba(0,0,0,0.06)' });
-  const btnOutline = (color) => ({ background:'#fff', color, border:`1px solid ${color}`, borderRadius:999, padding:'8px 14px', fontWeight:700 });
+  // Modern color palette
+  const colors = { 
+    primary:'#6366f1', 
+    primaryLight:'#818cf8',
+    indigo:'#6366f1', 
+    green:'#10b981', 
+    greenLight:'#34d399',
+    danger:'#ef4444', 
+    dangerLight:'#f87171',
+    slate:'#64748b',
+    gray:'#f1f5f9',
+    grayDark:'#475569',
+    white:'#ffffff'
+  };
+  
+  // Modern button styles
+  const btnFilled = (bg, hoverBg) => ({ 
+    background: bg, 
+    color: '#fff', 
+    border: 'none', 
+    borderRadius: 10, 
+    padding: '10px 20px', 
+    fontWeight: 600,
+    fontSize: '14px',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06)',
+    transition: 'all 0.2s ease',
+    cursor: 'pointer',
+    ':hover': { background: hoverBg || bg, transform: 'translateY(-1px)', boxShadow: '0 4px 6px rgba(0,0,0,0.15)' }
+  });
+  
+  const btnOutline = (color, hoverBg) => ({ 
+    background: '#fff', 
+    color, 
+    border: `2px solid ${color}`, 
+    borderRadius: 10, 
+    padding: '10px 18px', 
+    fontWeight: 600,
+    fontSize: '14px',
+    transition: 'all 0.2s ease',
+    cursor: 'pointer',
+    ':hover': { background: hoverBg || `${color}10`, borderColor: color }
+  });
 
   return (
-    <div className="card mt-3" style={{ minHeight: 'calc(100vh - 120px)', display:'flex', flexDirection:'column' }}>
-      {/* Toasts */}
-      <div style={{ position:'fixed', top: 16, right: 16, zIndex: 1060, display:'flex', flexDirection:'column', gap:8 }}>
+    <div className="card mt-3" style={{ minHeight: 'calc(100vh - 120px)', display:'flex', flexDirection:'column', borderRadius: 16, border: 'none', boxShadow: '0 4px 6px rgba(0,0,0,0.07)' }}>
+      {/* Modern Toasts */}
+      <div style={{ position:'fixed', top: 20, right: 20, zIndex: 1060, display:'flex', flexDirection:'column', gap:10 }}>
         {toasts.map(t => (
           <div key={t.id} style={{
-            display:'flex', alignItems:'center', gap:8,
-            background:'#0f172a', color:'#e2e8f0', padding:'10px 14px', borderRadius:12,
-            boxShadow:'0 10px 20px rgba(0,0,0,0.25)', border:'1px solid #1e293b',
-            transform: 'translateY(0)', opacity: 1,
-            transition: 'opacity 200ms ease-out, transform 200ms ease-out'
+            display:'flex', alignItems:'center', gap:12,
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: '#fff', 
+            padding: '14px 18px', 
+            borderRadius: 14,
+            boxShadow: '0 10px 25px rgba(102, 126, 234, 0.3), 0 4px 10px rgba(0,0,0,0.15)',
+            transform: 'translateY(0)', 
+            opacity: 1,
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            minWidth: 280,
+            backdropFilter: 'blur(10px)'
           }}>
-            <span style={{ width:10, height:10, borderRadius:'50%', background:'#22c55e' }}></span>
-            <div style={{ fontWeight:700 }}>{t.text}</div>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px rgba(16, 185, 129, 0.6)' }}></div>
+            <div style={{ fontWeight: 600, fontSize: 14 }}>{t.text}</div>
           </div>
         ))}
       </div>
-      <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-24 p-3">
-        <h6 className="fw-semibold mb-0">Ngā Mahi</h6>
-        <div className="d-flex align-items-center gap-2 flex-wrap" style={{ rowGap: 8 }}>
-          <button className="btn btn-sm" style={btnOutline(colors.primary)} onClick={goUp}><i className="mdi mdi-arrow-up-bold"></i> Up</button>
-          <div className="d-none d-md-flex align-items-center gap-2">
-            <input className="form-control form-control-sm" style={{ width: 'min(240px, 60vw)', borderRadius:999 }} value={newName} onChange={(e)=> setNewName(e.target.value)} placeholder="New folder name" />
-            <button className="btn btn-sm" style={btnFilled(colors.indigo)} onClick={onMkdir} disabled={!newName}><i className="mdi mdi-folder-plus-outline"></i> New Folder</button>
+      
+      {/* Header */}
+      <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3 p-4" style={{ borderBottom: '1px solid #e2e8f0', background: 'linear-gradient(to right, #f8fafc, #ffffff)' }}>
+        <h5 className="fw-bold mb-0" style={{ color: '#1e293b', fontSize: 20 }}>Ngā Mahi</h5>
+        <div className="d-flex align-items-center gap-2 flex-wrap" style={{ rowGap: 10 }}>
+          <button 
+            className="btn btn-sm" 
+            style={{ 
+              ...btnOutline(colors.primary, `${colors.primary}15`), 
+              opacity: 1,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6
+            }} 
+            onClick={goUp}
+            onMouseEnter={(e) => { e.currentTarget.style.background = `${colors.primary}15`; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.transform = 'translateY(0)'; }}
+          >
+            <i className="mdi mdi-arrow-up-bold"></i>
+          </button>
+          
+          <div className="d-none d-md-flex align-items-center gap-2" style={{ background: '#f8fafc', padding: '4px', borderRadius: 12 }}>
+            <input 
+              className="form-control form-control-sm" 
+              style={{ 
+                width: 'min(240px, 60vw)', 
+                borderRadius: 8,
+                border: '1px solid #e2e8f0',
+                padding: '8px 12px',
+                fontSize: 14
+              }} 
+              value={newName} 
+              onChange={(e)=> setNewName(e.target.value)} 
+              placeholder="New folder name" 
+            />
+            <button 
+              className="btn btn-sm" 
+              style={{ 
+                ...btnFilled(colors.indigo, colors.primaryLight),
+                opacity: !newName ? 0.5 : 1,
+                cursor: !newName ? 'not-allowed' : 'pointer'
+              }} 
+              onClick={onMkdir} 
+              disabled={!newName}
+              onMouseEnter={(e) => { if (newName) { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 8px rgba(99, 102, 241, 0.3)'; } }}
+              onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06)'; }}
+            >
+              <i className="mdi mdi-folder-plus-outline"></i> Create
+            </button>
           </div>
-          <label className="btn btn-sm mb-0" style={btnFilled(colors.green)}>
+          
+          <label 
+            className="btn btn-sm mb-0" 
+            style={{ 
+              ...btnFilled(colors.green, colors.greenLight), 
+              opacity: uploading ? 0.6 : 1, 
+              cursor: uploading ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6
+            }}
+            onMouseEnter={(e) => { if (!uploading) { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 8px rgba(16, 185, 129, 0.3)'; } }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06)'; }}
+          >
             <i className="mdi mdi-upload"></i> {uploading ? 'Uploading...' : 'Upload File'}
-            <input type="file" hidden onChange={onUpload} />
+            <input type="file" hidden onChange={onUpload} disabled={uploading} />
           </label>
-          {/* Always show actions; disable when inapplicable */}
-          <button
-            className="btn btn-sm"
-            style={{ ...btnOutline(colors.primary), opacity: selectedItem ? 1 : 0.5 }}
-            disabled={!selectedItem}
-            onClick={() => { if (!selectedItem) return; onRename(selectedItem.path); }}
+          
+          <label 
+            className="btn btn-sm mb-0" 
+            style={{ 
+              ...btnFilled(colors.green, colors.greenLight), 
+              opacity: uploading ? 0.6 : 1, 
+              cursor: uploading ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6
+            }}
+            onMouseEnter={(e) => { if (!uploading) { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 8px rgba(16, 185, 129, 0.3)'; } }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06)'; }}
           >
-            <i className="mdi mdi-rename-box"></i> Rename
-          </button>
-          <button
-            className="btn btn-sm"
-            style={{ ...btnOutline(colors.primary), opacity: selectedItem ? 1 : 0.5 }}
-            disabled={!selectedItem}
-            onClick={() => { if (!selectedItem) return; onCopy(selectedItem.path); const id=Date.now(); setToasts((t)=> [...t, { id, text: `Copied ${selectedItem.name}` }]); setTimeout(()=> setToasts(tt=> tt.filter(x=> x.id!==id)), 2200); }}
-          >
-            <i className="mdi mdi-content-copy"></i> Copy
-          </button>
-          <button
-            className="btn btn-sm"
-            style={{ ...btnOutline(colors.primary), opacity: clipboard ? 1 : 0.5 }}
-            disabled={!clipboard}
-            onClick={onPaste}
-          >
-            <i className="mdi mdi-content-paste"></i> Paste
-          </button>
-          <button
-            className="btn btn-sm"
-            style={{ ...btnOutline(colors.primary), opacity: selectedItem ? 1 : 0.5 }}
-            disabled={!selectedItem}
-            onClick={() => { if (!selectedItem) return; onCut(selectedItem.path); }}
-          >
-            <i className="mdi mdi-content-cut"></i> Cut
-          </button>
-          <button
-            className="btn btn-sm"
-            style={{ ...btnOutline(colors.danger), opacity: selectedItem ? 1 : 0.5 }}
-            disabled={!selectedItem}
-            onClick={() => { if (!selectedItem) return; confirmDelete(selectedItem.path, selectedItem.name); }}
-          >
-            <i className="mdi mdi-trash-can-outline"></i> Delete
-          </button>
-          {selectedItem && selectedItem.type === 'file' && (
-            <a className="btn btn-sm" style={btnOutline(colors.green)} href={DocsApi.downloadUrl(selectedItem.path)} target="_blank" rel="noreferrer"><i className="mdi mdi-download"></i> Download</a>
-          )}
+            <i className="mdi mdi-folder-upload"></i> {uploading ? 'Uploading...' : 'Upload Folder'}
+            <input type="file" hidden webkitdirectory="" directory="" multiple onChange={onUploadFolderSelect} disabled={uploading} />
+          </label>
+          {/* Action buttons with modern styling */}
+          <div className="d-flex align-items-center gap-2" style={{ paddingLeft: 12, borderLeft: '2px solid #e2e8f0' }}>
+            <button
+              className="btn btn-sm"
+              style={{ 
+                ...btnOutline(colors.primary, `${colors.primary}15`), 
+                opacity: selectedItem ? 1 : 0.4,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6
+              }}
+              disabled={!selectedItem}
+              onClick={() => { if (!selectedItem) return; onRename(selectedItem.path); }}
+              onMouseEnter={(e) => { if (selectedItem) { e.currentTarget.style.background = `${colors.primary}15`; e.currentTarget.style.transform = 'translateY(-1px)'; } }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.transform = 'translateY(0)'; }}
+            >
+              <i className="mdi mdi-rename-box"></i> Rename
+            </button>
+            <button
+              className="btn btn-sm"
+              style={{ 
+                ...btnOutline(colors.primary, `${colors.primary}15`), 
+                opacity: selectedItem ? 1 : 0.4,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6
+              }}
+              disabled={!selectedItem}
+              onClick={() => { if (!selectedItem) return; onCopy(selectedItem.path); const id=Date.now(); setToasts((t)=> [...t, { id, text: `Copied ${selectedItem.name}` }]); setTimeout(()=> setToasts(tt=> tt.filter(x=> x.id!==id)), 2200); }}
+              onMouseEnter={(e) => { if (selectedItem) { e.currentTarget.style.background = `${colors.primary}15`; e.currentTarget.style.transform = 'translateY(-1px)'; } }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.transform = 'translateY(0)'; }}
+            >
+              <i className="mdi mdi-content-copy"></i> Copy
+            </button>
+            <button
+              className="btn btn-sm"
+              style={{ 
+                ...btnOutline(colors.primary, `${colors.primary}15`), 
+                opacity: clipboard ? 1 : 0.4,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6
+              }}
+              disabled={!clipboard}
+              onClick={onPaste}
+              onMouseEnter={(e) => { if (clipboard) { e.currentTarget.style.background = `${colors.primary}15`; e.currentTarget.style.transform = 'translateY(-1px)'; } }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.transform = 'translateY(0)'; }}
+            >
+              <i className="mdi mdi-content-paste"></i> Paste
+            </button>
+            <button
+              className="btn btn-sm"
+              style={{ 
+                ...btnOutline(colors.primary, `${colors.primary}15`), 
+                opacity: selectedItem ? 1 : 0.4,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6
+              }}
+              disabled={!selectedItem}
+              onClick={() => { if (!selectedItem) return; onCut(selectedItem.path); }}
+              onMouseEnter={(e) => { if (selectedItem) { e.currentTarget.style.background = `${colors.primary}15`; e.currentTarget.style.transform = 'translateY(-1px)'; } }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.transform = 'translateY(0)'; }}
+            >
+              <i className="mdi mdi-content-cut"></i> Cut
+            </button>
+            <button
+              className="btn btn-sm"
+              style={{ 
+                ...btnOutline(colors.danger, `${colors.danger}15`), 
+                opacity: (selectedItem && !deleting) ? 1 : 0.4,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6
+              }}
+              disabled={!selectedItem || deleting}
+              onClick={() => { if (!selectedItem || deleting) return; confirmDelete(selectedItem.path, selectedItem.name); }}
+              onMouseEnter={(e) => { if (selectedItem && !deleting) { e.currentTarget.style.background = `${colors.danger}15`; e.currentTarget.style.transform = 'translateY(-1px)'; } }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.transform = 'translateY(0)'; }}
+            >
+              <i className="mdi mdi-trash-can-outline"></i> {deleting ? 'Deleting...' : 'Delete'}
+            </button>
+            {selectedItem && selectedItem.type === 'file' && (
+              <a 
+                className="btn btn-sm" 
+                style={{
+                  ...btnOutline(colors.green, `${colors.green}15`),
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  textDecoration: 'none'
+                }} 
+                href={DocsApi.downloadUrl(selectedItem.path)} 
+                target="_blank" 
+                rel="noreferrer"
+                onMouseEnter={(e) => { e.currentTarget.style.background = `${colors.green}15`; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.transform = 'translateY(0)'; }}
+              >
+                <i className="mdi mdi-download"></i> Download
+              </a>
+            )}
+          </div>
         </div>
       </div>
 
       <div className="row card-body pt-0" style={{ flex: 1, display:'flex' }} onClick={()=> setSelected(null)}>
         <div className="col-12" style={{ display:'flex', flexDirection:'column', height: '100%' }}>
-          {/* Breadcrumb */}
-          <div className="mb-2 d-flex flex-wrap align-items-center gap-1">
-            <small className="text-muted">Path:</small>
-            <a href="#" onClick={(e)=> (e.preventDefault(), load('/'))}>Root</a>
+          {/* Modern Breadcrumb */}
+          <div className="mb-3 d-flex flex-wrap align-items-center gap-2" style={{ padding: '12px 16px', background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0' }}>
+            <i className="mdi mdi-folder-outline" style={{ color: '#6366f1', fontSize: 18 }}></i>
+            <a 
+              href="#" 
+              onClick={(e)=> (e.preventDefault(), load('/'))}
+              style={{ color: '#6366f1', textDecoration: 'none', fontWeight: 600, fontSize: 14 }}
+              onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none'; }}
+            >
+              Root
+            </a>
             {parts.map((seg, idx) => {
               const p = '/' + parts.slice(0, idx+1).join('/');
               return (
-                <span key={idx}>
-                  <span className="text-muted"> / </span>
-                  <a href="#" onClick={(e)=> (e.preventDefault(), load(p))}>{seg}</a>
+                <span key={idx} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <i className="mdi mdi-chevron-right" style={{ color: '#94a3b8', fontSize: 16 }}></i>
+                  <a 
+                    href="#" 
+                    onClick={(e)=> (e.preventDefault(), load(p))}
+                    style={{ color: '#6366f1', textDecoration: 'none', fontWeight: 600, fontSize: 14 }}
+                    onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none'; }}
+                  >
+                    {seg}
+                  </a>
                 </span>
               );
             })}
@@ -307,16 +653,37 @@ const DocumentsPage = () => {
             </div>
           ) : (
             <>
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(112px, 1fr))', gap:8, minHeight: 180, flex: 1 }} onClick={()=> setContextMenu(null)}>
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(120px, 1fr))', gap:12, minHeight: 180, flex: 1, padding: '16px' }} onClick={()=> setContextMenu(null)}>
               {items.map(it => (
-                <div key={it.path} style={tileStyles.tile(selected === it.path)}
+                <div 
+                  key={it.path} 
+                  style={{
+                    ...tileStyles.tile(selected === it.path),
+                    position: 'relative'
+                  }}
                   onClick={(e)=> { e.stopPropagation(); setSelected(it.path); setContextMenu(null); }}
                   onContextMenu={(e)=> { e.preventDefault(); setSelected(it.path); setContextMenu({ x: e.clientX, y: e.clientY, item: it }); }}
                   onDoubleClick={()=> { if (it.type === 'folder') goInto(it.name); else window.open(DocsApi.downloadUrl(it.path), '_blank'); }}
+                  onMouseEnter={(e) => {
+                    if (selected !== it.path) {
+                      e.currentTarget.style.transform = 'translateY(-4px)';
+                      e.currentTarget.style.boxShadow = '0 8px 20px rgba(0,0,0,0.12), 0 2px 4px rgba(0,0,0,0.08)';
+                      e.currentTarget.style.borderColor = '#cbd5e1';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (selected !== it.path) {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = selected === it.path 
+                        ? '0 4px 12px rgba(99, 102, 241, 0.15), 0 2px 4px rgba(0,0,0,0.1)' 
+                        : '0 2px 4px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)';
+                      e.currentTarget.style.borderColor = selected === it.path ? '#6366f1' : 'transparent';
+                    }
+                  }}
                 >
-                  <div style={{ fontSize: 44 }}>
+                  <div style={{ fontSize: 48, transition: 'transform 0.2s ease' }}>
                     {it.type === 'folder' ? (
-                      <i className="mdi mdi-folder" style={{ color:'#f59e0b' }}></i>
+                      <i className="mdi mdi-folder" style={{ color:'#f59e0b', filter: 'drop-shadow(0 2px 4px rgba(245, 158, 11, 0.2))' }}></i>
                     ) : (
                       <i className="mdi mdi-file" style={{ color:'#64748b' }}></i>
                     )}
@@ -325,37 +692,313 @@ const DocumentsPage = () => {
                 </div>
               ))}
               {items.length === 0 && (
-                <div style={{ gridColumn: '1 / -1', display:'flex', alignItems:'center', justifyContent:'center', padding: 24 }}>
-                  <div style={{ textAlign:'center', color:'#64748b' }}>
-                    <div style={{ fontSize: 64, lineHeight: 1 }}>
+                <div style={{ gridColumn: '1 / -1', display:'flex', alignItems:'center', justifyContent:'center', padding: 48 }}>
+                  <div style={{ textAlign:'center', color:'#94a3b8' }}>
+                    <div style={{ fontSize: 72, lineHeight: 1, marginBottom: 16, opacity: 0.5 }}>
                       <i className="mdi mdi-folder-open-outline"></i>
                     </div>
-                    <div style={{ marginTop: 6 }}>This folder is empty</div>
+                    <div style={{ fontSize: 16, fontWeight: 500, color: '#64748b' }}>This folder is empty</div>
+                    <div style={{ fontSize: 14, color: '#94a3b8', marginTop: 4 }}>Upload files or create a new folder to get started</div>
                   </div>
                 </div>
               )}
             </div>
-            {/* Context Menu */}
+            {/* Modern Context Menu */}
             {contextMenu && (
-              <div style={{ position:'fixed', top: contextMenu.y, left: contextMenu.x, background:'#fff', border:'1px solid #e5e7eb', borderRadius:8, boxShadow:'0 8px 24px rgba(0,0,0,0.12)', zIndex: 1100, overflow:'hidden' }} onClick={(e)=> e.stopPropagation()}>
-                <button className="dropdown-item" style={{ padding:'8px 14px', width:180, textAlign:'left', border:'none', background:'transparent' }} onClick={()=> { onRename(contextMenu.item.path); setContextMenu(null); }}>Rename</button>
-                <button className="dropdown-item" style={{ padding:'8px 14px', width:180, textAlign:'left', border:'none', background:'transparent' }} onClick={()=> { onCopy(contextMenu.item.path); const id=Date.now(); setToasts((t)=> [...t, { id, text: `Copied ${contextMenu.item.name}` }]); setTimeout(()=> setToasts(tt=> tt.filter(x=> x.id!==id)), 2200); setContextMenu(null); }}>Copy</button>
-                <button className="dropdown-item" style={{ padding:'8px 14px', width:180, textAlign:'left', border:'none', background:'transparent' }} disabled={!clipboard || contextMenu.item.type !== 'folder'} onClick={()=> { pasteInto(contextMenu.item.path); setContextMenu(null); }}>Paste</button>
-                <button className="dropdown-item" style={{ padding:'8px 14px', width:180, textAlign:'left', border:'none', background:'transparent' }} onClick={()=> { onCut(contextMenu.item.path); setContextMenu(null); }}>Cut</button>
-                <button className="dropdown-item" style={{ padding:'8px 14px', width:180, textAlign:'left', borderTop:'1px solid #f3f4f6', color:'#ef4444', background:'transparent' }} onClick={()=> { confirmDelete(contextMenu.item.path, contextMenu.item.name); setContextMenu(null); }}>Delete</button>
+              <div style={{ 
+                position:'fixed', 
+                top: contextMenu.y, 
+                left: contextMenu.x, 
+                background:'#fff', 
+                border:'1px solid #e2e8f0', 
+                borderRadius:12, 
+                boxShadow:'0 10px 25px rgba(0,0,0,0.15), 0 4px 10px rgba(0,0,0,0.1)', 
+                zIndex: 1100, 
+                overflow:'hidden',
+                minWidth: 200,
+                padding: '4px'
+              }} onClick={(e)=> e.stopPropagation()}>
+                <button 
+                  className="dropdown-item" 
+                  style={{ 
+                    padding:'10px 16px', 
+                    width:'100%', 
+                    textAlign:'left', 
+                    border:'none', 
+                    background:'transparent',
+                    borderRadius: 8,
+                    fontSize: 14,
+                    fontWeight: 500,
+                    color: '#334155',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    transition: 'all 0.15s ease'
+                  }} 
+                  onClick={()=> { onRename(contextMenu.item.path); setContextMenu(null); }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#f1f5f9'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                >
+                  <i className="mdi mdi-rename-box" style={{ color: '#6366f1' }}></i> Rename
+                </button>
+                <button 
+                  className="dropdown-item" 
+                  style={{ 
+                    padding:'10px 16px', 
+                    width:'100%', 
+                    textAlign:'left', 
+                    border:'none', 
+                    background:'transparent',
+                    borderRadius: 8,
+                    fontSize: 14,
+                    fontWeight: 500,
+                    color: '#334155',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    transition: 'all 0.15s ease'
+                  }} 
+                  onClick={()=> { onCopy(contextMenu.item.path); const id=Date.now(); setToasts((t)=> [...t, { id, text: `Copied ${contextMenu.item.name}` }]); setTimeout(()=> setToasts(tt=> tt.filter(x=> x.id!==id)), 2200); setContextMenu(null); }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#f1f5f9'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                >
+                  <i className="mdi mdi-content-copy" style={{ color: '#6366f1' }}></i> Copy
+                </button>
+                <button 
+                  className="dropdown-item" 
+                  style={{ 
+                    padding:'10px 16px', 
+                    width:'100%', 
+                    textAlign:'left', 
+                    border:'none', 
+                    background:'transparent',
+                    borderRadius: 8,
+                    fontSize: 14,
+                    fontWeight: 500,
+                    color: '#334155',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    transition: 'all 0.15s ease',
+                    opacity: (!clipboard || contextMenu.item.type !== 'folder') ? 0.4 : 1
+                  }} 
+                  disabled={!clipboard || contextMenu.item.type !== 'folder'} 
+                  onClick={()=> { pasteInto(contextMenu.item.path); setContextMenu(null); }}
+                  onMouseEnter={(e) => { if (clipboard && contextMenu.item.type === 'folder') { e.currentTarget.style.background = '#f1f5f9'; } }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                >
+                  <i className="mdi mdi-content-paste" style={{ color: '#6366f1' }}></i> Paste
+                </button>
+                <button 
+                  className="dropdown-item" 
+                  style={{ 
+                    padding:'10px 16px', 
+                    width:'100%', 
+                    textAlign:'left', 
+                    border:'none', 
+                    background:'transparent',
+                    borderRadius: 8,
+                    fontSize: 14,
+                    fontWeight: 500,
+                    color: '#334155',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    transition: 'all 0.15s ease'
+                  }} 
+                  onClick={()=> { onCut(contextMenu.item.path); setContextMenu(null); }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#f1f5f9'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                >
+                  <i className="mdi mdi-content-cut" style={{ color: '#6366f1' }}></i> Cut
+                </button>
+                <div style={{ height: 1, background: '#e2e8f0', margin: '4px 0' }}></div>
+                <button 
+                  className="dropdown-item" 
+                  style={{ 
+                    padding:'10px 16px', 
+                    width:'100%', 
+                    textAlign:'left', 
+                    border:'none', 
+                    color:'#ef4444', 
+                    background:'transparent', 
+                    borderRadius: 8,
+                    fontSize: 14,
+                    fontWeight: 500,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    transition: 'all 0.15s ease',
+                    opacity: deleting ? 0.5 : 1
+                  }} 
+                  disabled={deleting} 
+                  onClick={()=> { if (deleting) return; confirmDelete(contextMenu.item.path, contextMenu.item.name); setContextMenu(null); }}
+                  onMouseEnter={(e) => { if (!deleting) { e.currentTarget.style.background = '#fef2f2'; } }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                >
+                  <i className="mdi mdi-trash-can-outline"></i> Delete
+                </button>
               </div>
             )}
 
             {/* Custom Confirm Modal */}
             {confirm && (
-              <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.35)', zIndex:1200, display:'flex', alignItems:'center', justifyContent:'center' }} onClick={()=> setConfirm(null)}>
-                <div className="card" style={{ width:'min(420px, 92vw)', borderRadius:12 }} onClick={(e)=> e.stopPropagation()}>
-                  <div className="card-body">
-                    <h6 className="fw-semibold mb-2">Delete item</h6>
-                    <p className="mb-3">Are you sure you want to delete <strong>{confirm.name}</strong>? This action cannot be undone.</p>
+              <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1200, display:'flex', alignItems:'center', justifyContent:'center', backdropFilter: 'blur(4px)' }} onClick={()=> !deleting && setConfirm(null)}>
+                <div className="card" style={{ width:'min(420px, 92vw)', borderRadius:16, boxShadow:'0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)', border:'none' }} onClick={(e)=> e.stopPropagation()}>
+                  <div className="card-body" style={{ padding: '24px' }}>
+                    <div className="d-flex align-items-center gap-3 mb-3">
+                      <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(239, 68, 68, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <i className="mdi mdi-alert-circle" style={{ fontSize: 24, color: '#ef4444' }}></i>
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <h6 className="fw-semibold mb-1" style={{ fontSize: 18, color: '#111827' }}>Delete {confirm.name.includes('.') ? 'file' : 'folder'}?</h6>
+                        <p className="mb-0" style={{ fontSize: 14, color: '#6b7280' }}>This action cannot be undone.</p>
+                      </div>
+                    </div>
+                    <div style={{ background: '#f9fafb', borderRadius: 8, padding: '12px', marginBottom: '20px' }}>
+                      <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 4 }}>Item to delete:</div>
+                      <div style={{ fontSize: 15, fontWeight: 600, color: '#111827', wordBreak: 'break-word' }}>
+                        <i className={`mdi ${confirm.name.includes('.') ? 'mdi-file' : 'mdi-folder'}`} style={{ marginRight: 6, color: confirm.name.includes('.') ? '#64748b' : '#f59e0b' }}></i>
+                        {confirm.name}
+                      </div>
+                    </div>
                     <div className="d-flex justify-content-end gap-2">
-                      <button className="btn btn-sm btn-secondary" onClick={()=> setConfirm(null)}>Cancel</button>
-                      <button className="btn btn-sm btn-danger" onClick={doDelete}>Delete</button>
+                      <button className="btn btn-sm" style={{ background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: 8, padding: '8px 16px', fontWeight: 600 }} onClick={()=> setConfirm(null)} disabled={deleting}>Cancel</button>
+                      <button className="btn btn-sm" style={{ background: '#ef4444', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontWeight: 600, opacity: deleting ? 0.7 : 1 }} onClick={doDelete} disabled={deleting}>
+                        {deleting ? (
+                          <>
+                            <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            Deleting...
+                          </>
+                        ) : (
+                          <>
+                            <i className="mdi mdi-trash-can-outline me-1"></i>
+                            Delete
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Folder Upload Modal */}
+            {folderUploadModal && (
+              <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1200, display:'flex', alignItems:'center', justifyContent:'center', backdropFilter: 'blur(4px)' }} onClick={()=> !uploading && setFolderUploadModal(null)}>
+                <div className="card" style={{ width:'min(500px, 92vw)', borderRadius:16, boxShadow:'0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)', border:'none' }} onClick={(e)=> e.stopPropagation()}>
+                  <div className="card-body" style={{ padding: '24px' }}>
+                    <div className="d-flex align-items-center gap-3 mb-3">
+                      <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'linear-gradient(135deg, #10b981 0%, #34d399 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)' }}>
+                        <i className="mdi mdi-folder-upload" style={{ fontSize: 28, color: '#fff' }}></i>
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <h5 className="fw-bold mb-1" style={{ fontSize: 20, color: '#111827' }}>Upload Folder</h5>
+                        <p className="mb-0" style={{ fontSize: 14, color: '#6b7280' }}>
+                          {uploading ? 'Uploading files...' : `Ready to upload "${folderUploadModal.folderName}"`}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Folder Info */}
+                    <div style={{ background: '#f8fafc', borderRadius: 12, padding: '16px', marginBottom: '20px', border: '1px solid #e2e8f0' }}>
+                      <div className="d-flex align-items-center justify-content-between mb-2">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <i className="mdi mdi-folder" style={{ fontSize: 24, color: '#f59e0b' }}></i>
+                          <div>
+                            <div style={{ fontSize: 15, fontWeight: 600, color: '#111827' }}>{folderUploadModal.folderName}</div>
+                            <div style={{ fontSize: 13, color: '#64748b' }}>{folderUploadModal.fileCount} file{folderUploadModal.fileCount !== 1 ? 's' : ''} selected</div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Progress Bar */}
+                      {uploading && (
+                        <div style={{ marginTop: 16 }}>
+                          <div className="d-flex justify-content-between align-items-center mb-2">
+                            <span style={{ fontSize: 13, fontWeight: 500, color: '#475569' }}>Uploading...</span>
+                            <span style={{ fontSize: 13, fontWeight: 600, color: '#6366f1' }}>{uploadProgress}%</span>
+                          </div>
+                          <div style={{ width: '100%', height: 8, background: '#e2e8f0', borderRadius: 999, overflow: 'hidden' }}>
+                            <div 
+                              style={{ 
+                                width: `${uploadProgress}%`, 
+                                height: '100%', 
+                                background: 'linear-gradient(90deg, #6366f1 0%, #8b5cf6 100%)',
+                                borderRadius: 999,
+                                transition: 'width 0.3s ease',
+                                boxShadow: '0 2px 4px rgba(99, 102, 241, 0.3)'
+                              }}
+                            ></div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Warning Message */}
+                    {!uploading && (
+                      <div style={{ background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 10, padding: '12px', marginBottom: '20px' }}>
+                        <div style={{ display: 'flex', alignItems: 'start', gap: 10 }}>
+                          <i className="mdi mdi-alert-circle" style={{ fontSize: 20, color: '#d97706', flexShrink: 0, marginTop: 2 }}></i>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: '#92400e', marginBottom: 2 }}>Upload Warning</div>
+                            <div style={{ fontSize: 12, color: '#78350f' }}>
+                              This will upload all {folderUploadModal.fileCount} file{folderUploadModal.fileCount !== 1 ? 's' : ''} from "{folderUploadModal.folderName}". 
+                              Only proceed if you trust this source.
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Action Buttons */}
+                    <div className="d-flex justify-content-end gap-2">
+                      <button 
+                        className="btn btn-sm" 
+                        style={{ 
+                          background: '#f3f4f6', 
+                          color: '#374151', 
+                          border: 'none', 
+                          borderRadius: 10, 
+                          padding: '10px 20px', 
+                          fontWeight: 600,
+                          fontSize: 14
+                        }} 
+                        onClick={()=> { setFolderUploadModal(null); setUploadProgress(0); }} 
+                        disabled={uploading}
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        className="btn btn-sm" 
+                        style={{ 
+                          background: uploading ? '#94a3b8' : 'linear-gradient(135deg, #10b981 0%, #34d399 100%)',
+                          color: '#fff', 
+                          border: 'none', 
+                          borderRadius: 10, 
+                          padding: '10px 20px', 
+                          fontWeight: 600,
+                          fontSize: 14,
+                          boxShadow: uploading ? 'none' : '0 4px 12px rgba(16, 185, 129, 0.3)',
+                          transition: 'all 0.2s ease'
+                        }} 
+                        onClick={doUploadFolder} 
+                        disabled={uploading}
+                        onMouseEnter={(e) => { if (!uploading) { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(16, 185, 129, 0.4)'; } }}
+                        onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.3)'; }}
+                      >
+                        {uploading ? (
+                          <>
+                            <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" style={{ width: '14px', height: '14px', borderWidth: '2px' }}></span>
+                            Uploading...
+                          </>
+                        ) : (
+                          <>
+                            <i className="mdi mdi-upload me-1"></i>
+                            Upload {folderUploadModal.fileCount} File{folderUploadModal.fileCount !== 1 ? 's' : ''}
+                          </>
+                        )}
+                      </button>
                     </div>
                   </div>
                 </div>

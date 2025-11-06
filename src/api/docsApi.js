@@ -9,9 +9,12 @@ const DocsApi = {
     fd.append('file', file);
     return api.post('/admin/docs/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data);
   },
-  uploadFolder: (path, files) => {
+  uploadFolder: (path, files, folderName) => {
     const fd = new FormData();
     fd.append('path', path);
+    if (folderName) {
+      fd.append('folderName', folderName);
+    }
     for (const f of files) {
       // Use webkitRelativePath if available (for folder uploads), otherwise just the filename
       const relPath = f.webkitRelativePath || f.name;
