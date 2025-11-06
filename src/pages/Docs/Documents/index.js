@@ -24,20 +24,29 @@ const DocumentsPage = () => {
   const [cwd, setCwd] = useState('/');
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [clipboard, setClipboard] = useState(null);
   const [newName, setNewName] = useState('');
   const [uploading, setUploading] = useState(false);
   const [selected, setSelected] = useState(null); // path
   const [toasts, setToasts] = useState([]);
   const [contextMenu, setContextMenu] = useState(null); // {x,y,item}
+  const [confirm, setConfirm] = useState(null); // {name, path}
+  const [rename, setRename] = useState(null); // {path, name, value}
 
   const load = async (path = cwd) => {
     setLoading(true);
+    setError('');
     try {
       const res = await DocsApi.list(path);
-      setItems(res || []);
+      // res is already the array after axios interceptor and .then(r => r.data)
+      setItems(Array.isArray(res) ? res : []);
       setCwd(path);
       setSelected(null);
+    } catch (err) {
+      console.error('Load error:', err);
+      setItems([]);
+      setError(err?.message || 'Failed to load directory');
     } finally { setLoading(false); }
   };
 
@@ -49,36 +58,136 @@ const DocumentsPage = () => {
 
   const onMkdir = async () => {
     if (!newName.trim()) return;
-    const res = await DocsApi.mkdir(cwd, newName.trim());
-    setNewName('');
-    await load();
+    try {
+      await DocsApi.mkdir(cwd, newName.trim());
+      setNewName('');
+      await load();
+    } catch (err) {
+      setToasts((t) => {
+        const id = Date.now();
+        setTimeout(() => setToasts((tt) => tt.filter(x => x.id !== id)), 3000);
+        return [...t, { id, text: `Create folder failed: ${err?.response?.data?.message || err.message || 'Server error'}` }];
+      });
+    }
   };
-  const onUpload = async (e) => { const f = e.target.files?.[0]; if (!f) return; setUploading(true); try { await DocsApi.upload(cwd, f); await load(); } finally { setUploading(false); e.target.value=''; } };
-  const onDelete = async (p) => { await DocsApi.remove(p); await load(); };
-  const onRename = async (p) => { const nm = prompt('New name', p.split('/').pop()); if (!nm) return; await DocsApi.rename(p, nm); await load(); };
+  const onUpload = async (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setUploading(true);
+    try {
+      await DocsApi.upload(cwd, f);
+      setToasts((t) => {
+        const id = Date.now();
+        setTimeout(() => setToasts((tt) => tt.filter(x => x.id !== id)), 2200);
+        return [...t, { id, text: `Uploaded ${f.name}` }];
+      });
+      await load();
+    } catch (err) {
+      setToasts((t) => {
+        const id = Date.now();
+        setTimeout(() => setToasts((tt) => tt.filter(x => x.id !== id)), 3000);
+        return [...t, { id, text: `Upload failed: ${err?.response?.data?.message || err.message || 'Server error'}` }];
+      });
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  };
+  const onDelete = async (p) => {
+    try {
+      await DocsApi.remove(p);
+      await load();
+    } catch (err) {
+      setToasts((t) => {
+        const id = Date.now();
+        setTimeout(() => setToasts((tt) => tt.filter(x => x.id !== id)), 3000);
+        return [...t, { id, text: `Delete failed: ${err?.response?.data?.message || err.message || 'Server error'}` }];
+      });
+    }
+  };
+  const onRename = (p) => {
+    const old = p.split('/').pop();
+    setRename({ path: p, name: old, value: old });
+  };
+  const doRename = async () => {
+    if (!rename) return;
+    const newName = (rename.value || '').trim();
+    if (!newName || newName === rename.name) { setRename(null); return; }
+    try {
+      await DocsApi.rename(rename.path, newName);
+      setRename(null);
+      setToasts((t) => {
+        const id = Date.now();
+        setTimeout(() => setToasts((tt) => tt.filter(x => x.id !== id)), 2200);
+        return [...t, { id, text: `Renamed to ${newName}` }];
+      });
+      await load();
+    } catch (err) {
+      setToasts((t) => {
+        const id = Date.now();
+        setTimeout(() => setToasts((tt) => tt.filter(x => x.id !== id)), 3000);
+        return [...t, { id, text: `Rename failed: ${err?.response?.data?.message || err.message || 'Server error'}` }];
+      });
+    }
+  };
   const onCut = (p) => setClipboard({ type:'cut', path:p });
   const onCopy = (p) => setClipboard({ type:'copy', path:p });
   const pasteInto = async (targetFolderPath) => {
-    if (!clipboard) return; const name = clipboard.path.split('/').pop(); const toPath = (targetFolderPath === '/' ? '' : targetFolderPath) + '/' + name;
-    if (clipboard.type === 'cut') {
-      await DocsApi.move(clipboard.path, toPath);
-      setClipboard(null);
+    if (!clipboard) return;
+    const name = clipboard.path.split('/').pop();
+    const toPath = (targetFolderPath === '/' ? '' : targetFolderPath) + '/' + name;
+    try {
+      if (clipboard.type === 'cut') {
+        await DocsApi.move(clipboard.path, toPath);
+        setClipboard(null);
+        setToasts((t) => {
+          const id = Date.now();
+          setTimeout(() => setToasts((tt) => tt.filter(x => x.id !== id)), 2200);
+          return [...t, { id, text: `Moved to ${targetFolderPath}` }];
+        });
+      } else {
+        await DocsApi.copy(clipboard.path, toPath);
+        setClipboard(null);
+        setToasts((t) => {
+          const id = Date.now();
+          setTimeout(() => setToasts((tt) => tt.filter(x => x.id !== id)), 2200);
+          return [...t, { id, text: `Copied here` }];
+        });
+      }
+      await load(targetFolderPath);
+    } catch (err) {
       setToasts((t) => {
-        const id = Date.now(); setTimeout(() => setToasts((tt) => tt.filter(x => x.id !== id)), 2200);
-        return [...t, { id, text: `Moved to ${targetFolderPath}` }];
-      });
-    } else {
-      await DocsApi.copy(clipboard.path, toPath);
-      setClipboard(null);
-      setToasts((t) => {
-        const id = Date.now(); setTimeout(() => setToasts((tt) => tt.filter(x => x.id !== id)), 2200);
-        return [...t, { id, text: `Copied here` }];
+        const id = Date.now();
+        setTimeout(() => setToasts((tt) => tt.filter(x => x.id !== id)), 3000);
+        return [...t, { id, text: `Paste failed: ${err?.response?.data?.message || err.message || 'Server error'}` }];
       });
     }
-    await load(targetFolderPath);
   };
 
   const onPaste = async () => pasteInto(cwd);
+
+  const confirmDelete = (p, name) => setConfirm({ path: p, name });
+  const doDelete = async () => {
+    if (!confirm) return;
+    const p = confirm.path;
+    const name = confirm.name;
+    setConfirm(null);
+    try {
+      await DocsApi.remove(p);
+      setToasts((t) => {
+        const id = Date.now();
+        setTimeout(() => setToasts((tt) => tt.filter(x => x.id !== id)), 2200);
+        return [...t, { id, text: `Deleted ${name}` }];
+      });
+      await load();
+    } catch (err) {
+      setToasts((t) => {
+        const id = Date.now();
+        setTimeout(() => setToasts((tt) => tt.filter(x => x.id !== id)), 3000);
+        return [...t, { id, text: `Delete failed: ${err?.response?.data?.message || err.message || 'Server error'}` }];
+      });
+    }
+  };
 
   const selectedItem = items.find(i => i.path === selected);
 
@@ -88,12 +197,19 @@ const DocumentsPage = () => {
   const btnOutline = (color) => ({ background:'#fff', color, border:`1px solid ${color}`, borderRadius:999, padding:'8px 14px', fontWeight:700 });
 
   return (
-    <div className="card mt-3">
+    <div className="card mt-3" style={{ minHeight: 'calc(100vh - 120px)', display:'flex', flexDirection:'column' }}>
       {/* Toasts */}
       <div style={{ position:'fixed', top: 16, right: 16, zIndex: 1060, display:'flex', flexDirection:'column', gap:8 }}>
         {toasts.map(t => (
-          <div key={t.id} style={{ background:'#111827', color:'#fff', padding:'8px 12px', borderRadius:8, boxShadow:'0 4px 12px rgba(0,0,0,0.2)' }}>
-            {t.text}
+          <div key={t.id} style={{
+            display:'flex', alignItems:'center', gap:8,
+            background:'#0f172a', color:'#e2e8f0', padding:'10px 14px', borderRadius:12,
+            boxShadow:'0 10px 20px rgba(0,0,0,0.25)', border:'1px solid #1e293b',
+            transform: 'translateY(0)', opacity: 1,
+            transition: 'opacity 200ms ease-out, transform 200ms ease-out'
+          }}>
+            <span style={{ width:10, height:10, borderRadius:'50%', background:'#22c55e' }}></span>
+            <div style={{ fontWeight:700 }}>{t.text}</div>
           </div>
         ))}
       </div>
@@ -109,22 +225,55 @@ const DocumentsPage = () => {
             <i className="mdi mdi-upload"></i> {uploading ? 'Uploading...' : 'Upload File'}
             <input type="file" hidden onChange={onUpload} />
           </label>
-          {selectedItem && (
-            <>
-              {/* Order: rename, copy, paste, cut, delete */}
-              <button className="btn btn-sm" style={btnOutline(colors.primary)} onClick={()=> onRename(selectedItem.path)}><i className="mdi mdi-rename-box"></i> Rename</button>
-              <button className="btn btn-sm" style={btnOutline(colors.primary)} onClick={()=> { onCopy(selectedItem.path); const id=Date.now(); setToasts((t)=> [...t, { id, text: `Copied ${selectedItem.name}` }]); setTimeout(()=> setToasts(tt=> tt.filter(x=> x.id!==id)), 2200); }}><i className="mdi mdi-content-copy"></i> Copy</button>
-              <button className="btn btn-sm" style={btnOutline(colors.primary)} onClick={onPaste} disabled={!clipboard}><i className="mdi mdi-content-paste"></i> Paste</button>
-              <button className="btn btn-sm" style={btnOutline(colors.primary)} onClick={()=> onCut(selectedItem.path)}><i className="mdi mdi-content-cut"></i> Cut</button>
-              <button className="btn btn-sm" style={btnOutline(colors.danger)} onClick={()=> onDelete(selectedItem.path)}><i className="mdi mdi-trash-can-outline"></i> Delete</button>
-              {selectedItem.type === 'file' && <a className="btn btn-sm" style={btnOutline(colors.green)} href={DocsApi.downloadUrl(selectedItem.path)} target="_blank" rel="noreferrer"><i className="mdi mdi-download"></i> Download</a>}
-            </>
+          {/* Always show actions; disable when inapplicable */}
+          <button
+            className="btn btn-sm"
+            style={{ ...btnOutline(colors.primary), opacity: selectedItem ? 1 : 0.5 }}
+            disabled={!selectedItem}
+            onClick={() => { if (!selectedItem) return; onRename(selectedItem.path); }}
+          >
+            <i className="mdi mdi-rename-box"></i> Rename
+          </button>
+          <button
+            className="btn btn-sm"
+            style={{ ...btnOutline(colors.primary), opacity: selectedItem ? 1 : 0.5 }}
+            disabled={!selectedItem}
+            onClick={() => { if (!selectedItem) return; onCopy(selectedItem.path); const id=Date.now(); setToasts((t)=> [...t, { id, text: `Copied ${selectedItem.name}` }]); setTimeout(()=> setToasts(tt=> tt.filter(x=> x.id!==id)), 2200); }}
+          >
+            <i className="mdi mdi-content-copy"></i> Copy
+          </button>
+          <button
+            className="btn btn-sm"
+            style={{ ...btnOutline(colors.primary), opacity: clipboard ? 1 : 0.5 }}
+            disabled={!clipboard}
+            onClick={onPaste}
+          >
+            <i className="mdi mdi-content-paste"></i> Paste
+          </button>
+          <button
+            className="btn btn-sm"
+            style={{ ...btnOutline(colors.primary), opacity: selectedItem ? 1 : 0.5 }}
+            disabled={!selectedItem}
+            onClick={() => { if (!selectedItem) return; onCut(selectedItem.path); }}
+          >
+            <i className="mdi mdi-content-cut"></i> Cut
+          </button>
+          <button
+            className="btn btn-sm"
+            style={{ ...btnOutline(colors.danger), opacity: selectedItem ? 1 : 0.5 }}
+            disabled={!selectedItem}
+            onClick={() => { if (!selectedItem) return; confirmDelete(selectedItem.path, selectedItem.name); }}
+          >
+            <i className="mdi mdi-trash-can-outline"></i> Delete
+          </button>
+          {selectedItem && selectedItem.type === 'file' && (
+            <a className="btn btn-sm" style={btnOutline(colors.green)} href={DocsApi.downloadUrl(selectedItem.path)} target="_blank" rel="noreferrer"><i className="mdi mdi-download"></i> Download</a>
           )}
         </div>
       </div>
 
-      <div className="row card-body pt-0" onClick={()=> setSelected(null)}>
-        <div className="col-12">
+      <div className="row card-body pt-0" style={{ flex: 1, display:'flex' }} onClick={()=> setSelected(null)}>
+        <div className="col-12" style={{ display:'flex', flexDirection:'column', height: '100%' }}>
           {/* Breadcrumb */}
           <div className="mb-2 d-flex flex-wrap align-items-center gap-1">
             <small className="text-muted">Path:</small>
@@ -139,6 +288,12 @@ const DocumentsPage = () => {
               );
             })}
           </div>
+          {error && (
+            <div className="alert alert-danger alert-dismissible fade show mb-2" role="alert">
+              {error}
+              <button type="button" className="btn-close" onClick={()=> setError('')} aria-label="Close"></button>
+            </div>
+          )}
 
           {/* Desktop-like grid */}
           {loading ? (
@@ -152,7 +307,7 @@ const DocumentsPage = () => {
             </div>
           ) : (
             <>
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(112px, 1fr))', gap:8, minHeight: 180 }} onClick={()=> setContextMenu(null)}>
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(112px, 1fr))', gap:8, minHeight: 180, flex: 1 }} onClick={()=> setContextMenu(null)}>
               {items.map(it => (
                 <div key={it.path} style={tileStyles.tile(selected === it.path)}
                   onClick={(e)=> { e.stopPropagation(); setSelected(it.path); setContextMenu(null); }}
@@ -187,7 +342,42 @@ const DocumentsPage = () => {
                 <button className="dropdown-item" style={{ padding:'8px 14px', width:180, textAlign:'left', border:'none', background:'transparent' }} onClick={()=> { onCopy(contextMenu.item.path); const id=Date.now(); setToasts((t)=> [...t, { id, text: `Copied ${contextMenu.item.name}` }]); setTimeout(()=> setToasts(tt=> tt.filter(x=> x.id!==id)), 2200); setContextMenu(null); }}>Copy</button>
                 <button className="dropdown-item" style={{ padding:'8px 14px', width:180, textAlign:'left', border:'none', background:'transparent' }} disabled={!clipboard || contextMenu.item.type !== 'folder'} onClick={()=> { pasteInto(contextMenu.item.path); setContextMenu(null); }}>Paste</button>
                 <button className="dropdown-item" style={{ padding:'8px 14px', width:180, textAlign:'left', border:'none', background:'transparent' }} onClick={()=> { onCut(contextMenu.item.path); setContextMenu(null); }}>Cut</button>
-                <button className="dropdown-item" style={{ padding:'8px 14px', width:180, textAlign:'left', borderTop:'1px solid #f3f4f6', color:'#ef4444', background:'transparent' }} onClick={()=> { onDelete(contextMenu.item.path); setContextMenu(null); }}>Delete</button>
+                <button className="dropdown-item" style={{ padding:'8px 14px', width:180, textAlign:'left', borderTop:'1px solid #f3f4f6', color:'#ef4444', background:'transparent' }} onClick={()=> { confirmDelete(contextMenu.item.path, contextMenu.item.name); setContextMenu(null); }}>Delete</button>
+              </div>
+            )}
+
+            {/* Custom Confirm Modal */}
+            {confirm && (
+              <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.35)', zIndex:1200, display:'flex', alignItems:'center', justifyContent:'center' }} onClick={()=> setConfirm(null)}>
+                <div className="card" style={{ width:'min(420px, 92vw)', borderRadius:12 }} onClick={(e)=> e.stopPropagation()}>
+                  <div className="card-body">
+                    <h6 className="fw-semibold mb-2">Delete item</h6>
+                    <p className="mb-3">Are you sure you want to delete <strong>{confirm.name}</strong>? This action cannot be undone.</p>
+                    <div className="d-flex justify-content-end gap-2">
+                      <button className="btn btn-sm btn-secondary" onClick={()=> setConfirm(null)}>Cancel</button>
+                      <button className="btn btn-sm btn-danger" onClick={doDelete}>Delete</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Rename Modal */}
+            {rename && (
+              <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.35)', zIndex:1200, display:'flex', alignItems:'center', justifyContent:'center' }} onClick={()=> setRename(null)}>
+                <div className="card" style={{ width:'min(480px, 92vw)', borderRadius:12 }} onClick={(e)=> e.stopPropagation()}>
+                  <div className="card-body">
+                    <h6 className="fw-semibold mb-2">Rename item</h6>
+                    <div className="mb-3">
+                      <label className="form-label small text-muted">New name</label>
+                      <input className="form-control" autoFocus value={rename.value} onChange={(e)=> setRename({ ...rename, value: e.target.value })} onKeyDown={(e)=> { if (e.key==='Enter') doRename(); if (e.key==='Escape') setRename(null); }} />
+                    </div>
+                    <div className="d-flex justify-content-end gap-2">
+                      <button className="btn btn-sm btn-secondary" onClick={()=> setRename(null)}>Cancel</button>
+                      <button className="btn btn-sm btn-primary" onClick={doRename} disabled={!rename.value || rename.value.trim()===rename.name}>Save</button>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
             </>

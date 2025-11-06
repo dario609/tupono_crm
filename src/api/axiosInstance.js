@@ -1,13 +1,28 @@
 // src/api/axiosInstance.js
 import axios from "axios";
 
-// Normalize base URL to always be absolute (adds protocol if missing) and trims trailing slashes
+// Normalize base URL to always be absolute and sane.
+// Handles cases like ":5000/api" by mapping to "http://localhost:5000/api".
 const normalizeBaseUrl = (url) => {
   let normalized = (url || "").trim();
+  if (!normalized) return "http://localhost:5000/api";
+
+  // If someone passed just ":5000/...", assume localhost
+  if (/^:\d+(\/|$)/.test(normalized)) {
+    normalized = `localhost${normalized}`; // -> localhost:5000/...
+  }
+
+  // If it has no scheme, add current page scheme (or http:)
   if (!/^https?:\/\//i.test(normalized)) {
     const protocol = typeof window !== "undefined" && window.location?.protocol ? window.location.protocol : "http:";
-    normalized = `${protocol}//${normalized}`;
+    // Also handle leading "//host" inputs
+    if (/^\/\//.test(normalized)) {
+      normalized = `${protocol}${normalized}`; // protocol already has the colon
+    } else {
+      normalized = `${protocol}//${normalized}`;
+    }
   }
+
   return normalized.replace(/\/+$/, "");
 };
 
