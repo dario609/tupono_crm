@@ -14,6 +14,8 @@ const CalendarPage = () => {
   const [now, setNow] = useState(new Date());
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [toasts, setToasts] = useState([]);
+  const [invitingMap, setInvitingMap] = useState({}); // id -> boolean
+  const [confirmDelete, setConfirmDelete] = useState(null); // { id, title }
   const [viewportW, setViewportW] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
   const [usersMap, setUsersMap] = useState({}); // id -> display name
   const [teamsMap, setTeamsMap] = useState({}); // id -> { name, members: string[] }
@@ -77,6 +79,66 @@ const CalendarPage = () => {
     }
   };
 
+  const handleInvite = async (ev) => {
+    const id = ev?._id;
+    if (!id || invitingMap[id]) return;
+    setInvitingMap((m) => ({ ...m, [id]: true }));
+    try {
+      const startStr = ev.start ? formatDateTime(new Date(ev.start)) : '';
+      const endStr = ev.end ? formatDateTime(new Date(ev.end)) : '';
+      const subject = `Meeting invite: ${ev.title || 'Meeting'}`;
+      const message = [
+        'You are invited to a meeting.',
+        `Title: ${ev.title || 'Meeting'}`,
+        startStr ? `Start: ${startStr}` : '',
+        endStr ? `End: ${endStr}` : '',
+        ev.link ? `Link: ${ev.link}` : ''
+      ].filter(Boolean).join('\n');
+      await CalendarApi.invite(id, { subject, message });
+      setEvents((prev) => prev.map(r => r._id === id ? { ...r, invite_sent: true } : r));
+      showToast('Invites sent');
+    } catch (e) {
+      showToast(e?.message || 'Invite failed', 'error');
+    } finally {
+      setInvitingMap((m) => ({ ...m, [id]: false }));
+    }
+  };
+
+  // Prompt to mark meeting done when user returns after opening the meeting link
+  useEffect(() => {
+    const onFocus = () => {
+      try {
+        const keys = Object.keys(sessionStorage).filter(k => k.startsWith('meeting_opened_'));
+        for (const k of keys) {
+          const id = k.replace('meeting_opened_', '');
+          const ev = events.find(e => String(e._id) === String(id));
+          if (!ev) continue;
+          // Show modal-like prompt
+          // setToasts((t) => [...t, { id: `prompt_${id}`, text: `Was "${ev.title || 'meeting'}" completed?`, kind: 'prompt', pos: { top: 70, left: 20 } }]);
+          // attach a lightweight prompt handler via confirmDelete-style modal would be too intrusive; reuse toast as CTA
+          // We will open a small modal below
+          setDonePrompt({ id, title: ev.title || 'Meeting' });
+          break;
+        }
+      } catch {}
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [events]);
+
+  const [donePrompt, setDonePrompt] = useState(null); // { id, title }
+  const markDone = async (id) => {
+    try {
+      await CalendarApi.update(id, { is_done: true });
+      setEvents((prev) => prev.map(r => r._id === id ? { ...r, is_done: true } : r));
+      try { sessionStorage.removeItem(`meeting_opened_${id}`); } catch {}
+      showToast('Marked as done');
+    } catch (e) {
+      showToast(e?.message || 'Failed to mark done', 'error');
+    } finally {
+      setDonePrompt(null);
+    }
+  };
   // Load team members for teams referenced in current events
   useEffect(() => {
     (async () => {
@@ -152,6 +214,11 @@ const CalendarPage = () => {
       return d.toLocaleString([], { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' });
     } catch { return ''; }
   };
+  const formatDateTime = (d) => {
+    try {
+      return d.toLocaleString([], { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    } catch { return ''; }
+  };
   const formatDuration = (start, end) => {
     try {
       const ms = Math.max(0, new Date(end) - new Date(start));
@@ -225,6 +292,46 @@ const CalendarPage = () => {
         <NavLink to="/calendar/create" className="btn btn-primary btn-sm">Add Meeting</NavLink>
       </div>
 
+      {/* Delete confirm modal */}
+      {confirmDelete && (
+        <div className="modal-backdrop" onClick={()=> setConfirmDelete(null)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.35)', zIndex:1050, display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <div className="card" onClick={(e)=> e.stopPropagation()} style={{ maxWidth: 420, width: '92%', borderRadius: 12, boxShadow:'0 10px 30px rgba(0,0,0,0.2)', border: 'none' }}>
+            <div className="card-body">
+              <div className="d-flex align-items-start justify-content-between mb-2">
+                <h6 className="fw-semibold mb-0" style={{ fontSize: 18 }}>Delete meeting?</h6>
+                <button className="btn btn-sm" onClick={() => setConfirmDelete(null)} style={{ background: '#e5e7eb', color: '#111827', border: 'none', borderRadius: 999, padding: '6px 14px', fontWeight: 700 }}>Close</button>
+              </div>
+              <div className="text-muted" style={{ fontSize: 14 }}>This action cannot be undone.</div>
+              <div className="mt-3" style={{ background:'#f9fafb', borderRadius:8, padding:'10px 12px' }}>
+                <strong>Title:</strong> <span className="text-muted">{confirmDelete.title || 'Meeting'}</span>
+              </div>
+              <div className="d-flex justify-content-end gap-2 mt-3">
+                <button className="btn btn-secondary btn-sm" onClick={()=> setConfirmDelete(null)}>Cancel</button>
+                <button className="btn btn-danger btn-sm" onClick={async ()=> { const id = confirmDelete.id; setConfirmDelete(null); await onDelete(id); showToast('Meeting deleted'); }}>Delete</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Done prompt modal */}
+      {donePrompt && (
+        <div className="modal-backdrop" onClick={()=> setDonePrompt(null)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.35)', zIndex:1050, display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <div className="card" onClick={(e)=> e.stopPropagation()} style={{ maxWidth: 500, width: '92%', borderRadius: 14, overflow:'hidden', border: 'none', boxShadow:'0 20px 40px rgba(0,0,0,0.25)' }}>
+            <div style={{ background: 'linear-gradient(135deg,#3b82f6 0%, #06b6d4 100%)', color:'#fff', padding:'14px 18px' }}>
+              <h6 className="mb-0" style={{ fontSize: 18, fontWeight: 700 }}>Mark meeting as completed</h6>
+            </div>
+            <div className="card-body" style={{ padding: '18px' }}>
+              <div className="mb-2" style={{ fontSize: 15, color:'#111827' }}>Was this meeting completed?</div>
+              <div className="text-muted mb-3" style={{ fontSize: 14 }}>{donePrompt.title}</div>
+              <div className="d-flex justify-content-end gap-2">
+                <button className="btn btn-secondary btn-sm" onClick={()=> { try { sessionStorage.removeItem(`meeting_opened_${donePrompt.id}`); } catch {}; setDonePrompt(null); }}>Not yet</button>
+                <button className="btn btn-primary btn-sm" onClick={()=> markDone(donePrompt.id)} style={{ background:'linear-gradient(135deg,#10b981 0%, #34d399 100%)', border:'none' }}>Yes, mark done</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="card mt-1">
         <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-24 p-3">
         <h6 className="fw-semibold mb-0">My Calendar</h6>
@@ -267,6 +374,8 @@ const CalendarPage = () => {
                     <th>End</th>
                     <th>Color</th>
                     <th>Participants</th>
+                    <th>Invited</th>
+                    <th>Done</th>
                     <th>Link</th>
                     <th style={{ width: 180, minWidth: 140 }} className="text-center">Actions</th>
                   </tr>
@@ -281,6 +390,8 @@ const CalendarPage = () => {
                         <td><div className="skeleton skeleton-line" style={{ width: "80%" }} /></td>
                         <td><div className="skeleton" style={{ width: 16, height: 16, borderRadius: 3 }} /></td>
                         <td><div className="skeleton skeleton-line" style={{ width: "70%" }} /></td>
+                        <td><div className="skeleton" style={{ width: 18, height: 18, borderRadius: 4 }} /></td>
+                        <td><div className="skeleton" style={{ width: 18, height: 18, borderRadius: 4 }} /></td>
                         <td><div className="skeleton skeleton-line" style={{ width: "50%" }} /></td>
                         <td className="text-center">
                           <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
@@ -298,14 +409,36 @@ const CalendarPage = () => {
                           {ev.description ? ev.description : '-'}
                         </span>
                       </td>
-                      <td>{ev.start ? new Date(ev.start).toLocaleString() : '-'}</td>
-                      <td>{ev.end ? new Date(ev.end).toLocaleString() : '-'}</td>
+                      <td>{ev.start ? formatDateTime(new Date(ev.start)) : '-'}</td>
+                      <td>{ev.end ? formatDateTime(new Date(ev.end)) : '-'}</td>
                       <td><span style={{ display:'inline-block', width:16, height:16, background: ev.color, borderRadius: 3 }} /></td>
                       <td>{renderParticipants(ev)}</td>
                       <td>
+                        {ev.invite_sent ? (
+                          <span title="Invites sent" style={{ color:'#16a34a' }}>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                          </span>
+                        ) : (
+                          <span title="Not sent" style={{ color:'#94a3b8' }}>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"></circle></svg>
+                          </span>
+                        )}
+                      </td>
+                      <td>
+                        {ev.is_done ? (
+                          <span title="Completed" style={{ color:'#16a34a' }}>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                          </span>
+                        ) : (
+                          <span title="Not done" style={{ color:'#94a3b8' }}>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"></circle></svg>
+                          </span>
+                        )}
+                      </td>
+                      <td>
                         {ev.link ? (
                           <div className="d-flex align-items-center gap-2">
-                            <a href={ev.link} target="_blank" rel="noreferrer">Join Meeting</a>
+                            <a href={ev.link} target="_blank" rel="noreferrer" onClick={()=> { try { sessionStorage.setItem(`meeting_opened_${ev._id}`, String(Date.now())); } catch {} }}>Join Meeting</a>
                             <button
                               className="btn btn-sm"
                               title="Copy link"
@@ -340,19 +473,27 @@ const CalendarPage = () => {
                           <button
                             className="btn badge-info btn-sm btn-rounded btn-icon"
                             title="Send Invite"
-                            onClick={async ()=> { try { await CalendarApi.invite(ev._id, {}); showToast('Invites sent'); } catch(e){ showToast(e.message || 'Invite failed', 'error'); } }}
+                            disabled={!!invitingMap[ev._id]}
+                            onClick={() => handleInvite(ev)}
                           >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="feather feather-send align-middle">
-                              <line x1="22" y1="2" x2="11" y2="13"></line>
-                              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                            </svg>
+                            {invitingMap[ev._id] ? (
+                              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="align-middle" style={{ animation: 'spin 1s linear infinite' }}>
+                                <circle cx="12" cy="12" r="9" style={{ opacity: 0.25 }}></circle>
+                                <path d="M12 3a9 9 0 0 1 9 9" />
+                              </svg>
+                            ) : (
+                              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="feather feather-send align-middle">
+                                <line x1="22" y1="2" x2="11" y2="13"></line>
+                                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                              </svg>
+                            )}
                           </button>
                           <NavLink to={`/calendar/${ev._id}/edit`} className="btn badge-success btn-sm btn-rounded btn-icon" title="Edit">
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="feather feather-edit-2 align-middle">
                               <polygon points="16 3 21 8 8 21 3 21 3 16 16 3"></polygon>
                             </svg>
                           </NavLink>
-                          <button className="btn badge-danger btn-sm btn-rounded btn-icon" title="Delete" onClick={()=> onDelete(ev._id)}>
+                          <button className="btn badge-danger btn-sm btn-rounded btn-icon" title="Delete" onClick={()=> setConfirmDelete({ id: ev._id, title: ev.title })}>
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="feather feather-trash align-middle">
                               <polyline points="3 6 5 6 21 6"></polyline>
                               <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -364,7 +505,7 @@ const CalendarPage = () => {
                     )
                   ))}
                   {!loading && events.length === 0 && (
-                    <tr><td colSpan={8} className="text-center py-3">No meetings yet</td></tr>
+                    <tr><td colSpan={10} className="text-center py-3">No meetings yet</td></tr>
                   )}
                 </tbody>
               </table>
@@ -603,7 +744,7 @@ const CalendarPage = () => {
                             <td>
                               {ev.link ? (
                                 <div className="d-flex align-items-center gap-2">
-                                  <a href={ev.link} target="_blank" rel="noreferrer">Join Meeting</a>
+                                  <a href={ev.link} target="_blank" rel="noreferrer" onClick={()=> { try { sessionStorage.setItem(`meeting_opened_${ev._id}`, String(Date.now())); } catch {} }}>Join Meeting</a>
                                   <button
                                     className="btn btn-sm"
                                     title="Copy link"
