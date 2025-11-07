@@ -21,6 +21,7 @@ import RoheHapuPage from "./pages/Docs/RoheHapu";
 import DocumentsPage from "./pages/Docs/Documents";
 import CalendarPage from "./pages/Calendar";
 import CalendarCreate from "./pages/Calendar/Create";
+import CalendarEdit from "./pages/Calendar/Edit";
 import { AuthProvider } from "./context/AuthProvider";
 import AdminLayout from "./layouts/AdminLayout";
 import './App.css';
@@ -55,6 +56,7 @@ function App() {
             <Route path="/documents" element={<DocumentsPage />} />
             <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/calendar/create" element={<CalendarCreate />} />
+            <Route path="/calendar/:id/edit" element={<CalendarEdit />} />
           </Route>
         </Route>
 

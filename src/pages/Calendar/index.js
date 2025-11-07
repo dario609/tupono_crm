@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
 import CalendarApi from "../../api/calendarApi";
+import UsersApi from "../../api/usersApi";
+import TeamsApi from "../../api/teamsApi";
 
 const CalendarPage = () => {
   const [loading, setLoading] = useState(false);
@@ -11,12 +13,26 @@ const CalendarPage = () => {
   const [calendarView, setCalendarView] = useState('month'); // 'day' | 'week' | 'month' | 'schedule'
   const [now, setNow] = useState(new Date());
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [toasts, setToasts] = useState([]);
+  const [viewportW, setViewportW] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  const [usersMap, setUsersMap] = useState({}); // id -> display name
+  const [teamsMap, setTeamsMap] = useState({}); // id -> { name, members: string[] }
 
   const load = async () => {
     setLoading(true);
     try {
-      const res = await CalendarApi.list({});
+      const [res, usersRes] = await Promise.all([
+        CalendarApi.list({}),
+        UsersApi.list({ perpage: -1 }).catch(() => ({ data: [] })),
+      ]);
       setEvents(res?.data || []);
+      const ulist = usersRes?.data || [];
+      const umap = {};
+      for (const u of ulist) {
+        const name = (`${u.first_name ?? ''} ${u.last_name ?? ''}`.trim()) || u.email || 'User';
+        if (u._id) umap[u._id] = name;
+      }
+      setUsersMap(umap);
     } finally {
       setLoading(false);
     }
@@ -28,7 +44,92 @@ const CalendarPage = () => {
     return () => clearInterval(t);
   }, []);
 
+  useEffect(() => {
+    const onResize = () => setViewportW(window.innerWidth || 1200);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
   const onDelete = async (id) => { try { await CalendarApi.remove(id); await load(); } catch {} };
+
+  const showToast = (text, kind = 'success', pos) => {
+    const id = Date.now();
+    setToasts((t) => [...t, { id, text, kind, pos }]);
+    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 2200);
+  };
+
+  const copyToClipboard = async (text, anchorEl) => {
+    try {
+      await navigator.clipboard.writeText(String(text || ''));
+      let pos;
+      try {
+        if (anchorEl && anchorEl.getBoundingClientRect) {
+          const r = anchorEl.getBoundingClientRect();
+          pos = {
+            top: Math.max(12, r.top + window.scrollY - 8),
+            left: Math.min(window.scrollX + window.innerWidth - 240, r.right + window.scrollX + 8),
+          };
+        }
+      } catch {}
+      showToast('Meeting link copied', 'success', pos);
+    } catch {
+      showToast('Unable to copy', 'error');
+    }
+  };
+
+  // Load team members for teams referenced in current events
+  useEffect(() => {
+    (async () => {
+      try {
+        const teamIds = new Set();
+        for (const ev of events) {
+          const assigns = Array.isArray(ev?.assignments) ? ev.assignments : [];
+          for (const a of assigns) if (a?.refType === 'team' && a?.refId) teamIds.add(a.refId);
+        }
+        const toFetch = Array.from(teamIds).filter(id => !teamsMap[id]);
+        if (!toFetch.length) return;
+        const results = await Promise.all(toFetch.map(id => TeamsApi.getById(id).catch(() => null)));
+        const tmap = {};
+        toFetch.forEach((id, i) => {
+          const detail = results[i];
+          const payload = detail?.data || detail || {};
+          const name = payload?.title || payload?.name || 'Team';
+          const members = (payload?.members || []).map(m => (m.name || `${m.first_name ?? ''} ${m.last_name ?? ''}`.trim() || m.email)).filter(Boolean);
+          tmap[id] = { name, members };
+        });
+        if (Object.keys(tmap).length) setTeamsMap(prev => ({ ...prev, ...tmap }));
+      } catch {}
+    })();
+  }, [events]);
+
+  const renderParticipants = (ev) => {
+    try {
+      // Prefer explicit participants/attendees if provided
+      const direct = Array.isArray(ev.participants) ? ev.participants : (Array.isArray(ev.attendees) ? ev.attendees : null);
+      if (direct) {
+        const names = direct.map(p => p?.name || `${p?.first_name ?? ''} ${p?.last_name ?? ''}`.trim() || p?.email).filter(Boolean);
+        if (names.length) return names.join(', ');
+      }
+      const assigns = Array.isArray(ev.assignments) ? ev.assignments : [];
+      if (!assigns.length) return '-';
+      const parts = [];
+      for (const a of assigns) {
+        if (a?.refType === 'user' && a?.refId) {
+          const uname = usersMap[a.refId] || 'User';
+          parts.push(uname);
+        } else if (a?.refType === 'team' && a?.refId) {
+          const t = teamsMap[a.refId];
+          if (t) {
+            const label = t.members && t.members.length ? `${t.name}: ${t.members.join(', ')}` : t.name;
+            parts.push(label);
+          } else {
+            parts.push('Team');
+          }
+        }
+      }
+      return parts.length ? parts.join(', ') : '-';
+    } catch { return '-'; }
+  };
 
   const startOfMonth = (d) => new Date(d.getFullYear(), d.getMonth(), 1);
   const endOfMonth = (d) => new Date(d.getFullYear(), d.getMonth() + 1, 0);
@@ -85,6 +186,37 @@ const CalendarPage = () => {
   return (
     <>
       {/* Top-right global toolbar */}
+      {/* Toasts */}
+      {/* Anchored toasts near triggers */}
+      <div style={{ position:'fixed', inset:0, pointerEvents:'none', zIndex:1060 }}>
+        {toasts.filter(t => !!t.pos).map(t => (
+          <div key={t.id} style={{
+            position:'absolute', top: t.pos.top, left: t.pos.left,
+            display:'inline-flex', alignItems:'center', gap:10, pointerEvents:'none',
+            background: t.kind === 'error' ? 'linear-gradient(135deg, #ef4444 0%, #f97316 100%)' : 'linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)',
+            color:'#fff', padding:'8px 12px', borderRadius:10,
+            boxShadow:'0 8px 16px rgba(0,0,0,0.15)', fontWeight:600, fontSize:12
+          }}>
+            <span>{t.text}</span>
+          </div>
+        ))}
+      </div>
+      {/* Global stack (fallback) */}
+      <div style={{ position:'fixed', top: 20, right: 20, zIndex: 1059, display:'flex', flexDirection:'column', gap:10 }}>
+        {toasts.filter(t => !t.pos).map(t => (
+          <div key={t.id} style={{
+            display:'flex', alignItems:'center', gap:12,
+            background: t.kind === 'error' ? 'linear-gradient(135deg, #ef4444 0%, #f97316 100%)' : 'linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)',
+            color: '#fff', padding: '10px 14px', borderRadius: 12,
+            boxShadow: '0 10px 20px rgba(0,0,0,0.15)', minWidth: 220
+          }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#fff', opacity: 0.9 }}></div>
+            <div style={{ fontWeight: 600, fontSize: 13 }}>{t.text}</div>
+          </div>
+        ))}
+      </div>
+      {/* /Toasts */}
+
       <div className="d-flex justify-content-end align-items-center gap-2 mb-2 mt-2">
         <div className="btn-group" role="group" aria-label="mode">
           <button type="button" className={`btn btn-sm ${viewMode==='table'?'btn-primary':'btn-outline-primary'}`} onClick={()=> setViewMode('table')}>Table</button>
@@ -130,11 +262,13 @@ const CalendarPage = () => {
                 <thead>
                   <tr>
                     <th>Title</th>
+                    <th>Description</th>
                     <th>Start</th>
                     <th>End</th>
                     <th>Color</th>
+                    <th>Participants</th>
                     <th>Link</th>
-                    <th style={{ width: 180 }} className="text-center">Actions</th>
+                    <th style={{ width: 180, minWidth: 140 }} className="text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody aria-busy={loading}>
@@ -144,33 +278,93 @@ const CalendarPage = () => {
                         <td><div className="skeleton skeleton-line" style={{ width: "70%" }} /></td>
                         <td><div className="skeleton skeleton-line" style={{ width: "80%" }} /></td>
                         <td><div className="skeleton skeleton-line" style={{ width: "80%" }} /></td>
+                        <td><div className="skeleton skeleton-line" style={{ width: "80%" }} /></td>
                         <td><div className="skeleton" style={{ width: 16, height: 16, borderRadius: 3 }} /></td>
+                        <td><div className="skeleton skeleton-line" style={{ width: "70%" }} /></td>
                         <td><div className="skeleton skeleton-line" style={{ width: "50%" }} /></td>
                         <td className="text-center">
                           <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
-                            <div className="skeleton" style={{ width: 80, height: 28, borderRadius: 6 }} />
-                            <div className="skeleton" style={{ width: 64, height: 28, borderRadius: 6 }} />
+                            <div className="skeleton" style={{ width: 32, height: 32, borderRadius: 8 }} />
+                            <div className="skeleton" style={{ width: 32, height: 32, borderRadius: 8 }} />
+                            <div className="skeleton" style={{ width: 32, height: 32, borderRadius: 8 }} />
                           </div>
                         </td>
                       </tr>
                     ) : (
                     <tr key={ev._id}>
                       <td>{ev.title}</td>
+                      <td>
+                        <span title={ev.description || ''} style={{ display:'inline-block', maxWidth:260, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', verticalAlign:'middle',}}>
+                          {ev.description ? ev.description : '-'}
+                        </span>
+                      </td>
                       <td>{ev.start ? new Date(ev.start).toLocaleString() : '-'}</td>
                       <td>{ev.end ? new Date(ev.end).toLocaleString() : '-'}</td>
                       <td><span style={{ display:'inline-block', width:16, height:16, background: ev.color, borderRadius: 3 }} /></td>
-                      <td>{ev.link ? <a href={ev.link} target="_blank" rel="noreferrer">Open</a> : '-'}</td>
+                      <td>{renderParticipants(ev)}</td>
+                      <td>
+                        {ev.link ? (
+                          <div className="d-flex align-items-center gap-2">
+                            <a href={ev.link} target="_blank" rel="noreferrer">Join Meeting</a>
+                            <button
+                              className="btn btn-sm"
+                              title="Copy link"
+                              onClick={(e) => copyToClipboard(ev.link, e.currentTarget)}
+                              style={{
+                                width: 34,
+                                height: 30,
+                                padding: 0,
+                                borderRadius: 8,
+                                border: '1px solid #cbd5e1',
+                                background: '#ffffff',
+                                color: '#2563eb',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}
+                              onMouseEnter={(e) => { e.currentTarget.style.background = '#2563eb'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = '#2563eb'; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.background = '#ffffff'; e.currentTarget.style.color = '#2563eb'; e.currentTarget.style.borderColor = '#cbd5e1'; }}
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="feather feather-copy align-middle">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                              </svg>
+                            </button>
+                          </div>
+                        ) : (
+                          <span>-</span>
+                        )}
+                      </td>
                       <td className="text-center">
-                        <div className="d-flex gap-2 justify-content-center">
-                          <button className="btn btn-sm btn-secondary" onClick={async ()=> { try { await CalendarApi.invite(ev._id, {}); alert('Invites sent (if SMTP configured)'); } catch(e){ alert(e.message || 'Invite failed'); } }}>Email Invite</button>
-                          <button className="btn btn-sm btn-danger" onClick={()=> onDelete(ev._id)}>Delete</button>
+                        <div style={{ display: 'flex', gap: 6, justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap', rowGap: 6 }}>
+                          <button
+                            className="btn badge-info btn-sm btn-rounded btn-icon"
+                            title="Send Invite"
+                            onClick={async ()=> { try { await CalendarApi.invite(ev._id, {}); showToast('Invites sent'); } catch(e){ showToast(e.message || 'Invite failed', 'error'); } }}
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="feather feather-send align-middle">
+                              <line x1="22" y1="2" x2="11" y2="13"></line>
+                              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                            </svg>
+                          </button>
+                          <NavLink to={`/calendar/${ev._id}/edit`} className="btn badge-success btn-sm btn-rounded btn-icon" title="Edit">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="feather feather-edit-2 align-middle">
+                              <polygon points="16 3 21 8 8 21 3 21 3 16 16 3"></polygon>
+                            </svg>
+                          </NavLink>
+                          <button className="btn badge-danger btn-sm btn-rounded btn-icon" title="Delete" onClick={()=> onDelete(ev._id)}>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="feather feather-trash align-middle">
+                              <polyline points="3 6 5 6 21 6"></polyline>
+                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            </svg>
+                          </button>
                         </div>
                       </td>
                     </tr>
                     )
                   ))}
                   {!loading && events.length === 0 && (
-                    <tr><td colSpan={6} className="text-center py-3">No meetings yet</td></tr>
+                    <tr><td colSpan={8} className="text-center py-3">No meetings yet</td></tr>
                   )}
                 </tbody>
               </table>
@@ -192,7 +386,7 @@ const CalendarPage = () => {
                     );
                   })()}
                 </div>
-                <div className="fw-semibold">
+                <div className="fw-semibold" style={{marginLeft: '30px',marginTop: '10px'}}>
                   {calendarView==='day' && dayLabel(currentDate)}
                   {calendarView==='week' && weekLabel(currentDate)}
                   {calendarView==='month' && monthLabel(currentDate)}
@@ -205,9 +399,11 @@ const CalendarPage = () => {
                   {/* Headers */}
                   {(() => {
                     const names = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+                    const minMonthWidth = viewportW < 768 ? 720 : 'auto';
+                    const minDWWidth = viewportW < 768 ? 900 : 'auto';
                     if (calendarView === 'month') {
                       return (
-                        <div className="row g-0" style={{ border: '1px solid #cbd5e1', borderBottom: 'none' }}>
+                        <div className="row g-0" style={{ minWidth: minMonthWidth, border: '1px solid #cbd5e1', borderBottom: 'none' }}>
                           {names.map((d, i) => (
                             <div key={`headm-${i}`} className="col" style={{ padding: 8, background: '#f8fafc', borderRight: i < 6 ? '1px solid #cbd5e1':'none', fontWeight: 600, fontSize: 12 }}>{d}</div>
                           ))}
@@ -219,43 +415,44 @@ const CalendarPage = () => {
                     const firstIdx = currentDate.getDay();
                     const labels = calendarView === 'day' ? [names[firstIdx]] : names;
                     return (
-                  <div className="row g-0" style={{ border: '1px solid #cbd5e1', borderBottom: 'none', display: 'grid', gridTemplateColumns: `70px repeat(${cols}, 1fr)` }}>
-                    <div style={{ padding: 8, background: '#f8fafc', borderRight: '1px solid #cbd5e1' }}></div>
-                    {Array.from({ length: cols }).map((_, i) => {
-                      const base = startOfWeek(currentDate);
-                      const cellDate = calendarView === 'day' ? new Date(currentDate) : addDays(base, i);
-                      const isTodayCell = isSameDay(cellDate, now);
-                      return (
-                        <div
-                          key={`headh-${i}`}
-                          style={{
-                            padding: 10,
-                            background: isTodayCell ? '#eef6ff' : '#f8fafc',
-                            borderRight: i < cols-1 ? '1px solid #cbd5e1' : 'none',
-                            fontWeight: 700,
-                            fontSize: 13,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            textAlign: 'center',
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <span>{["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][cellDate.getDay()]}</span>
-                            {isTodayCell && (
-                              <span style={{ width: 26, height: 26, borderRadius: '50%', background: '#2563eb', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{cellDate.getDate()}</span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                      <div className="row g-0" style={{ minWidth: minDWWidth, border: '1px solid #cbd5e1', borderBottom: 'none', display: 'grid', gridTemplateColumns: `70px repeat(${cols}, 1fr)` }}>
+                        <div style={{ padding: 8, background: '#f8fafc', borderRight: '1px solid #cbd5e1' }}></div>
+                        {Array.from({ length: cols }).map((_, i) => {
+                          const base = startOfWeek(currentDate);
+                          const cellDate = calendarView === 'day' ? new Date(currentDate) : addDays(base, i);
+                          const isTodayCell = isSameDay(cellDate, now);
+                          return (
+                            <div
+                              key={`headh-${i}`}
+                              style={{
+                                padding: 10,
+                                background: isTodayCell ? '#eef6ff' : '#f8fafc',
+                                borderRight: i < cols-1 ? '1px solid #cbd5e1' : 'none',
+                                fontWeight: 700,
+                                fontSize: 13,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                textAlign: 'center',
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span>{["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][cellDate.getDay()]}</span>
+                                {isTodayCell && (
+                                  <span style={{ width: 26, height: 26, borderRadius: '50%', background: '#2563eb', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{cellDate.getDate()}</span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     );
                   })()}
 
                   {/* Grid */}
                   {calendarView === 'month' ? (
-                    <div className="row g-0" style={{ border: '1px solid #cbd5e1', borderTop: 'none' }}>
+                    <div style={{ overflowX: viewportW < 768 ? 'auto' : 'visible' }}>
+                      <div className="row g-0" style={{ minWidth: viewportW < 768 ? 720 : 'auto', border: '1px solid #cbd5e1', borderTop: 'none' }}>
                       {(() => {
                         const start = startOfCalendar(currentDate);
                         const days = Array.from({ length: 42 }, (_, i) => addDays(start, i));
@@ -292,11 +489,12 @@ const CalendarPage = () => {
                           );
                         });
                       })()}
+                      </div>
                     </div>
                   ) : (
                     // day/week time grid with hour marks
-                    <div style={{ position: 'relative' }}>
-                      <div style={{ border: '1px solid #cbd5e1', borderTop: 'none', display: 'grid', gridTemplateColumns: `70px repeat(${calendarView==='day'?1:7}, 1fr)` }}>
+                    <div style={{ position: 'relative', overflowX: viewportW < 768 ? 'auto' : 'visible' }}>
+                      <div style={{ minWidth: viewportW < 768 ? 900 : 'auto', border: '1px solid #cbd5e1', borderTop: 'none', display: 'grid', gridTemplateColumns: `70px repeat(${calendarView==='day'?1:7}, 1fr)` }}>
                         {(() => {
                         const cols = calendarView === 'day' ? 1 : 7;
                         const base = calendarView === 'week' ? startOfWeek(currentDate) : new Date(currentDate);
@@ -372,16 +570,18 @@ const CalendarPage = () => {
                         <th>Title</th>
                         <th style={{ width: '20%' }}>Time</th>
                         <th style={{ width: '10%' }}>Color</th>
-                        <th style={{ width: '20%' }}>Link</th>
+                      <th style={{ width: '22%' }}>Participants</th>
+                      <th style={{ width: '20%' }}>Link</th>
                       </tr>
                     </thead>
                     <tbody aria-busy={loading}>
                       {loading ? Array.from({ length: 8 }).map((_, i) => (
-                        <tr key={`sks-${i}`} aria-hidden="true">
+                      <tr key={`sks-${i}`} aria-hidden="true">
                           <td><div className="skeleton skeleton-line" style={{ width: '60%' }} /></td>
                           <td><div className="skeleton skeleton-line" style={{ width: '80%' }} /></td>
                           <td><div className="skeleton skeleton-line" style={{ width: '40%' }} /></td>
                           <td><div className="skeleton" style={{ width: 16, height: 16, borderRadius: 3 }} /></td>
+                        <td><div className="skeleton skeleton-line" style={{ width: '70%' }} /></td>
                           <td><div className="skeleton skeleton-line" style={{ width: '60%' }} /></td>
                         </tr>
                       )) : (
@@ -392,14 +592,47 @@ const CalendarPage = () => {
                             const s = new Date(ev.start);
                             return s >= mStart && s <= mEnd;
                           }).sort((a,b) => new Date(a.start) - new Date(b.start));
-                          if (list.length === 0) return <tr><td colSpan={5} className="text-center py-3">No meetings</td></tr>;
+                        if (list.length === 0) return <tr><td colSpan={6} className="text-center py-3">No meetings</td></tr>;
                           return list.map(ev => (
                             <tr key={`sc-${ev._id}`}>
                               <td>{new Date(ev.start).toLocaleDateString()}</td>
                               <td>{ev.title}</td>
                               <td>{formatTime(new Date(ev.start))} - {ev.end ? formatTime(new Date(ev.end)) : '-'}</td>
                               <td><span style={{ display:'inline-block', width:16, height:16, background: ev.color, borderRadius: 3 }} /></td>
-                              <td>{ev.link ? <a href={ev.link} target="_blank" rel="noreferrer">Open</a> : '-'}</td>
+                            <td>{renderParticipants(ev)}</td>
+                            <td>
+                              {ev.link ? (
+                                <div className="d-flex align-items-center gap-2">
+                                  <a href={ev.link} target="_blank" rel="noreferrer">Join Meeting</a>
+                                  <button
+                                    className="btn btn-sm"
+                                    title="Copy link"
+                                    onClick={(e) => copyToClipboard(ev.link, e.currentTarget)}
+                                    style={{
+                                      width: 34,
+                                      height: 30,
+                                      padding: 0,
+                                      borderRadius: 8,
+                                      border: '1px solid #cbd5e1',
+                                      background: '#ffffff',
+                                      color: '#2563eb',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center'
+                                    }}
+                                    onMouseEnter={(e) => { e.currentTarget.style.background = '#2563eb'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = '#2563eb'; }}
+                                    onMouseLeave={(e) => { e.currentTarget.style.background = '#ffffff'; e.currentTarget.style.color = '#2563eb'; e.currentTarget.style.borderColor = '#cbd5e1'; }}
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="feather feather-copy align-middle">
+                                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                    </svg>
+                                  </button>
+                                </div>
+                              ) : (
+                                <span>-</span>
+                              )}
+                            </td>
                             </tr>
                           ));
                         })()

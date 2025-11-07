@@ -54,6 +54,7 @@ const DocumentsPage = () => {
   const [deleting, setDeleting] = useState(false); // Track if delete is in progress
   const [folderUploadModal, setFolderUploadModal] = useState(null); // {folderName, fileCount, files}
   const [uploadProgress, setUploadProgress] = useState(0); // Upload progress percentage
+  const [viewportW, setViewportW] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
 
   const load = async (path = cwd) => {
     setLoading(true);
@@ -72,6 +73,13 @@ const DocumentsPage = () => {
   };
 
   useEffect(() => { load('/'); }, []);
+
+  // Track viewport width for responsive tweaks (prevents toolbar wrap glitches)
+  useEffect(() => {
+    const onResize = () => setViewportW(window.innerWidth || 1200);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   const parts = useMemo(() => cwd.split('/').filter(Boolean), [cwd]);
   const goUp = () => { if (cwd === '/') return; const p = '/' + parts.slice(0, -1).join('/'); load(p || '/'); };
@@ -498,7 +506,15 @@ const DocumentsPage = () => {
             <input type="file" hidden webkitdirectory="" directory="" multiple onChange={onUploadFolderSelect} disabled={uploading} />
           </label>
           {/* Action buttons with modern styling */}
-          <div className="d-flex align-items-center gap-2" style={{ paddingLeft: 12, borderLeft: '2px solid #e2e8f0' }}>
+          <div className="d-flex align-items-center gap-2 flex-wrap"
+            style={{ 
+              paddingLeft: viewportW < 768 ? 0 : 12, 
+              paddingTop: viewportW < 768 ? 8 : 0,
+              borderLeft: viewportW < 768 ? 'none' : '2px solid #e2e8f0',
+              borderTop: viewportW < 768 ? '2px solid #e2e8f0' : 'none',
+              width: viewportW < 768 ? '100%' : 'auto',
+              rowGap: 8
+            }}>
             <button
               className="btn btn-sm"
               style={{ 
