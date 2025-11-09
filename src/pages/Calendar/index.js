@@ -204,19 +204,20 @@ const CalendarPage = () => {
   };
   const startOfWeek = (d) => { const s = new Date(d); s.setDate(s.getDate() - s.getDay()); return s; };
   const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+  const NZ_TZ = 'Pacific/Auckland';
   const formatTime = (d) => {
     try {
-      return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', timeZone: NZ_TZ });
     } catch { return ''; }
   };
   const formatDate = (d) => {
     try {
-      return d.toLocaleString([], { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' });
+      return d.toLocaleString([], { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric', timeZone: NZ_TZ });
     } catch { return ''; }
   };
   const formatDateTime = (d) => {
     try {
-      return d.toLocaleString([], { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+      return d.toLocaleString([], { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: NZ_TZ });
     } catch { return ''; }
   };
   const formatDuration = (start, end) => {
@@ -229,13 +230,14 @@ const CalendarPage = () => {
       return `${m}m`;
     } catch { return ''; }
   };
-  const isSameDay = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-  const monthLabel = (d) => d.toLocaleString(undefined, { month: 'long', year: 'numeric' });
-  const dayLabel = (d) => d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
+  const getNZDateString = (d) => d.toLocaleDateString('en-NZ', { timeZone: NZ_TZ });
+  const isSameDay = (a, b) => getNZDateString(a) === getNZDateString(b);
+  const monthLabel = (d) => d.toLocaleString(undefined, { month: 'long', year: 'numeric', timeZone: NZ_TZ });
+  const dayLabel = (d) => d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric', timeZone: NZ_TZ });
   const weekLabel = (d) => {
     const s = startOfWeek(d);
     const e = addDays(s, 6);
-    return `${s.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} - ${e.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
+    return `${s.toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: NZ_TZ })} - ${e.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', timeZone: NZ_TZ })}`;
   };
 
   const shiftCurrent = (dir) => {
@@ -557,36 +559,36 @@ const CalendarPage = () => {
                     const labels = calendarView === 'day' ? [names[firstIdx]] : names;
                     return (
                       <div className="row g-0" style={{ minWidth: minDWWidth, border: '1px solid #cbd5e1', borderBottom: 'none', display: 'grid', gridTemplateColumns: `70px repeat(${cols}, 1fr)` }}>
-                        <div style={{ padding: 8, background: '#f8fafc', borderRight: '1px solid #cbd5e1' }}></div>
-                        {Array.from({ length: cols }).map((_, i) => {
-                          const base = startOfWeek(currentDate);
-                          const cellDate = calendarView === 'day' ? new Date(currentDate) : addDays(base, i);
-                          const isTodayCell = isSameDay(cellDate, now);
-                          return (
-                            <div
-                              key={`headh-${i}`}
-                              style={{
-                                padding: 10,
-                                background: isTodayCell ? '#eef6ff' : '#f8fafc',
-                                borderRight: i < cols-1 ? '1px solid #cbd5e1' : 'none',
-                                fontWeight: 700,
-                                fontSize: 13,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                textAlign: 'center',
-                              }}
-                            >
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <span>{["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][cellDate.getDay()]}</span>
-                                {isTodayCell && (
-                                  <span style={{ width: 26, height: 26, borderRadius: '50%', background: '#2563eb', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{cellDate.getDate()}</span>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
+                    <div style={{ padding: 8, background: '#f8fafc', borderRight: '1px solid #cbd5e1' }}></div>
+                    {Array.from({ length: cols }).map((_, i) => {
+                      const base = startOfWeek(currentDate);
+                      const cellDate = calendarView === 'day' ? new Date(currentDate) : addDays(base, i);
+                      const isTodayCell = isSameDay(cellDate, now);
+                      return (
+                        <div
+                          key={`headh-${i}`}
+                          style={{
+                            padding: 10,
+                            background: isTodayCell ? '#eef6ff' : '#f8fafc',
+                            borderRight: i < cols-1 ? '1px solid #cbd5e1' : 'none',
+                            fontWeight: 700,
+                            fontSize: 13,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            textAlign: 'center',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span>{["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][cellDate.getDay()]}</span>
+                            {isTodayCell && (
+                              <span style={{ width: 26, height: 26, borderRadius: '50%', background: '#2563eb', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{cellDate.getDate()}</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                     );
                   })()}
 
@@ -654,7 +656,7 @@ const CalendarPage = () => {
                         return hours.flatMap((h, ri) => [
                           <div key={`hour-${ri}`} style={{ borderRight: '1px solid #cbd5e1', borderBottom: '1px solid #e2e8f0', padding: '8px 10px', fontSize: 12, color: '#475569', fontWeight: 600 }}>{`${h === 0 ? '12 AM' : (h < 12 ? `${h} AM` : (h === 12 ? '12 PM' : `${h-12} PM`))}`}</div>,
                           ...days.map((d, ci) => {
-                            const slotEvents = events.filter(ev => { try { const sd = new Date(ev.start); return isSameDay(sd, d) && sd.getHours() === h; } catch { return false; } });
+                            const slotEvents = events.filter(ev => { try { const sd = new Date(ev.start); const nzHour = Number(new Intl.DateTimeFormat('en-NZ', { hour: 'numeric', hour12: false, timeZone: NZ_TZ }).format(sd)); return isSameDay(sd, d) && nzHour === h; } catch { return false; } });
                             return (
                               <div key={`cell-${ri}-${ci}`} style={{ borderRight: ci<cols-1 ? '1px solid #e2e8f0':'none', borderBottom: '1px solid #e2e8f0', minHeight: 48, padding: 4 }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -712,12 +714,12 @@ const CalendarPage = () => {
                         <th style={{ width: '20%' }}>Time</th>
                         <th style={{ width: '10%' }}>Color</th>
                       <th style={{ width: '22%' }}>Participants</th>
-                      <th style={{ width: '20%' }}>Link</th>
+                        <th style={{ width: '20%' }}>Link</th>
                       </tr>
                     </thead>
                     <tbody aria-busy={loading}>
                       {loading ? Array.from({ length: 8 }).map((_, i) => (
-                      <tr key={`sks-${i}`} aria-hidden="true">
+                        <tr key={`sks-${i}`} aria-hidden="true">
                           <td><div className="skeleton skeleton-line" style={{ width: '60%' }} /></td>
                           <td><div className="skeleton skeleton-line" style={{ width: '80%' }} /></td>
                           <td><div className="skeleton skeleton-line" style={{ width: '40%' }} /></td>

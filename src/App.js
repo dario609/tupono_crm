@@ -12,6 +12,7 @@ import ReportsPage from "./pages/Reports";
 import WriteReport from "./pages/Reports/WriteReport";
 import EditReport from "./pages/Reports/Edit";
 import ProjectsPage from "./pages/Projects";
+import SupportChat from "./pages/Support/Chat";
 import CreateProject from "./pages/Projects/Create";
 import EditProject from "./pages/Projects/Edit";
 import CreateTeam from "./pages/Teams/Create";
@@ -57,6 +58,7 @@ function App() {
             <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/calendar/create" element={<CalendarCreate />} />
             <Route path="/calendar/:id/edit" element={<CalendarEdit />} />
+            <Route path="/support" element={<SupportChat />} />
           </Route>
         </Route>
 

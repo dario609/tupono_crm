@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { NavLink } from "react-router-dom";
 
-const Sidebar = ({ user, permissions }) => {
+const Sidebar = ({ user, permissions, supportBadge }) => {
   const [openMenu, setOpenMenu] = useState(null);
 
   const toggleMenu = (menuId) => {
@@ -214,6 +214,9 @@ const Sidebar = ({ user, permissions }) => {
             <NavLink to="/support" className="nav-link">
               <i className="mdi mdi-message-reply-text-outline text-info menu-icon"></i>
               <span className="menu-title">Support Management</span>
+              {supportBadge > 0 && (
+                <span className="badge bg-primary ms-2" style={{ borderRadius: 10 }}>{supportBadge}</span>
+              )}
             </NavLink>
           </li>
         )}
