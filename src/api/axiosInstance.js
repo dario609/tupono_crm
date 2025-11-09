@@ -71,8 +71,21 @@ const api = axios.create({
 api.interceptors.response.use(
   (response) => response.data,
   (error) => {
+    const status = error?.response?.status;
     const msg =
-      error.response?.data?.message || "An unexpected server error occurred.";
+      error?.response?.data?.message || "An unexpected server error occurred.";
+    // Handle unauthorized globally → redirect to login
+    if (status === 401 && typeof window !== "undefined") {
+      try {
+        // optional cleanup
+        window.localStorage.removeItem("auth_user");
+      } catch {}
+      // Avoid redirect loops if we are already on login
+      const atLogin = window.location.pathname === "/";
+      if (!atLogin) {
+        window.location.assign("/");
+      }
+    }
     console.error("❌ API Error:", msg);
     return Promise.reject(new Error(msg));
   }
