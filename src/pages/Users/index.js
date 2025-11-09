@@ -23,11 +23,6 @@ const UsersPage = ({ user, permissions }) => {
     const canAdd = perms?.user_management?.is_add === 1;
 
     const load = async (opts = {}) => {
-        const q = new URLSearchParams({
-            perpage: String(opts.perpage ?? perpage),
-            page: String(opts.page ?? page),
-            search: String(opts.search ?? search),
-        }).toString();
         setLoading(true);
         try {
             const json = await UsersApi.list({ perpage: opts.perpage ?? perpage, page: opts.page ?? page, search: opts.search ?? search });
@@ -349,7 +344,13 @@ const UsersPage = ({ user, permissions }) => {
                                         <nav aria-label="Page navigation example">
                                             <ul className="pagination justify-content-end">
                                                 <li className={`page-item ${page <= 1 ? 'disabled' : ''}`}>
-                                                    <button className="page-link" aria-label="Previous" onClick={() => page > 1 && (setPage(page - 1), load({ page: page - 1 }))}>
+                                                <button className="page-link" aria-label="Previous" onClick={() => {
+                                                    if (page > 1) {
+                                                        const next = page - 1;
+                                                        setPage(next);
+                                                        load({ page: next });
+                                                    }
+                                                }}>
                                                         <i className="fa fa-angle-left left-left-ang" aria-hidden="true"></i>
                                                     </button>
                                                 </li>
@@ -357,11 +358,17 @@ const UsersPage = ({ user, permissions }) => {
                                                     <li key={i} className={`page-item ${it === page ? 'active' : ''} ${it === '...' ? 'disabled' : ''}`}>
                                                         {it === '...'
                                                             ? <span className="page-link">...</span>
-                                                            : <button className="page-link popto" onClick={() => (setPage(it), load({ page: it }))}>{it}</button>}
+                                                            : <button className="page-link popto" onClick={() => { setPage(it); load({ page: it }); }}>{it}</button>}
                                                     </li>
                                                 ))}
                                                 <li className={`page-item ${page >= lastPage ? 'disabled' : ''}`}>
-                                                    <button className="page-link" aria-label="Next" onClick={() => page < lastPage && (setPage(page + 1), load({ page: page + 1 }))}>
+                                                    <button className="page-link" aria-label="Next" onClick={() => {
+                                                        if (page < lastPage) {
+                                                            const next = page + 1;
+                                                            setPage(next);
+                                                            load({ page: next });
+                                                        }
+                                                    }}>
                                                         <i className="fa fa-angle-right left-left-ang" aria-hidden="true"></i>
                                                     </button>
                                                 </li>

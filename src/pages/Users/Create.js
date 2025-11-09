@@ -355,7 +355,7 @@ const CreateUser = () => {
 
                   <div className="modal-footer1 text-center mt-2">
                     <button type="button" className="btn btn-danger btn-rounded btn-fw" onClick={() => navigate("/users")}>Cancel</button>
-                    <button type="submit" disabled={loading} style={{marginLeft: '10px'}} className="btn btn-primary btn-rounded btn-fw">{loading ? "Saving..." : "Save"}</button>
+                    <button type="submit" disabled={loading || !canSubmit} style={{marginLeft: '10px'}} className="btn btn-primary btn-rounded btn-fw">{loading ? "Saving..." : "Save"}</button>
                   </div>
                 </form>
               </div>

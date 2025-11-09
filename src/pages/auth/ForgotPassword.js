@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import logo from "../../assets/images/logo.png";
 import Swal from "sweetalert2";
-import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { AuthApi } from "../../api/authApi";
 
@@ -25,7 +24,7 @@ const ForgotPassword = () => {
 
     try {
       showLoader();
-      const res = await AuthApi.resetPassword(email);
+      await AuthApi.resetPassword(email);
 
       hideLoader();
 
