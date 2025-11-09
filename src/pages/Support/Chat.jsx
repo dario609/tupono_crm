@@ -24,6 +24,18 @@ const Chat = () => {
   const activeUserId = activeUser?._id || null;
   useEffect(() => { messagesByThreadRef.current = messagesByThread; }, [messagesByThread]);
 
+  // Helper: refresh unread map from the server (without disturbing current list)
+  const refreshUnread = async () => {
+    try {
+      const list = await ChatApi.users("").catch(() => []);
+      if (Array.isArray(list)) {
+        const map = {};
+        list.forEach((u) => { map[u._id] = u.unread || 0; });
+        setUnreadByUser((prev) => ({ ...map, ...prev }));
+      }
+    } catch {}
+  };
+
   // Debounce query to limit network calls
   useEffect(() => {
     const id = setTimeout(() => setDebouncedQuery(query), 250);
