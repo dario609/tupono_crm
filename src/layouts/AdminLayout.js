@@ -12,26 +12,51 @@ import "../assets/css/admin_layout.css"; // <-- we'll move your inline CSS here
 const AdminLayout = ({ children }) => {
   const { user, permissions, loading } = useAuth();
   const [supportUnread, setSupportUnread] = React.useState(0);
+  const debounceRef = React.useRef(null);
+  const loadingRef = React.useRef(false);
 
   // Load global unread badge and keep it fresh
   React.useEffect(() => {
     if (!user) return;
     let cancelled = false;
-    const load = async () => {
-      const res = await ChatApi.unreadCount().catch(() => ({ count: 0 }));
-      if (!cancelled) setSupportUnread(res?.count || 0);
+    const refresh = async () => {
+      if (cancelled || loadingRef.current) return;
+      try {
+        loadingRef.current = true;
+        const res = await ChatApi.unreadCount().catch(() => ({ count: 0 }));
+        if (!cancelled) setSupportUnread(res?.count || 0);
+      } finally {
+        loadingRef.current = false;
+      }
     };
-    load();
-    const id = setInterval(load, 15000);
-    // Also update on incoming messages
+    const scheduleRefresh = () => {
+      if (cancelled) return;
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(refresh, 600);
+    };
+    // initial load
+    refresh();
+    // Update only on realtime events or when tab becomes visible
     const s = getSocket();
-    const handler = () => load();
-    s.on("chat:new-message", handler);
-    s.on("chat:badge-update", handler);
-    // Also allow manual refresh from any component
-    const onManual = () => load();
+    s.on("chat:new-message", scheduleRefresh);
+    s.on("chat:badge-update", scheduleRefresh);
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") scheduleRefresh();
+    };
+    window.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", scheduleRefresh);
+    // Allow manual refresh from anywhere in app
+    const onManual = () => scheduleRefresh();
     window.addEventListener("supportBadge:refresh", onManual);
-    return () => { cancelled = true; clearInterval(id); s.off("chat:new-message", handler); s.off("chat:badge-update", handler); window.removeEventListener("supportBadge:refresh", onManual); };
+    return () => {
+      cancelled = true;
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      s.off("chat:new-message", scheduleRefresh);
+      s.off("chat:badge-update", scheduleRefresh);
+      window.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", scheduleRefresh);
+      window.removeEventListener("supportBadge:refresh", onManual);
+    };
   }, [user]);
 
   return (
