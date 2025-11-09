@@ -21,6 +21,7 @@ const Chat = () => {
   const leftPanelRef = useRef(null);
   const searchInputRef = useRef(null);
   const [searching, setSearching] = useState(false);
+  const activeUserId = activeUser?._id || null;
   useEffect(() => { messagesByThreadRef.current = messagesByThread; }, [messagesByThread]);
 
   // Debounce query to limit network calls
@@ -129,7 +130,7 @@ const Chat = () => {
     };
     s.on("chat:new-message", handler);
     return () => s.off("chat:new-message", handler);
-  }, [activeThread]);
+  }, [activeThread, myId, activeUserId]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
