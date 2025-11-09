@@ -5,7 +5,7 @@ import { getSocket } from "../../utils/socket";
 
 const Chat = () => {
   const { user, loading } = useAuth();
-  const myId = String(user?._id || "me");
+  const myId = user?._id ? String(user._id) : null;
   const isSuper = user?.role_id?.role_name === "Super Admin";
 
   const [users, setUsers] = useState([]);
@@ -94,7 +94,7 @@ const Chat = () => {
 
   // identify socket
   useEffect(() => {
-    if (loading || !user) return;
+    if (loading || !user || !myId) return;
     const s = getSocket();
     s.emit("chat:identify", { userId: myId });
   }, [myId, user, loading]);
@@ -104,8 +104,8 @@ const Chat = () => {
     const s = getSocket();
     const onConnect = () => {
       try {
-        s.emit("chat:identify", { userId: myId });
-        if (activeThread?._id) {
+        if (myId) s.emit("chat:identify", { userId: myId });
+        if (myId && activeThread?._id) {
           s.emit("chat:join", { threadId: activeThread._id });
         }
       } catch {}
@@ -120,10 +120,11 @@ const Chat = () => {
 
   // realtime
   useEffect(() => {
+    if (!activeThread || !myId) return;
     const s = getSocket();
     const handler = (msg) => {
       // If the incoming message was sent by me or matches the last optimistic client id, ignore.
-      if (String(msg?.from?._id || msg?.from) === myId) {
+      if (myId && String(msg?.from?._id || msg?.from) === myId) {
         return;
       }
       const existing = activeThread ? (messagesByThreadRef.current[activeThread._id] || []) : [];
@@ -297,7 +298,7 @@ const Chat = () => {
               </div>
             )}
             {activeThread && currentMessages.map((m, idx) => {
-              const mine = typeof m.mine === "boolean" ? m.mine : (String(m.from?._id || m.from) === myId);
+              const mine = typeof m.mine === "boolean" ? m.mine : (myId ? (String(m.from?._id || m.from) === myId) : false);
               const bubbleBg = mine ? "linear-gradient(90deg,#06b6d4,#0991c8)" : "#eef3fa";
               const tailBg = mine ? "#0991c8" : "#eef3fa";
               return (
