@@ -99,6 +99,25 @@ const Chat = () => {
     s.emit("chat:identify", { userId: myId });
   }, [myId, user, loading]);
 
+  // Ensure room re-join on reconnects (otherwise realtime may stop)
+  useEffect(() => {
+    const s = getSocket();
+    const onConnect = () => {
+      try {
+        s.emit("chat:identify", { userId: myId });
+        if (activeThread?._id) {
+          s.emit("chat:join", { threadId: activeThread._id });
+        }
+      } catch {}
+    };
+    s.on("connect", onConnect);
+    s.on("reconnect", onConnect);
+    return () => {
+      s.off("connect", onConnect);
+      s.off("reconnect", onConnect);
+    };
+  }, [myId, activeThread]);
+
   // realtime
   useEffect(() => {
     const s = getSocket();
