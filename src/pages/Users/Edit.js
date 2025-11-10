@@ -31,6 +31,11 @@ const EditUser = () => {
     zip_code: "",
     address: "",
     role_id: "",
+    hapu: "",
+    iwi: "",
+    marae: "",
+    maunga: "",
+    awa: "",
   });
   const [showPwd, setShowPwd] = useState(false);
   const [showConfirmPwd, setShowConfirmPwd] = useState(false);
@@ -63,6 +68,11 @@ const EditUser = () => {
             zip_code: u.zip_code || "",
             address: u.address || "",
             role_id: u.role_id?._id || u.role_id || "",
+            hapu: Array.isArray(u.hapu) ? u.hapu.join(", ") : "",
+            iwi: Array.isArray(u.iwi) ? u.iwi.join(", ") : "",
+            marae: Array.isArray(u.marae) ? u.marae.join(", ") : "",
+            maunga: Array.isArray(u.maunga) ? u.maunga.join(", ") : "",
+            awa: Array.isArray(u.awa) ? u.awa.join(", ") : "",
           });
           setExistingProfile(u.profile_image || "");
         }
@@ -91,6 +101,8 @@ const EditUser = () => {
     });
   };
 
+  const toArray = (s) => String(s || "").split(/[\n,]/g).map((x)=>x.trim()).filter(Boolean);
+
   const onSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -108,6 +120,11 @@ const EditUser = () => {
       setLoading(true);
       const fd = new FormData();
       Object.entries(form).forEach(([k, v]) => fd.append(k, v ?? ""));
+      fd.set("hapu", JSON.stringify(toArray(form.hapu)));
+      fd.set("iwi", JSON.stringify(toArray(form.iwi)));
+      fd.set("marae", JSON.stringify(toArray(form.marae)));
+      fd.set("maunga", JSON.stringify(toArray(form.maunga)));
+      fd.set("awa", JSON.stringify(toArray(form.awa)));
       if (profileImage) fd.append("profile_image", profileImage);
       const data = await UsersApi.update(id, fd);
       if (data?.success === false) throw new Error(data?.message || "Failed to update user");
@@ -230,15 +247,15 @@ const EditUser = () => {
 
                     <div className="col-md-4">
                       <div className="form-group mb-2">
-                        <label>County</label>
+                        <label>Country</label>
                         <input type="text" className="form-control" name="country" value={form.country} onChange={onChange} placeholder="County" maxLength={50} />
                       </div>
                     </div>
 
                     <div className="col-md-4">
                       <div className="form-group mb-2">
-                        <label>ZIP Code</label>
-                        <input type="text" className="form-control" name="zip_code" value={form.zip_code} onChange={onChange} placeholder="Zip Code" maxLength={10} />
+                        <label>Postal Code</label>
+                        <input type="text" className="form-control" name="zip_code" value={form.zip_code} onChange={onChange} placeholder="Postal Code" maxLength={10} />
                       </div>
                     </div>
 
@@ -258,6 +275,38 @@ const EditUser = () => {
                             <option key={r._id} value={r._id}>{r.role_name}</option>
                           ))}
                         </select>
+                      </div>
+                    </div>
+
+                    {/* Kaupapa Māori multi fields */}
+                    <div className="col-md-6">
+                      <div className="form-group mb-2">
+                        <label>Hapū (comma or newline separated)</label>
+                        <textarea className="form-control" rows={2} name="hapu" value={form.hapu} onChange={onChange}></textarea>
+                      </div>
+                    </div>
+                    <div className="col-md-6">
+                      <div className="form-group mb-2">
+                        <label>Iwi (comma or newline separated)</label>
+                        <textarea className="form-control" rows={2} name="iwi" value={form.iwi} onChange={onChange}></textarea>
+                      </div>
+                    </div>
+                    <div className="col-md-4">
+                      <div className="form-group mb-2">
+                        <label>Marae (comma or newline separated)</label>
+                        <textarea className="form-control" rows={2} name="marae" value={form.marae} onChange={onChange}></textarea>
+                      </div>
+                    </div>
+                    <div className="col-md-4">
+                      <div className="form-group mb-2">
+                        <label>Maunga (comma or newline separated)</label>
+                        <textarea className="form-control" rows={2} name="maunga" value={form.maunga} onChange={onChange}></textarea>
+                      </div>
+                    </div>
+                    <div className="col-md-4">
+                      <div className="form-group mb-2">
+                        <label>Awa (comma or newline separated)</label>
+                        <textarea className="form-control" rows={2} name="awa" value={form.awa} onChange={onChange}></textarea>
                       </div>
                     </div>
 
