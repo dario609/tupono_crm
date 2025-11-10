@@ -20,12 +20,16 @@ const AllTasks = () => {
   const [initializing, setInitializing] = useState(true);
 
   const load = async (opts = {}) => {
+    setLoading(true);
+    try {
       const json = await TasksApi.list({ perpage: opts.perpage ?? perpage, page: opts.page ?? page, projectId: opts.projectId ?? filterProject });
       setRows(json?.data || []);
       setTotal(json?.total || 0);
       setPage(json?.current_page || 1);
       setPerpage(json?.per_page ?? 10);
-   
+    } finally {
+      setLoading(false);
+    }
   };
 
   const loadAssignees = async (projectId) => {
@@ -168,12 +172,15 @@ const AllTasks = () => {
     <div className="card mt-3">
       <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-24 p-3">
         <h6 className="fw-semibold mb-0">All Tasks</h6>
-        <div className="d-flex align-items-center gap-2">
+        <div className="d-flex align-items-center gap-2 flex-wrap ms-auto">
           <select className="form-select" style={{ minWidth: 220 }} value={filterProject} onChange={(e)=> { setFilterProject(e.target.value); load({ page: 1, projectId: e.target.value }); }}>
             <option value="">All Projects</option>
             {projects.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
           </select>
-          <button className="btn btn-primary btn-rounded" onClick={openCreate}>Add Task</button>
+          <button className="btn btn-primary btn-rounded px-4" onClick={openCreate} style={{ borderRadius: 20, minWidth: 110 }}>
+            <span className="d-none d-sm-inline">Add Task</span>
+            <span className="d-inline d-sm-none">Add +</span>
+          </button>
         </div>
       </div>
       <div className="row card-body pt-0">
@@ -185,11 +192,15 @@ const AllTasks = () => {
                   <th style={{ width: "5%" }}>#</th>
                   <th style={{ width: "14%" }}>Project</th>
                   <th style={{ width: "16%" }}>Assignee</th>
+                  <th style={{ width: "16%" }}>Assigned By</th>
                   <th style={{ width: "10%" }}>Duration (h)</th>
+                  <th style={{ width: "12%" }}>Duration Type</th>
                   <th style={{ width: "12%" }}>State</th>
                   <th style={{ width: "12%" }}>Difficulty</th>
+                  <th style={{ width: "10%" }}>Start</th>
+                  <th style={{ width: "10%" }}>End</th>
                   <th>Description</th>
-                  <th style={{ width: 120 }} className="text-center">Actions</th>
+                  <th style={{ width: 160 }} className="text-center">Actions</th>
                 </tr>
               </thead>
               <tbody aria-busy={loading}>
@@ -198,20 +209,25 @@ const AllTasks = () => {
                   const sn = perpage === -1 ? idx + 1 : (page - 1) * perpage + idx + 1;
                   const proj = t.project_id?.name || "-";
                   const ass = t.assignee ? `${t.assignee.first_name || ""} ${t.assignee.last_name || ""}`.trim() : "-";
+                  const by = t.assigned_by ? `${t.assigned_by.first_name || ""} ${t.assigned_by.last_name || ""}`.trim() : "-";
                   return (
                     <tr key={t._id}>
                       <td>{sn}</td>
                       <td>{proj}</td>
                       <td>{ass}</td>
+                      <td>{by}</td>
                       <td>{t.duration ?? 0}</td>
+                      <td className="text-capitalize">{t.duration_type || "-"}</td>
                       <td className="text-capitalize">{t.task_state}</td>
                       <td className="text-capitalize">{t.difficulty}</td>
+                      <td>{t.start_date ? new Date(t.start_date).toLocaleDateString() : "-"}</td>
+                      <td>{t.end_date ? new Date(t.end_date).toLocaleDateString() : "-"}</td>
                       <td style={{ maxWidth: 420, whiteSpace: "pre-wrap" }}>{t.description || "-"}</td>
-                      <td className="text-center">
+                      <td className="text-center" style={{ whiteSpace: "nowrap", overflow: "visible" }}>
                         <button className="btn badge-success btn-sm btn-rounded btn-icon me-1" title="Edit" onClick={() => openEdit(t)}>
                           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="feather feather-edit-2 align-middle"><polygon points="16 3 21 8 8 21 3 21 3 16 16 3"></polygon></svg>
                         </button>
-                        <button className="btn badge-danger btn-sm btn-rounded btn-icon" title="Delete" onClick={() => remove(t)}>
+                        <button className="btn badge-danger btn-sm btn-rounded btn-icon" title="Delete" onClick={() => remove(t)} style={{ verticalAlign: "middle" }}>
                           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="feather feather-trash align-middle"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                         </button>
                       </td>
@@ -226,7 +242,7 @@ const AllTasks = () => {
           </div>
           {total > 0 && (
             <div className="row p-2">
-              <div className="col-sm-12 col-md-5"><p>Showing {rows.length} of {total} entries</p></div>
+              <div className="col-sm-12 col-md-5"><p className="mb-0" style={{ fontSize: 18 }}>Showing {rows.length} of {total} entries</p></div>
               <div className="col-sm-12 col-md-7">
                 <div className="dataTables_paginate paging_simple_numbers">
                   <nav aria-label="Page navigation example">
@@ -284,6 +300,13 @@ const AllTasks = () => {
                     <input type="number" className="form-control" value={form.duration} onChange={(e)=> setForm(f=> ({ ...f, duration: e.target.value }))} min="0" step="0.5" />
                   </div>
                     <div className="col-md-4">
+                    <label className="form-label">Duration Type</label>
+                    <select className="form-select" value={form.duration_type || "weekly"} onChange={(e)=> setForm(f=> ({ ...f, duration_type: e.target.value }))}>
+                      <option value="weekly">Weekly</option>
+                      <option value="monthly">Monthly</option>
+                    </select>
+                  </div>
+                    <div className="col-md-4">
                     <label className="form-label">State</label>
                     <select className="form-select" value={form.task_state} onChange={(e)=> setForm(f=> ({ ...f, task_state: e.target.value }))}>
                       <option value="todo">To do</option>
@@ -298,6 +321,14 @@ const AllTasks = () => {
                       <option value="medium">Medium</option>
                       <option value="hard">Hard</option>
                     </select>
+                  </div>
+                  <div className="col-md-4">
+                    <label className="form-label">Start Date</label>
+                    <input type="date" className="form-control" value={form.start_date || ""} onChange={(e)=> setForm(f=> ({ ...f, start_date: e.target.value }))} />
+                  </div>
+                  <div className="col-md-4">
+                    <label className="form-label">End Date</label>
+                    <input type="date" className="form-control" value={form.end_date || ""} onChange={(e)=> setForm(f=> ({ ...f, end_date: e.target.value }))} />
                   </div>
                   <div className="col-12">
                     <label className="form-label">Description</label>
