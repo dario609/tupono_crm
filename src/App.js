@@ -15,6 +15,7 @@ import ProjectsPage from "./pages/Projects";
 import SupportChat from "./pages/Support/Chat";
 import CreateProject from "./pages/Projects/Create";
 import EditProject from "./pages/Projects/Edit";
+import AllTasks from "./pages/Tasks";
 import CreateTeam from "./pages/Teams/Create";
 import TeamsPage from "./pages/Teams";
 import EditTeam from "./pages/Teams/Edit";
@@ -50,6 +51,7 @@ function App() {
             <Route path="/projects" element={<ProjectsPage />} />
             <Route path="/projects/create" element={<CreateProject />} />
             <Route path="/projects/:id/edit" element={<EditProject />} />
+            <Route path="/tasks" element={<AllTasks />} />
             <Route path="/teams" element={<TeamsPage />} />
             <Route path="/teams/create" element={<CreateTeam />} />
             <Route path="/teams/:id/edit" element={<EditTeam />} />
