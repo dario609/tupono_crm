@@ -20,16 +20,12 @@ const AllTasks = () => {
   const [initializing, setInitializing] = useState(true);
 
   const load = async (opts = {}) => {
-    setLoading(true);
-    try {
       const json = await TasksApi.list({ perpage: opts.perpage ?? perpage, page: opts.page ?? page, projectId: opts.projectId ?? filterProject });
       setRows(json?.data || []);
       setTotal(json?.total || 0);
       setPage(json?.current_page || 1);
       setPerpage(json?.per_page ?? 10);
-    } finally {
-      setLoading(false);
-    }
+    
   };
 
   const loadAssignees = async (projectId) => {
@@ -123,14 +119,18 @@ const AllTasks = () => {
 
   const SkeletonRow = () => (
     <tr aria-hidden="true">
-      <td><div className="skeleton skeleton-sm" style={{ width: 28 }} /></td>
-      <td><div className="skeleton skeleton-line" style={{ width: "60%" }} /></td>
-      <td><div className="skeleton skeleton-line" style={{ width: "70%" }} /></td>
-      <td><div className="skeleton skeleton-sm" style={{ width: 50 }} /></td>
-      <td><div className="skeleton skeleton-sm" style={{ width: 70 }} /></td>
-      <td><div className="skeleton skeleton-sm" style={{ width: 80 }} /></td>
-      <td><div className="skeleton skeleton-line" style={{ width: "50%" }} /></td>
-      <td><div className="skeleton skeleton-sm" style={{ width: 90 }} /></td>
+      {/* # */}<td><div className="skeleton skeleton-sm" style={{ width: 24 }} /></td>
+      {/* Project */}<td><div className="skeleton skeleton-line" style={{ width: "60%" }} /></td>
+      {/* Assignee */}<td><div className="skeleton skeleton-line" style={{ width: "70%" }} /></td>
+      {/* Assigned By */}<td><div className="skeleton skeleton-line" style={{ width: "65%" }} /></td>
+      {/* Duration (h) */}<td><div className="skeleton skeleton-sm" style={{ width: 50 }} /></td>
+      {/* Duration Type */}<td><div className="skeleton skeleton-sm" style={{ width: 80 }} /></td>
+      {/* State */}<td><div className="skeleton skeleton-sm" style={{ width: 60 }} /></td>
+      {/* Difficulty */}<td><div className="skeleton skeleton-sm" style={{ width: 70 }} /></td>
+      {/* Start */}<td><div className="skeleton skeleton-sm" style={{ width: 90 }} /></td>
+      {/* End */}<td><div className="skeleton skeleton-sm" style={{ width: 90 }} /></td>
+      {/* Description */}<td><div className="skeleton skeleton-line" style={{ width: "80%" }} /></td>
+      {/* Actions */}<td><div className="skeleton skeleton-sm" style={{ width: 80 }} /></td>
     </tr>
   );
 
@@ -152,9 +152,13 @@ const AllTasks = () => {
                 <th style={{ width: "5%" }}>#</th>
                 <th style={{ width: "14%" }}>Project</th>
                 <th style={{ width: "16%" }}>Assignee</th>
+                <th style={{ width: "10%" }}>Assigned By</th>
                 <th style={{ width: "10%" }}>Duration (h)</th>
+                <th style={{ width: "10%" }}>Duration Type</th>
                 <th style={{ width: "12%" }}>State</th>
                 <th style={{ width: "12%" }}>Difficulty</th>
+                <th style={{ width: "5%" }}>Start</th>
+                <th style={{ width: "5%" }}>End</th>
                 <th>Description</th>
                 <th style={{ width: 120 }} className="text-center">Actions</th>
               </tr>
@@ -173,7 +177,18 @@ const AllTasks = () => {
       <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-24 p-3">
         <h6 className="fw-semibold mb-0">All Tasks</h6>
         <div className="d-flex align-items-center gap-2 flex-wrap ms-auto">
-          <select className="form-select" style={{ minWidth: 220 }} value={filterProject} onChange={(e)=> { setFilterProject(e.target.value); load({ page: 1, projectId: e.target.value }); }}>
+          <select
+            className="form-select"
+            style={{ minWidth: 220 }}
+            value={filterProject}
+            onChange={(e)=> {
+              const v = e.target.value;
+              setFilterProject(v);
+              setPage(1);
+              // show skeleton immediately while switching
+              setRows([]);
+              load({ page: 1, projectId: v });
+            }}>
             <option value="">All Projects</option>
             {projects.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
           </select>
@@ -235,14 +250,14 @@ const AllTasks = () => {
                   );
                 })}
                 {!loading && rows.length === 0 && (
-                  <tr className="text-center"><td colSpan={7} className="py-4">No tasks</td></tr>
+                  <tr className="text-center"><td colSpan={12} className="py-4">No tasks</td></tr>
                 )}
               </tbody>
             </table>
           </div>
           {total > 0 && (
             <div className="row p-2">
-              <div className="col-sm-12 col-md-5"><p className="mb-0" style={{ fontSize: 18 }}>Showing {rows.length} of {total} entries</p></div>
+              <div className="col-sm-12 col-md-5"><p className="mb-0" style={{ fontSize: 12 }}>Showing {rows.length} of {total} entries</p></div>
               <div className="col-sm-12 col-md-7">
                 <div className="dataTables_paginate paging_simple_numbers">
                   <nav aria-label="Page navigation example">
@@ -263,11 +278,7 @@ const AllTasks = () => {
 
       {/* subtle overlay for in-place refresh while keeping table visible */}
       {loading && rows.length > 0 && !initializing && (
-        <div style={{ position: "absolute", inset: 0, background: "rgba(255,255,255,.35)", pointerEvents: "none" }}>
-          <div className="spinner-border text-primary" role="status" style={{ position: "absolute", top: 12, right: 12, width: 20, height: 20 }}>
-            <span className="visually-hidden">Loading...</span>
-          </div>
-        </div>
+       <SkeletonRow />
       )}
 
       {/* Modal */}

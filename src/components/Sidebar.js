@@ -143,6 +143,16 @@ const Sidebar = ({ user, permissions, supportBadge }) => {
           </li>
         )}
 
+        {/* Assessment Feedback - separate entry */}
+        {canSeeProjects && (
+          <li className="nav-item">
+            <NavLink to="/assessment" className="nav-link">
+              <i className="mdi mdi-clipboard-text-search-outline text-warning menu-icon"></i>
+              <span className="menu-title">Assessment Management</span>
+            </NavLink>
+          </li>
+        )}
+
         {/* Calendar */}
         {canView("calendar_management") && (
           <li className="nav-item">
