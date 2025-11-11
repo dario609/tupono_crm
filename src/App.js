@@ -29,6 +29,7 @@ import CalendarEdit from "./pages/Calendar/Edit";
 import { AuthProvider } from "./context/AuthProvider";
 import AdminLayout from "./layouts/AdminLayout";
 import './App.css';
+import ProfileManagement from "./pages/Users/Profile";
 
 function App() {
   return (
@@ -47,6 +48,7 @@ function App() {
             <Route path="/users" element={<UsersPage />} />
             <Route path="/users/create" element={<CreateUser />} />
             <Route path="/users/:id/edit" element={<EditUser />} />
+            <Route path="/profile" element={<ProfileManagement />} />
             <Route path="/reports" element={<ReportsPage />} />
             <Route path="/reports/add" element={<WriteReport />} />
             <Route path="/reports/:id/edit" element={<EditReport />} />

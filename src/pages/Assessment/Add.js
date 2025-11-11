@@ -77,6 +77,12 @@ const AddAssessment = () => {
         const hapuName = el.getAttribute("data-hapu-name");
         const data = el.__getSheetData?.(); // We'll define this in WriteFeedbackInline
         if (data) feedbackSheets.push({ hapuId, hapuName, sheet: data });
+        if (typeof el.__getSheetData === "function") {
+          const data = el.__getSheetData();
+          if (data && data.cells?.length) {
+            feedbackSheets.push({ hapuId, hapuName, sheet: data });
+          }
+        }
       });
 
       const payload = { ...form };
