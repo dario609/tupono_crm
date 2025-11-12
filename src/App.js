@@ -31,7 +31,7 @@ import AdminLayout from "./layouts/AdminLayout";
 import './App.css';
 import ProfileManagement from "./pages/Users/Profile";
 import ReportReceiptsPage from "./pages/Reports/Receipts";
-
+import ReportTravelLogsPage from "./pages/Reports/TravelLogs";
 function App() {
   return (
     <AuthProvider>
@@ -54,6 +54,7 @@ function App() {
             <Route path="/reports/add" element={<WriteReport />} />
             <Route path="/reports/:id/edit" element={<EditReport />} />
             <Route path="/reports/:reportId/receipts" element={<ReportReceiptsPage />} />
+            <Route path="/reports/:reportId/travel-logs" element={<ReportTravelLogsPage />} />
             <Route path="/projects" element={<ProjectsPage />} />
             <Route path="/projects/create" element={<CreateProject />} />
             <Route path="/projects/:id/edit" element={<EditProject />} />

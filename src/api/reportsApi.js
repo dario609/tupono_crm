@@ -20,9 +20,13 @@ const ReportsApi = {
 
   exportPDF: (id) => api.get(`/admin/reports/${id}/export-pdf`, { responseType: "blob" }),
   sendEmail: (id) => api.post(`/admin/reports/${id}/email`),
-  copy: (id) => api.post(`/admin/reports/${id}/copy`),
   receipts: (reportId, params) => api.get(`/admin/reports/receipts`, { params: { report_id: reportId, ...params } }),
-  travelLogs: (reportId, params) => api.get(`/admin/reports-travel-logs`, { params: { report_id: reportId, ...params } }),
+
+  travelLogs: (reportId, params) =>
+    api.get(`/admin/reports/travelLogs/${reportId}`, { params }),
+  createTravelLog: (payload) => api.post(`/admin/reports/travelLogs`, payload),
+  updateTravelLog: (id, payload) => api.put(`/admin/reports/travelLogs/${id}`, payload),
+  deleteTravelLog: (id) => api.delete(`/admin/reports/travelLogs/${id}`),
 };
 
 export default ReportsApi;

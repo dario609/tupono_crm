@@ -13,6 +13,8 @@ const initialFormData = {
     total: "",
     images: [],
 };
+
+
 const BASE_URL = process.env.REACT_APP_TUPONO_API_URL || "http://localhost:5000";
 
 const ReportReceiptsPage = () => {

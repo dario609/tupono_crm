@@ -96,13 +96,6 @@ const ReportsPage = () => {
     alert("Report emailed successfully!");
   };
 
-  const handleCopyRecord = async (id) => {
-    const confirm = window.confirm("Copy this record?");
-    if (!confirm) return;
-    await axios.post(`/api/reports/${id}/copy`);
-    alert("Record copied successfully!");
-  };
-
   // Skeleton rows for loading state
   const SkeletonRow = () => (
     <tr aria-hidden="true">
@@ -225,18 +218,6 @@ const ReportsPage = () => {
                               className="feather feather-mail align-middle">
                               <path d="M4 4h16v16H4z" />
                               <polyline points="22,6 12,13 2,6" />
-                            </svg>
-                          </button>
-                          <button
-                            className="btn badge-warning btn-sm btn-rounded btn-icon"
-                            title="Copy Record"
-                            onClick={() => handleCopyRecord(r._id)}
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none"
-                              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                              className="feather feather-copy align-middle">
-                              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
                             </svg>
                           </button>
                           <NavLink
