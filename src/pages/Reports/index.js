@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { NavLink } from "react-router-dom";
 import Swal from "sweetalert2";
 import ReportsApi from "../../api/reportsApi";
+import axios from "axios";
 
 const ReportsPage = () => {
   const [loading, setLoading] = useState(false);
@@ -83,6 +84,24 @@ const ReportsPage = () => {
 
   const showingStarted = total === 0 ? 0 : (perpage === -1 ? 1 : (page - 1) * perpage + 1);
   const currentShowing = perpage === -1 ? total : Math.min(page * perpage, total);
+  const handleExportReport = async (id) => {
+    // Example: call backend endpoint to generate PDF
+    window.open(`/api/reports/${id}/export-pdf`, "_blank");
+  };
+
+  const handleEmailReport = async (id) => {
+    const confirm = window.confirm("Send this report via email?");
+    if (!confirm) return;
+    await axios.post(`/api/reports/${id}/email`);
+    alert("Report emailed successfully!");
+  };
+
+  const handleCopyRecord = async (id) => {
+    const confirm = window.confirm("Copy this record?");
+    if (!confirm) return;
+    await axios.post(`/api/reports/${id}/copy`);
+    alert("Record copied successfully!");
+  };
 
   // Skeleton rows for loading state
   const SkeletonRow = () => (
@@ -157,7 +176,7 @@ const ReportsPage = () => {
                   <th>Report Type</th>
                   <th>Report Phase</th>
                   <th>Hours</th>
-                  <th style={{ width: 120, minWidth: 120 }} className="text-center">Actions</th>
+                  <th style={{ width: 120, minWidth: 200 }} className="text-center">Actions</th>
                 </tr>
               </thead>
               <tbody aria-busy={loading}>
@@ -182,6 +201,72 @@ const ReportsPage = () => {
                       <td>{typeof r.hours === 'number' ? r.hours : (r.hours || 0)}</td>
                       <td className="actions-column">
                         <div style={{ display: 'flex', gap: 4, justifyContent: 'center', flexWrap: 'nowrap' }}>
+
+                          <button
+                            className="btn badge-secondary btn-sm btn-rounded btn-icon"
+                            title="Export Report (PDF)"
+                            onClick={() => handleExportReport(r._id)}
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none"
+                              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                              className="feather feather-upload-cloud align-middle">
+                              <polyline points="16 16 12 12 8 16" />
+                              <line x1="12" y1="12" x2="12" y2="21" />
+                              <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />
+                            </svg>
+                          </button>
+                          <button
+                            className="btn badge-info btn-sm btn-rounded btn-icon"
+                            title="Email Report"
+                            onClick={() => handleEmailReport(r._id)}
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none"
+                              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                              className="feather feather-mail align-middle">
+                              <path d="M4 4h16v16H4z" />
+                              <polyline points="22,6 12,13 2,6" />
+                            </svg>
+                          </button>
+                          <button
+                            className="btn badge-warning btn-sm btn-rounded btn-icon"
+                            title="Copy Record"
+                            onClick={() => handleCopyRecord(r._id)}
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none"
+                              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                              className="feather feather-copy align-middle">
+                              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                          </button>
+                          <NavLink
+                            className="btn btn-sm btn-rounded btn-icon"
+                            style={{ backgroundColor: "#d63384", color: "#fff" }}
+                            title="Add Receipts"
+                            to={`/reports/${r._id}/receipts`}
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none"
+                              stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round"
+                              className="feather feather-edit-2 align-middle">
+                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                              <polyline points="14 2 14 8 20 8" />
+                              <line x1="12" x2="12" y1="18" y2="12" />
+                              <line x1="9" x2="15" y1="15" y2="15" />
+                            </svg>
+                          </NavLink>
+
+                          {/* 5. Add Travel Logs */}
+                          <NavLink
+                            className="btn badge-info btn-sm btn-rounded btn-icon"
+                            title="Add Travel Logs"
+                            to={`/reports/${r._id}/travel-logs`}
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"  fill="none"
+                              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                              className="feather feather-navigation align-middle">
+                              <polygon points="3 11 22 2 13 21 11 13 3 11" />
+                            </svg>
+                          </NavLink>
                           <NavLink className="btn badge-success btn-sm btn-rounded btn-icon" title="Edit" to={`/reports/${r._id}/edit`}>
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="feather feather-edit-2 align-middle">
                               <polygon points="16 3 21 8 8 21 3 21 3 16 16 3"></polygon>
@@ -193,6 +278,7 @@ const ReportsPage = () => {
                               <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
                             </svg>
                           </button>
+
                         </div>
                       </td>
                     </tr>
@@ -219,7 +305,7 @@ const ReportsPage = () => {
                   <nav aria-label="Page navigation example">
                     <ul className="pagination justify-content-end">
                       <li className={`page-item ${page <= 1 ? 'disabled' : ''}`}>
-                        <button className="page-link" aria-label="Previous" onClick={() => page > 1 && (setPage(page-1), load({ page: page-1 }))}>
+                        <button className="page-link" aria-label="Previous" onClick={() => page > 1 && (setPage(page - 1), load({ page: page - 1 }))}>
                           <i className="fa fa-angle-left left-left-ang" aria-hidden="true"></i>
                         </button>
                       </li>
@@ -231,7 +317,7 @@ const ReportsPage = () => {
                         </li>
                       ))}
                       <li className={`page-item ${page >= lastPage ? 'disabled' : ''}`}>
-                        <button className="page-link" aria-label="Next" onClick={() => page < lastPage && (setPage(page+1), load({ page: page+1 }))}>
+                        <button className="page-link" aria-label="Next" onClick={() => page < lastPage && (setPage(page + 1), load({ page: page + 1 }))}>
                           <i className="fa fa-angle-right left-left-ang" aria-hidden="true"></i>
                         </button>
                       </li>

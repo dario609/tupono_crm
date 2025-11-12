@@ -27,7 +27,7 @@ const normalizeBaseUrl = (url) => {
 };
 
 const getBaseUrl = () => {
-  const fromEnv = (process.env.REACT_APP_TUPONO_API_URL || "").trim();
+  const fromEnv = (`${process.env.REACT_APP_TUPONO_API_URL}` || "").trim();
   // Only trust env var if it's a proper absolute URL
   if (/^https?:\/\//i.test(fromEnv)) {
     try {

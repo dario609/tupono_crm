@@ -30,6 +30,7 @@ import { AuthProvider } from "./context/AuthProvider";
 import AdminLayout from "./layouts/AdminLayout";
 import './App.css';
 import ProfileManagement from "./pages/Users/Profile";
+import ReportReceiptsPage from "./pages/Reports/Receipts";
 
 function App() {
   return (
@@ -52,6 +53,7 @@ function App() {
             <Route path="/reports" element={<ReportsPage />} />
             <Route path="/reports/add" element={<WriteReport />} />
             <Route path="/reports/:id/edit" element={<EditReport />} />
+            <Route path="/reports/:reportId/receipts" element={<ReportReceiptsPage />} />
             <Route path="/projects" element={<ProjectsPage />} />
             <Route path="/projects/create" element={<CreateProject />} />
             <Route path="/projects/:id/edit" element={<EditProject />} />
