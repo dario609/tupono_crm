@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { NavLink } from "react-router-dom";
 import Swal from "sweetalert2";
+import { useNavigate } from "react-router-dom";
 import ReportsApi from "../../api/reportsApi";
-import axios from "axios";
 
 const ReportsPage = () => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState([]);
   const [search, setSearch] = useState("");
@@ -84,16 +85,22 @@ const ReportsPage = () => {
 
   const showingStarted = total === 0 ? 0 : (perpage === -1 ? 1 : (page - 1) * perpage + 1);
   const currentShowing = perpage === -1 ? total : Math.min(page * perpage, total);
-  const handleExportReport = async (id) => {
-    // Example: call backend endpoint to generate PDF
-    window.open(`/api/reports/${id}/export-pdf`, "_blank");
+  
+  const handleExportReport = (id) => {
+    try {
+      // Build the full PDF URL — must match your backend route
+      const pdfUrl = `${process.env.REACT_APP_TUPONO_API_URL}/admin/reports/${id}/export-pdf`;
+  
+      // Open PDF in a new browser tab
+      window.open(pdfUrl, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      console.error("Failed to open PDF:", error);
+      Swal.fire("Error", "Failed to open report PDF", "error");
+    }
   };
 
   const handleEmailReport = async (id) => {
-    const confirm = window.confirm("Send this report via email?");
-    if (!confirm) return;
-    await axios.post(`/api/reports/${id}/email`);
-    alert("Report emailed successfully!");
+    navigate(`/reports/${id}/send-email`)
   };
 
   // Skeleton rows for loading state
