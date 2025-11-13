@@ -21,9 +21,9 @@ const ReportSendEmailPage = () => {
         const { data } = await ReportsApi.getById(reportId);
         setReport(data);
         // Generate a preview (using your existing exportPDF API)
-        const blob = await ReportsApi.exportPDF(reportId);
-        const url = URL.createObjectURL(blob);
-        setPreviewUrl(url);
+        const backendBase = process.env.REACT_APP_TUPONO_API_URL;
+        const pdfUrl = `${backendBase}/admin/reports/${reportId}/export-pdf`;
+        setPreviewUrl(pdfUrl);
       } catch {
         Swal.fire("Error", "Failed to load report preview", "error");
       }
@@ -42,7 +42,7 @@ const ReportSendEmailPage = () => {
 
     try {
       setSending(true);
-      await ReportsApi.sendEmail(reportId, emailData);
+      await ReportsApi.sendEmail({previewUrl,...emailData});
       Swal.fire("Success", "Report emailed successfully", "success").then(() =>
         navigate("/reports")
       );

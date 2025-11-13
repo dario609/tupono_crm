@@ -19,7 +19,7 @@ const ReportsApi = {
   deleteReceipt: (reportId) => api.delete(`/admin/reports/receipts/${reportId}`),
 
   exportPDF: (id) => api.get(`/admin/reports/${id}/export-pdf`, { responseType: "blob" }),
-  sendEmail: (id) => api.post(`/admin/reports/${id}/email`),
+  sendEmail: (payload) => api.post(`/admin/reports/email`, payload),
   receipts: (reportId, params) => api.get(`/admin/reports/receipts`, { params: { report_id: reportId, ...params } }),
 
   travelLogs: (reportId, params) =>
