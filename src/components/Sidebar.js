@@ -133,11 +133,6 @@ const Sidebar = ({ user, permissions, supportBadge }) => {
                     <i className="bi bi-chevron-double-right"></i> All Projects
                   </NavLink>
                 </li>
-                <li className="nav-item">
-                  <NavLink to="/tasks" className="nav-link">
-                    <i className="bi bi-chevron-double-right"></i> All Tasks
-                  </NavLink>
-                </li>
               </ul>
             </div>
           </li>
