@@ -56,7 +56,7 @@ const WriteReport = () => {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => placeCaretAtEnd(el));
       });
-    } catch {}
+    } catch { }
   };
 
   const normalizeMastersIn = (next, r1, r2, c1, c2) => {
@@ -214,6 +214,38 @@ const WriteReport = () => {
     })();
   }, []);
 
+  // Auto-calculate total hours from the "Hours" column
+  useEffect(() => {
+    if (!grid || grid.length === 0) return;
+
+    // Try to detect the hours column header
+    let hoursCol = -1;
+    const headers = grid[0].map((c) =>
+      c.content.replace(/<[^>]*>/g, "").toLowerCase().trim()
+    );
+
+    const possibleMatches = ["hours", "hour", "total hours", "total hour"];
+
+    headers.forEach((text, idx) => {
+      if (possibleMatches.includes(text)) hoursCol = idx;
+    });
+
+    if (hoursCol === -1) return; // no hours column found
+
+    // Sum values under the hours column
+    let sum = 0;
+    for (let r = 1; r < grid.length; r++) {
+      const cell = grid[r][hoursCol];
+      if (cell && !cell.hidden) {
+        sum += parseNumber(cell.content);
+      }
+    }
+
+    // Update hours in meta
+    setMeta((m) => ({ ...m, hours: sum }));
+  }, [grid]);
+
+
   const setFormatting = (patch) => {
     if (!focus) return; const { r, c } = focus;
     setGrid((g) => { const next = g.map((row) => row.map((cell) => ({ ...cell }))); next[r][c] = { ...next[r][c], ...patch }; return next; });
@@ -240,6 +272,15 @@ const WriteReport = () => {
   };
 
   // Export/Import removed per request
+
+  // Extract numeric value from cell content
+  const parseNumber = (html) => {
+    if (!html) return 0;
+    const t = html.replace(/<[^>]*>/g, "").trim();
+    const num = parseFloat(t);
+    return isNaN(num) ? 0 : num;
+  };
+
 
   const onSave = async (status = 'draft') => {
     try {
@@ -370,7 +411,7 @@ const WriteReport = () => {
   return (
     <>
       <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-24">
-        <h6 className="fw-semibold mb-0 mt-3">Spreadsheet Report Editor</h6>
+        <h6 className="fw-semibold mb-0 mt-3">Report Creator</h6>
         <div className="d-flex align-items-center gap-2 mt-3">
           <button className="btn btn-primary btn-sm" onClick={() => setShowSaveChoice(true)} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
           <button onClick={handleBack} className="btn btn-primary btn-sm inner-pages-button" style={{ padding: '5px 10px' }}> Back</button>
@@ -460,7 +501,7 @@ const WriteReport = () => {
                     <button className="btn btn-success btn-sm" onClick={onUpdateCurrentTemplate} style={{ color: 'white', backgroundColor: 'darkgreen', border: 'none' }} disabled={tplBusy || !selectedTemplate} title="Update Template">
                       <span className="label">Update Template</span>
                     </button>
-                    <button className="btn btn-danger btn-sm text-white" style={{backgroundColor: 'red', border: 'none'}} onClick={onDeleteTemplate} disabled={delBusy || !selectedTemplate} title="Delete Template">
+                    <button className="btn btn-danger btn-sm text-white" style={{ backgroundColor: 'red', border: 'none' }} onClick={onDeleteTemplate} disabled={delBusy || !selectedTemplate} title="Delete Template">
                       <span className="label">Delete Template</span>
                     </button>
                   </div>
@@ -528,7 +569,13 @@ const WriteReport = () => {
                     </select>
                   </div>
                   <div className="col-sm-4 col-md-4 mobile-mb"><label>Hours</label>
-                    <input type="number" min="0" className="form-control" value={meta.hours || ''} onChange={(e) => setMeta((m) => ({ ...m, hours: e.target.value }))} placeholder="0" />
+                    <input
+                      type="number"
+                      className="form-control"
+                      value={meta.hours || 0}
+                      readOnly
+                    />
+
                   </div>
                 </div>
 
