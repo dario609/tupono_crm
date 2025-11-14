@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import Swal from "sweetalert2";
 import { useAuth } from "../../context/AuthProvider";
 import UsersApi from "../../api/usersApi";
 import TeamsApi from "../../api/teamsApi";
@@ -12,7 +13,7 @@ const emptyTask = {
   assigned_by: "",
   duration: "",
   duration_type: "Daily",
-  status: "starting",
+  status: "Just starting",
   start_date: "",
   end_date: "",
   content: "",
@@ -51,6 +52,7 @@ const CreateProject = () => {
   const [taskModalOpen, setTaskModalOpen] = useState(false);
   const [task, setTask] = useState(emptyTask);
   const [taskEditIndex, setTaskEditIndex] = useState(null);
+  const [taskErrors, setTaskErrors] = useState({});
 
   useEffect(() => {
     (async () => {
@@ -152,28 +154,51 @@ const CreateProject = () => {
   };
 
   const saveTask = () => {
-    if (!task.assignee || !task.start_date || !task.end_date || !task.content) {
-      alert("Assignee, Start Date, End Date and Content are required.");
+    const errors = {};
+  
+    if (!task.assignee) errors.assignee = "Assignee is required";
+    if (!task.start_date) errors.start_date = "Start Date is required";
+    if (!task.end_date) errors.end_date = "End Date is required";
+    if (!task.content) errors.content = "Content is required";
+  
+    // Apply errors
+    if (Object.keys(errors).length > 0) {
+      setTaskErrors(errors);
       return;
     }
-
+  
+    // Clear errors
+    setTaskErrors({});
+  
+    // Auto-assign "Assigned By"
     task.assigned_by = user.id;
-
+  
     const updated = [...tasks];
+  
     if (taskEditIndex !== null) {
       updated[taskEditIndex] = task;
     } else {
       updated.push(task);
     }
-
+  
     setTasks(updated);
     setTaskModalOpen(false);
   };
+  
 
-  const deleteTask = (index) => {
-    if (window.confirm("Delete this task?")) {
-      setTasks(tasks.filter((_, i) => i !== index));
-    }
+  const deleteTask = async (index) => {
+    const confirm = await Swal.fire({
+      title: 'Are you sure?',
+      text: 'Are you sure you want to delete this task? This action cannot be undone. Please confirm before proceeding.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Yes, delete it!',
+      cancelButtonText: 'Cancel'
+    });
+    if (!confirm.isConfirmed) return;
+    setTasks(tasks.filter((_, i) => i !== index));
   };
 
 
@@ -411,16 +436,16 @@ const CreateProject = () => {
                                 <td>{t.duration_type}</td>
 
                                 <td>
-                                  {t.status === "starting" && (
+                                  {t.status === "Just starting" && (
                                     <span className="badge bg-secondary">Just Starting</span>
                                   )}
-                                  {t.status === "working" && (
+                                  {t.status === "Working" && (
                                     <span className="badge bg-info text-dark">Working On</span>
                                   )}
-                                  {t.status === "nearly" && (
+                                  {t.status === "Nearly Complete" && (
                                     <span className="badge bg-warning text-dark">Nearly Complete</span>
                                   )}
-                                  {t.status === "complete" && (
+                                  {t.status === "Complete" && (
                                     <span className="badge bg-success">Complete</span>
                                   )}
                                 </td>
@@ -428,25 +453,24 @@ const CreateProject = () => {
                                 <td>{t.start_date}</td>
                                 <td>{t.end_date}</td>
                                 <td>{t.content || "-"}</td>
-
-                                <td>
-                                  <button
-                                    type="button"
-                                    className="btn btn-success btn-sm me-1"
-                                    style={{ borderRadius: 20 }}
-                                    onClick={() => editTask(i)}
-                                  >
-                                    Edit
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    className="btn btn-danger btn-sm"
-                                    style={{ borderRadius: 20 }}
-                                    onClick={() => deleteTask(i)}
-                                  >
-                                    Del
-                                  </button>
+                                <td className="text-center">
+                                  <div style={{ display: 'flex', gap: 6, justifyContent: 'center', alignItems: 'center', flexWrap: 'nowrap' }}>
+                                    <a
+                                      className="btn badge-success btn-sm btn-rounded btn-icon"
+                                      title="Edit"
+                                      onClick={() => editTask(i)}
+                                    >
+                                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="feather feather-edit-2 align-middle">
+                                        <polygon points="16 3 21 8 8 21 3 21 3 16 16 3"></polygon>
+                                      </svg>
+                                    </a>
+                                    <a className="btn badge-danger btn-sm btn-rounded btn-icon" title="Delete" onClick={() => deleteTask(t._id)}>
+                                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="feather feather-trash align-middle">
+                                        <polyline points="3 6 5 6 21 6"></polyline>
+                                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                      </svg>
+                                    </a>
+                                  </div>
                                 </td>
                               </tr>
                             ))}
@@ -489,6 +513,9 @@ const CreateProject = () => {
                     </option>
                   ))}
                 </select>
+                {taskErrors.assignee && (
+                  <small className="text-danger">{taskErrors.assignee}</small>
+                )}
               </div>
 
 
@@ -519,25 +546,31 @@ const CreateProject = () => {
               </div>
 
               <div className="col-md-6 mt-2">
-                <label>Start *</label>
+                <label>Start Date*</label>
                 <input type="date" className="form-control" value={task.start}
                   onChange={(e) => setTask({ ...task, start_date: e.target.value })} />
+                  {taskErrors.start_date && (
+                    <small className="text-danger">{taskErrors.start_date}</small>
+                  )}
               </div>
 
               <div className="col-md-6 mt-2">
-                <label>End *</label>
+                <label>End Date*</label>
                 <input type="date" className="form-control" value={task.end}
                   onChange={(e) => setTask({ ...task, end_date: e.target.value })} />
+                  {taskErrors.end_date && (
+                    <small className="text-danger">{taskErrors.end_date}</small>
+                  )}
               </div>
 
               <div className="col-md-4 mt-2">
                 <label>Status</label>
                 <select className="form-control" value={task.status}
                   onChange={(e) => setTask({ ...task, status: e.target.value })}>
-                  <option value="starting">Just Starting</option>
-                  <option value="working">Working On</option>
-                  <option value="nearly">Nearly Complete</option>
-                  <option value="complete">Complete</option>
+                  <option value="Just starting">Just Starting</option>
+                  <option value="Working">Working On</option>
+                  <option value="Nearly Complete">Nearly Complete</option>
+                  <option value="Complete">Complete</option>
                 </select>
               </div>
 
@@ -558,6 +591,9 @@ const CreateProject = () => {
                     <option value="Travel">Travel</option>
                     <option value="Report Support">Report Support</option>
                   </select>
+                  {taskErrors.content && (
+                    <small className="text-danger">{taskErrors.content}</small>
+                  )}
                 </div>
               </div>
             </div>
@@ -582,15 +618,23 @@ const modalStyles = {
     position: "fixed",
     inset: 0,
     background: "rgba(0,0,0,0.45)",
-    zIndex: 2000,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 9999,
+    padding: 20,
   },
   modal: {
-    width: "600px",
-    margin: "100px auto",
-    background: "#fff",
-    padding: "25px",
+    position: "relative",
+    background: "white",
+    padding: "25px 25px",
+    width: "100%",
+    maxWidth: "480px",
     borderRadius: "12px",
-    boxShadow: "0 10px 30px rgba(0,0,0,0.2)",
+    boxShadow: "0 5px 25px rgba(0,0,0,0.25)",
+    maxHeight: "90vh",
+    overflowY: "auto",
+    marginRight: "10px",
   },
 };
 
