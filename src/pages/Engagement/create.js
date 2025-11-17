@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import EngagementApi from "../../api/engagementApi";
 import HapuListsApi from "../../api/hapulistsApi";
 import ProjectsApi from "../../api/projectsApi";
-import { Toaster, toast } from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 import { EditProjectSkeleton } from "../../components/common/SkelentonTableRow.js";
 
@@ -81,12 +80,10 @@ export default function EngagementTrackerPage() {
                     setForm(initialForm);
                 }
                 else {
-                    toast.error(res.data?.message || "Failed to create engagement");
                 }
             })
             .catch((err) => {
                 const msg = err.response?.data?.message || "Server error";
-                toast.error(msg);
             });
 
     };
