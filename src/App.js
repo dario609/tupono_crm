@@ -33,6 +33,8 @@ import ProfileManagement from "./pages/Users/Profile";
 import ReportReceiptsPage from "./pages/Reports/Receipts";
 import ReportTravelLogsPage from "./pages/Reports/TravelLogs";
 import ReportSendEmailPage from "./pages/Reports/ReportSendEmail";
+import EngagementTrackerPage from "./pages/Engagement";
+import EngagementTrackerCreatePage from "./pages/Engagement/create";
 function App() {
   return (
     <AuthProvider>
@@ -68,6 +70,8 @@ function App() {
                 <Route path="/teams/:id/edit" element={<EditTeam />} />
                 <Route path="/docs/rohe-hapu" element={<RoheHapuPage />} />
                 <Route path="/documents" element={<DocumentsPage />} />
+                <Route path="/engagement-tracker" element={<EngagementTrackerPage />} />
+                <Route path="/engagement-tracker/create" element={<EngagementTrackerCreatePage />} />
                 <Route path="/calendar" element={<CalendarPage />} />
                 <Route path="/calendar/create" element={<CalendarCreate />} />
                 <Route path="/calendar/:id/edit" element={<CalendarEdit />} />

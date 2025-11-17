@@ -11,8 +11,8 @@ const SkeletonTableRow = ({ rows, cols }) => {
 };
 const EditProjectSkeleton = () => {
     return (
-      <section className="card mt-3">
-        <div className="row card-body pt-0">
+      <section className="card mt-4">
+        <div className="row card-body pt-0 mt-1">
           <div className="col-12">
             <div className="box">
               <div className="box-body p-15 pt-0">

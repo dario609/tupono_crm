@@ -44,7 +44,7 @@ const Sidebar = ({ user, permissions, supportBadge }) => {
               </ul>
             </div>
           </li>
-        )} 
+        )}
 
         {canView("user_management") && (
           <li className="nav-item">
@@ -158,7 +158,7 @@ const Sidebar = ({ user, permissions, supportBadge }) => {
             </a>
             <div className={`collapse ${openMenu === "calendar" ? "show" : ""}`}>
               <ul className="nav flex-column sub-menu">
-              {canAdd("calendar_management") && (
+                {canAdd("calendar_management") && (
                   <li className="nav-item">
                     <NavLink to="/calendar/create" className="nav-link">
                       <i className="bi bi-chevron-double-right"></i> Create Meeting
@@ -218,6 +218,34 @@ const Sidebar = ({ user, permissions, supportBadge }) => {
           </li>
         )}
 
+        <li className="nav-item">
+          <a
+            href="#!"
+            className="nav-link"
+            onClick={() => toggleMenu("engagement")}
+          >
+             <i className="menu-icon text-info mdi mdi-camera-iris"></i>
+            <span className="menu-title">Engagement Tracker</span>
+            <i className="menu-arrow"></i>
+          </a>
+          <div
+            className={`collapse ${openMenu === "engagement" ? "show" : ""}`}
+          >
+            <ul className="nav flex-column sub-menu">
+              <li className="nav-item">
+                <NavLink to="/engagement-tracker/create" className="nav-link">
+                  <span className="menu-title">Engagement Tracker</span>
+                </NavLink>
+              </li>
+              <li className="nav-item">
+                <NavLink to="/engagement-tracker" className="nav-link">
+                  <span className="menu-title">Engagements</span>
+                </NavLink>
+              </li>
+            </ul>
+          </div>
+        </li>
+
         {/* Support Management */}
         {canView("message_support_management") && (
           <li className="nav-item">
@@ -230,6 +258,7 @@ const Sidebar = ({ user, permissions, supportBadge }) => {
             </NavLink>
           </li>
         )}
+
 
         {/* My Account */}
         <li className="nav-item">
@@ -253,15 +282,7 @@ const Sidebar = ({ user, permissions, supportBadge }) => {
           </div>
         </li>
 
-        {/* Activity Log (Admin only) */}
-        {user?.id === 1 && (
-          <li className="nav-item">
-            <NavLink to="/activity-log" className="nav-link">
-              <i className="menu-icon text-info mdi mdi-file-document"></i>
-              <span className="menu-title">Activity Log</span>
-            </NavLink>
-          </li>
-        )}
+
       </ul>
     </nav>
   );
