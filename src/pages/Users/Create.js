@@ -2,6 +2,26 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import RolesApi from "../../api/rolesApi";
 import UsersApi from "../../api/usersApi";
+import { useNotifications } from "../../context/NotificationProvider";
+
+const initialForm = {
+  first_name: "",
+  last_name: "",
+  email: "",
+  password: "",
+  confirm_password: "",
+  phone: "",
+  city: "",
+  country: "",
+  zip_code: "",
+  address: "",
+  role_id: "",
+  hapu: "",
+  iwi: "",
+  marae: "",
+  maunga: "",
+  awa: "",
+};
 
 const onlyLetters = (s) => s.replace(/[^a-zA-Z\s]/g, "");
 const onlyDigits = (s) => s.replace(/\D/g, "");
@@ -18,30 +38,15 @@ const formatZip = (s) => onlyDigits(s).slice(0, 10);
 
 const CreateUser = () => {
   const navigate = useNavigate();
+  const { pushNotification } = useNotifications();
   const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({
-    first_name: "",
-    last_name: "",
-    email: "",
-    password: "",
-    confirm_password: "",
-    phone: "",
-    city: "",
-    country: "",
-    zip_code: "",
-    address: "",
-    role_id: "",
-    hapu: "",
-    iwi: "",
-    marae: "",
-    maunga: "",
-    awa: "",
-  });
+  const [form, setForm] = useState(initialForm);
   const [showPwd, setShowPwd] = useState(false);
   const [showConfirmPwd, setShowConfirmPwd] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [emailUserNow, setEmailUserNow] = useState(true);
   const formRef = useRef(null);
   const confirmRef = useRef(null);
   const [profileImage, setProfileImage] = useState(null);
@@ -91,9 +96,10 @@ const CreateUser = () => {
     });
   };
 
-  const toArray = (s) => String(s || "").split(/[\n,]/g).map((x)=>x.trim()).filter(Boolean);
+  const toArray = (s) => String(s || "").split(/[\n,]/g).map((x) => x.trim()).filter(Boolean);
 
   const onSubmit = async (e) => {
+
     e.preventDefault();
     setError("");
     setSuccess("");
@@ -120,11 +126,20 @@ const CreateUser = () => {
       fd.set("marae", JSON.stringify(toArray(form.marae)));
       fd.set("maunga", JSON.stringify(toArray(form.maunga)));
       fd.set("awa", JSON.stringify(toArray(form.awa)));
+      fd.set("emailNow", emailUserNow);
       if (profileImage) fd.append("profile_image", profileImage);
       const data = await UsersApi.create(fd);
       if (data?.success === false) {
         throw new Error(data?.message || "Failed to create user");
       }
+      pushNotification({// temporary local ID
+        _id: data.data.notifications.creatorNotificationId,
+        title: "New User Created",
+        message: `${form.first_name} ${form.last_name} has been added.`,
+        isRead: false,
+        createdAt: new Date(),
+      });
+      
       setSuccess("User created successfully");
       setTimeout(() => navigate("/users"), 900);
     } catch (err) {
@@ -282,8 +297,8 @@ const CreateUser = () => {
                       <div className="form-group mb-2">
                         <label>Profile Photo</label>
                         <input type="file" className="form-control" placeholder="Profile Image"
-                           name="profile_image" accept="image/*"
-                           onChange={(e) => setProfileImage(e.target.files?.[0] || null)} />
+                          name="profile_image" accept="image/*"
+                          onChange={(e) => setProfileImage(e.target.files?.[0] || null)} />
                       </div>
                     </div>
 
@@ -397,10 +412,30 @@ const CreateUser = () => {
                       </div>
                     </div>
                   </div>
+                  <div className="col-12 mt-3">
+                    <div className="form-check">
+                      <input
+                        type="checkbox"
+                        className="form-check-input"
+                        name="emailNow"
+                        id="emailUserNow"
+                        checked={emailUserNow}
+                        onChange={(e) => setEmailUserNow(e.target.checked)}
+                        style={{marginLeft: "0px"}}
+                      />
+                      <label 
+                         className="form-check-label" 
+                         htmlFor="emailUserNow" 
+                         style={{ cursor: "pointer",marginLeft: "25px", fontSize: "14px",padding: '5px' }}>
+                        Send email now
+                      </label>
+                    </div>
+                  </div>
+
 
                   <div className="modal-footer1 text-center mt-2">
                     <button type="button" className="btn btn-danger btn-rounded btn-fw" onClick={() => navigate("/users")}>Cancel</button>
-                    <button type="submit" disabled={loading || !canSubmit} style={{marginLeft: '10px'}} className="btn btn-primary btn-rounded btn-fw">{loading ? "Saving..." : "Save"}</button>
+                    <button type="submit" disabled={loading || !canSubmit} style={{ marginLeft: '10px' }} className="btn btn-primary btn-rounded btn-fw">{loading ? "Saving..." : "Save"}</button>
                   </div>
                 </form>
               </div>

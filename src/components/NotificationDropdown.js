@@ -1,23 +1,29 @@
 import React from "react";
 import moment from "moment";
 import { useNavigate } from "react-router-dom";
+import { useNotifications } from "../context/NotificationProvider";
+import { useAuth } from "../context/AuthProvider";
 
-export default function NotificationDropdown({
-  totalUnreadCount = 0,
-  unreadNotifications = [],
-  adminNotifications = [],
-  userId,
-}) {
+export default function NotificationDropdown() {
+  const {
+    notifications,
+    unreadCount,
+    markOneRead,
+    markAllRead,
+    pushNotification,
+    removeNotification,
+  } = useNotifications();
+  const { user } = useAuth();
   const navigate = useNavigate();
+
+  const safeNotifications = Array.isArray(notifications)
+  ? notifications.filter(n => n && n._id) // remove null, undefined, objects without _id
+  : [];
 
   const handleViewAll = () => {
     navigate("/admin/notifications");
   };
 
-  const handleClick = (notification) => {
-    if (notification.type === "file") navigate("/admin/documents");
-    else if (notification.type === "task") navigate("/admin/tasks");
-  };
 
   return (
     <li className="nav-item dropdown">
@@ -29,7 +35,7 @@ export default function NotificationDropdown({
         aria-expanded="false"
       >
         <i className="icon-bell"></i>
-        {totalUnreadCount > 0 && <span className="count"></span>}
+        {unreadCount > 0 && <span className="count"></span>}
       </a>
 
       <div
@@ -42,70 +48,76 @@ export default function NotificationDropdown({
           style={{ cursor: "pointer" }}
           onClick={handleViewAll}
         >
-          <p className="mb-0 fw-medium" style={{fontSize: '15px'}}>
-            You have {totalUnreadCount || 0} new notification
-            {totalUnreadCount === 1 ? "" : "s"}
+          <p className="mb-0 fw-medium" style={{ fontSize: '15px' }}>
+            You have {unreadCount || 0} new notification
+            {unreadCount === 1 ? "" : "s"}
           </p>
           <span className="badge bg-primary rounded-pill">View all</span>
         </div>
+        {Array.isArray(safeNotifications) && safeNotifications.length > 0 ? (
+          safeNotifications
+            .filter((n) => n && typeof n === "object") // safety guard
+            .map((notify) => (
+              <React.Fragment key={notify?.['_id'] || Math.random()}>
+                {/* If current user created this notification */}
+                {notify.created_by === user?._id && (
+                  <>
+                    <div className="dropdown-divider"></div>
+                    <h6 className="dropdown-header text-uppercase text-muted">
+                      You Sent This Notification
+                    </h6>
+                  </>
+                )}
 
-        {/* --- User-specific notifications --- */}
-        {unreadNotifications.length > 0 ? (
-          unreadNotifications.map((notify) => (
-            <React.Fragment key={notify.id}>
-              {notify.created_by === userId && (
-                <>
-                  <div className="dropdown-divider"></div>
-                  <h6 className="dropdown-header text-uppercase text-muted">
-                    You Sent This Notification
-                  </h6>
-                </>
-              )}
+                <a
+                  className="dropdown-item preview-item py-3 notification-item d-flex align-items-start"
+                  onClick={() => notify?._id && markOneRead(notify._id)}
+                  style={{ cursor: "pointer" }}
+                >
+                  <div className="preview-thumbnail me-3">
+                    <i className="mdi mdi-send text-primary fs-4"></i>
+                  </div>
 
-              <a
-                className="dropdown-item preview-item py-3 notification-item d-flex align-items-start"
-                onClick={() => handleClick(notify)}
-                style={{ cursor: "pointer" }}
-              >
-                <div className="preview-thumbnail me-3">
-                  <i className="mdi mdi-send text-primary fs-4"></i>
-                </div>
-                <div className="preview-item-content flex-grow-1">
-                  <h6 className="preview-subject fw-normal text-dark mb-1">
-                    {notify.title}
-                  </h6>
-                  <p className="fw-light small-text mb-0 text-wrap text-break">
-                    {notify.message?.length > 40
-                      ? notify.message.slice(0, 40) + "..."
-                      : notify.message}
-                  </p>
-                  <p className="fw-light small-text text-muted mb-0">
-                    {moment(notify.created_at).fromNow()}
-                  </p>
-                </div>
-              </a>
-            </React.Fragment>
-          ))
-        ) : adminNotifications.length === 0 ? (
+                  <div className="preview-item-content flex-grow-1">
+                    <h6 className="preview-subject fw-normal text-dark mb-1">
+                      {notify.title || "Untitled Notification"}
+                    </h6>
+
+                    <p className="fw-light small-text mb-0 text-wrap text-break">
+                      {notify.body}
+                    </p>
+
+                    <p className="fw-light small-text text-muted mb-0">
+                      {notify.created_at
+                        ? moment(notify.created_at).fromNow()
+                        : ""}
+                    </p>
+                  </div>
+                </a>
+              </React.Fragment>
+            ))
+        ) : (
           <a
             className="dropdown-item preview-item py-3 text-center text-muted"
             onClick={handleViewAll}
           >
-            <i className="mdi mdi-bell-off-outline me-2"></i> No new notifications
+            <i className="mdi mdi-bell-off-outline me-2"></i>
+            No new notifications
           </a>
-        ) : null}
+        )}
 
-        {/* --- Divider for Admin Notifications --- */}
-        {adminNotifications.length > 0 && (
+
+        {/* --- Divider for Admin Notifications ---
+        {notifications.length > 0 && (
           <>
             <div className="dropdown-divider"></div>
             <h6 className="dropdown-header text-uppercase text-muted">
               Your Sent Notifications
             </h6>
 
-            {adminNotifications.map((note) => (
+            {notifications.map((note) => (
               <a
-                key={note.id}
+                key={note._id}
                 className="dropdown-item preview-item py-3 notification-item d-flex align-items-start"
                 onClick={() => handleClick(note)}
                 style={{ cursor: "pointer" }}
@@ -122,17 +134,17 @@ export default function NotificationDropdown({
                       ? note.message.slice(0, 40) + "..."
                       : note.message}{" "}
                     Sent to ({note.user
-                      ? `${note.user.first_name} ${note.user.last_name}`
+                      ? `${note.created_by.first_name} ${note.created_by.last_name}`
                       : ""})
                   </p>
                   <p className="fw-light small-text text-muted mb-0">
-                    {moment(note.created_at).fromNow()}
+                    {moment(note.createdAt).fromNow()}
                   </p>
                 </div>
               </a>
             ))}
           </>
-        )}
+        )} */}
       </div>
     </li>
   );

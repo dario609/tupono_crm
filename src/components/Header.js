@@ -6,11 +6,12 @@ import defaultUser from "../assets/images/user.jpg";
 import NotificationDropdown from "./NotificationDropdown";
 import { AuthApi } from "../api/authApi";
 import { useNavigate } from "react-router";
+import { useNotifications } from "../context/NotificationProvider";
 
-const Header = ({ user, unreadCount = 0, adminUnreadCount = 0 }) => {
+const Header = ({ user, adminUnreadCount = 0 }) => {
   const navigate = useNavigate();
-  const totalUnread = unreadCount + adminUnreadCount;
-  
+  const { unreadCount } = useNotifications();
+
   const toggleSidebar = () => {
     document.body.classList.toggle('sidebar-icon-only');
   }
@@ -74,7 +75,7 @@ const Header = ({ user, unreadCount = 0, adminUnreadCount = 0 }) => {
         {/* Right-side items */}
         <ul className="navbar-nav ms-auto">
           {/* Notifications */}
-            <NotificationDropdown />
+            <NotificationDropdown unreadCount={unreadCount} />
 
           {/* User Dropdown */}
           <li className="nav-item dropdown d-none d-lg-block user-dropdown">

@@ -619,12 +619,49 @@ const WriteReport = () => {
                             <div
                               contentEditable
                               suppressContentEditableWarning
-                              ref={(el) => { const k = `${r}-${c}`; if (el) editorRefs.current.set(k, el); else editorRefs.current.delete(k); }}
-                              onFocus={() => { setFocus({ r, c }); const el = editorRefs.current.get(`${r}-${c}`); deferPlaceCaret(el); }}
+                              ref={(el) => {
+                                const k = `${r}-${c}`;
+
+                                if (!el) {
+                                  editorRefs.current.delete(k);
+                                  return;
+                                }
+
+                                editorRefs.current.set(k, el);
+
+                                // Important: prevent React from overwriting user-typed content
+                                if (el.innerHTML !== cell.content) {
+                                  el.innerHTML = cell.content || "";
+                                }
+                              }}
+                              onFocus={() => {
+                                setFocus({ r, c });
+                                const el = editorRefs.current.get(`${r}-${c}`);
+                                requestAnimationFrame(() => {
+                                  requestAnimationFrame(() => {
+                                    try {
+                                      const range = document.createRange();
+                                      range.selectNodeContents(el);
+                                      range.collapse(false);
+                                      const sel = window.getSelection();
+                                      sel.removeAllRanges();
+                                      sel.addRange(range);
+                                    } catch { }
+                                  });
+                                });
+                              }}
                               onInput={(e) => handleInput(r, c, e.currentTarget.innerHTML)}
-                              style={{ minHeight: 36, padding: '6px 8px', outline: 'none', fontWeight: cell.bold ? 700 : 400, fontStyle: cell.italic ? 'italic' : 'normal', textAlign: cell.align || 'left', width: '100%' }}
-                              dangerouslySetInnerHTML={{ __html: cell.content || '' }}
+                              style={{
+                                minHeight: 36,
+                                padding: "6px 8px",
+                                outline: "none",
+                                fontWeight: cell.bold ? 700 : 400,
+                                fontStyle: cell.italic ? "italic" : "normal",
+                                textAlign: cell.align || "left",
+                                width: "100%",
+                              }}
                             />
+
                           </div>
                         )
                       )))}

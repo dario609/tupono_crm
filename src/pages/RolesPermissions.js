@@ -616,7 +616,7 @@ const RolesPermissions = () => {
 
                     <tbody>
                       {permissions.map((module, moduleIndex) => (
-                        <tr key={module.input_name}>
+                        <tr key={moduleIndex}>
                           <td className="text-nowrap fw-semibold">{module.level_name}</td>
                           {["is_view", "is_add", "is_edit", "is_delete"].map((perm) => {
                             const isAvailable = module.value.includes(perm);

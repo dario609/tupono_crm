@@ -93,7 +93,7 @@ const Sidebar = ({ user, permissions, supportBadge }) => {
                 {canAdd("project_management") && (
                   <li className="nav-item">
                     <NavLink to="/reports/add" className="nav-link">
-                      <i className="bi bi-chevron-double-right"></i> Add Report
+                      <i className="bi bi-chevron-double-right"></i> Create Report
                     </NavLink>
                   </li>
                 )}

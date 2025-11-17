@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { EditProjectSkeleton } from "../../components/common/SkelentonTableRow.js";
 import Swal from "sweetalert2";
 import UsersApi from "../../api/usersApi";
 import TeamsApi from "../../api/teamsApi";
@@ -7,8 +8,7 @@ import RoheApi from "../../api/roheApi";
 import HapuListsApi from "../../api/hapulistsApi";
 import ProjectsApi from "../../api/projectsApi";
 import TasksApi from "../../api/tasksApi";
-
-
+import GanttChartTable from "../../components/projects/GanttChart.js";
 const initialForm = {
   name: "",
   start_date: "",
@@ -57,6 +57,8 @@ const EditProject = () => {
   const [task, setTask] = useState(emptyTask);
   const [editTaskId, setEditTaskId] = useState(null);
   const [taskEditIndex, setTaskEditIndex] = useState(null);
+  const [ganttView, setGanttView] = useState(false);
+
 
   const userLabel = (u) => `${u.first_name ?? ''} ${u.last_name ?? ''}`.trim() || u.email || 'User';
   const parseHapuIdFromOption = (val) => {
@@ -111,7 +113,6 @@ const EditProject = () => {
       try {
         const res = await ProjectsApi.getById(id);
         const p = res?.data;
-        console.log("PARSED PROJECT:", res);
         if (!mounted || !p) return;
 
         setForm({
@@ -296,7 +297,7 @@ const EditProject = () => {
   return (
     <>
       <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-24">
-        <h6 className="fw-semibold mb-0 mt-3">Edit Project</h6>
+        <h6 className="fw-semibold mb-0 mt-3">Edit Project {pageLoading ? " " : ` (${form.name})`}</h6>
         <ul className="d-flex align-items-center mt-3 mb-1">
           <li className="fw-medium">
             <Link to="/projects" className="btn btn-primary btn-rounded btn-fw inner-pages-button">
@@ -311,17 +312,7 @@ const EditProject = () => {
           <div className="col-12">
             <div className="box">
               <div className="box-body p-15 pt-0">
-                {pageLoading && (
-                  <div className="row p-1" aria-busy>
-                    <div className="col-md-4 mb-3"><div className="skeleton skeleton-line" style={{ height: 38 }} /></div>
-                    <div className="col-md-4 mb-3"><div className="skeleton skeleton-line" style={{ height: 38 }} /></div>
-                    <div className="col-md-4 mb-3"><div className="skeleton skeleton-line" style={{ height: 38 }} /></div>
-                    <div className="col-md-4 mb-3"><div className="skeleton skeleton-line" style={{ height: 38 }} /></div>
-                    <div className="col-md-4 mb-3"><div className="skeleton skeleton-line" style={{ height: 38 }} /></div>
-                    <div className="col-md-4 mb-3"><div className="skeleton skeleton-line" style={{ height: 38 }} /></div>
-                    <div className="col-md-12"><div className="skeleton skeleton-line" style={{ height: 90 }} /></div>
-                  </div>
-                )}
+                {pageLoading && <EditProjectSkeleton />}
                 {!pageLoading && (
                   <>
                     {success && (
@@ -467,81 +458,108 @@ const EditProject = () => {
                         >
                           + Add Task
                         </button>
-                        <div className="table-responsive">
-                          <table className="table table-bordered">
-                            <thead className="bg-primary text-white">
-                              <tr>
-                                <th>#</th>
-                                <th>Assignee</th>
-                                <th>Assigned By</th>
-                                <th>Duration (h)</th>
-                                <th>Duration Type</th>
-                                <th>Status</th>
-                                <th>Start Date</th>
-                                <th>End Date</th>
-                                <th>Content</th>
-                                <th style={{ width: "110px" }}>Actions</th>
-                              </tr>
-                            </thead>
+                        <div className="text-end mb-2 gantt-switch">
+                          <label className="switch-option">
+                            <input
+                              type="radio"
+                              name="viewMode"
+                              checked={!ganttView}
+                              onChange={() => setGanttView(false)}
+                            />
+                            <span>Table</span>
+                          </label>
 
-                            <tbody>
-                              {projectTasks.length === 0 && (
-                                <tr>
-                                  <td colSpan="9" className="text-center">No tasks found.</td>
-                                </tr>
-                              )}
-
-                              {projectTasks.map((t, i) => (
-                                <tr key={t._id}>
-                                  <td>{i + 1}</td>
-                                  <td>{getUserName(t.assignee)}</td>
-                                  <td>{getUserName(t.assigned_by)}</td>
-                                  <td>{t.duration || "-"}</td>
-                                  <td>{t.duration_type || "-"}</td>
-                                  <td>
-                                    {t.status === "Just starting" && (
-                                      <span className="badge bg-secondary">Just Starting</span>
-                                    )}
-                                    {t.status === "Working" && (
-                                      <span className="badge bg-info text-dark">Working On</span>
-                                    )}
-                                    {t.status === "Nearly Complete" && (
-                                      <span className="badge bg-warning text-dark">Nearly Complete</span>
-                                    )}
-                                    {t.status === "Complete" && (
-                                      <span className="badge bg-success">Complete</span>
-                                    )}
-                                  </td>
-
-                                  <td>{t.start_date ? t.start_date.slice(0, 10) : "-"}</td>
-                                  <td>{t.end_date ? t.end_date.slice(0, 10) : "-"}</td>
-                                  <td>{t.content || "-"}</td>
-
-                                  <td className="text-center">
-                                    <div style={{ display: 'flex', gap: 6, justifyContent: 'center', alignItems: 'center', flexWrap: 'nowrap' }}>
-                                      <a
-                                        className="btn badge-success btn-sm btn-rounded btn-icon"
-                                        title="Edit"
-                                        onClick={() => openEditTask(t)}
-                                      >
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="feather feather-edit-2 align-middle">
-                                          <polygon points="16 3 21 8 8 21 3 21 3 16 16 3"></polygon>
-                                        </svg>
-                                      </a>
-                                      <a className="btn badge-danger btn-sm btn-rounded btn-icon" title="Delete" onClick={() => deleteTask(t._id)}>
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="feather feather-trash align-middle">
-                                          <polyline points="3 6 5 6 21 6"></polyline>
-                                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                                        </svg>
-                                      </a>
-                                    </div>
-                                  </td>
-
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
+                          <label className="switch-option">
+                            <input
+                              type="radio"
+                              name="viewMode"
+                              checked={ganttView}
+                              onChange={() => setGanttView(true)}
+                            />
+                            <span>Gantt</span>
+                          </label>
                         </div>
+
+                        {
+                          !ganttView && (
+                            <div className="table-responsive">
+                              <table className="table table-bordered">
+                                <thead className="bg-primary text-white">
+                                  <tr>
+                                    <th>#</th>
+                                    <th>Assignee</th>
+                                    <th>Assigned By</th>
+                                    <th>Duration (h)</th>
+                                    <th>Duration Type</th>
+                                    <th>Status</th>
+                                    <th>Start Date</th>
+                                    <th>End Date</th>
+                                    <th>Content</th>
+                                    <th style={{ width: "110px" }}>Actions</th>
+                                  </tr>
+                                </thead>
+
+                                <tbody>
+                                  {projectTasks.length === 0 && (
+                                    <tr>
+                                      <td colSpan="9" className="text-center">No tasks found.</td>
+                                    </tr>
+                                  )}
+
+                                  {projectTasks.map((t, i) => (
+                                    <tr key={t._id}>
+                                      <td>{i + 1}</td>
+                                      <td>{getUserName(t.assignee)}</td>
+                                      <td>{getUserName(t.assigned_by)}</td>
+                                      <td>{t.duration || "-"}</td>
+                                      <td>{t.duration_type || "-"}</td>
+                                      <td>
+                                        {t.status === "Just starting" && (
+                                          <span className="badge bg-secondary">Just Starting</span>
+                                        )}
+                                        {t.status === "Working" && (
+                                          <span className="badge bg-info text-dark">Working On</span>
+                                        )}
+                                        {t.status === "Nearly Complete" && (
+                                          <span className="badge bg-warning text-dark">Nearly Complete</span>
+                                        )}
+                                        {t.status === "Complete" && (
+                                          <span className="badge bg-success">Complete</span>
+                                        )}
+                                      </td>
+
+                                      <td>{t.start_date ? t.start_date.slice(0, 10) : "-"}</td>
+                                      <td>{t.end_date ? t.end_date.slice(0, 10) : "-"}</td>
+                                      <td>{t.content || "-"}</td>
+
+                                      <td className="text-center">
+                                        <div style={{ display: 'flex', gap: 6, justifyContent: 'center', alignItems: 'center', flexWrap: 'nowrap' }}>
+                                          <a
+                                            className="btn badge-success btn-sm btn-rounded btn-icon"
+                                            title="Edit"
+                                            onClick={() => openEditTask(t)}
+                                          >
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="feather feather-edit-2 align-middle">
+                                              <polygon points="16 3 21 8 8 21 3 21 3 16 16 3"></polygon>
+                                            </svg>
+                                          </a>
+                                          <a className="btn badge-danger btn-sm btn-rounded btn-icon" title="Delete" onClick={() => deleteTask(t._id)}>
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="feather feather-trash align-middle">
+                                              <polyline points="3 6 5 6 21 6"></polyline>
+                                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                            </svg>
+                                          </a>
+                                        </div>
+                                      </td>
+
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>)
+                        }
+                        {ganttView && <GanttChartTable tasks={projectTasks} onEditTask={(task) => openEditTask(task)} />}
+
                       </div>
 
                       <div className="modal-footer1 text-center mt-2">
@@ -707,6 +725,54 @@ const EditProject = () => {
     </>
   );
 };
+
+
+
+const GanttChart = ({ tasks }) => {
+
+  // timeline boundaries
+  const minDate = new Date(
+    Math.min(...tasks.map(t => new Date(t.start_date)))
+  );
+  const maxDate = new Date(
+    Math.max(...tasks.map(t => new Date(t.end_date)))
+  );
+
+  // convert date → % position
+  const totalMs = maxDate - minDate;
+
+  const getLeft = (d) => ((new Date(d) - minDate) / totalMs) * 100;
+  const getWidth = (s, e) =>
+    ((new Date(e) - new Date(s)) / totalMs) * 100;
+
+  return (
+    <div style={{ border: "1px solid #ddd", padding: 15, borderRadius: 10 }}>
+      <div style={{ fontWeight: 600, marginBottom: 10 }}>Gantt Timeline</div>
+
+      {tasks.map((t, i) => (
+        <div key={t._id} style={{ marginBottom: 25 }}>
+          <div style={{ marginBottom: 4, fontSize: 13 }}>
+            <b>{i + 1}. {t.content}</b> — {t.start_date.slice(0, 10)} → {t.end_date.slice(0, 10)}
+          </div>
+
+          <div style={{ position: "relative", height: 22, background: "#eee", borderRadius: 4 }}>
+            <div
+              style={{
+                position: "absolute",
+                left: `${getLeft(t.start_date)}%`,
+                width: `${getWidth(t.start_date, t.end_date)}%`,
+                height: "100%",
+                background: "#007bff",
+                borderRadius: 4
+              }}
+            ></div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 
 const modalStyles = {
   backdrop: {

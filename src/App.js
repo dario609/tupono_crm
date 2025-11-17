@@ -1,7 +1,8 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { NotificationProvider } from "./context/NotificationProvider";
 import Login from "./pages/auth/Login";
 import Dashboard from "./pages/Dashboard";
-import PrivateRoute from "./api/PrivateRoute"; 
+import PrivateRoute from "./api/PrivateRoute";
 import NotFound from "./pages/auth/NotFound";
 import ForgotPassword from "./pages/auth/ForgotPassword";
 import RolesPermissions from "./pages/RolesPermissions";
@@ -35,48 +36,50 @@ import ReportSendEmailPage from "./pages/Reports/ReportSendEmail";
 function App() {
   return (
     <AuthProvider>
-    <BrowserRouter>
-      <Routes>
-        {/* Public Route */}
-        <Route path="/" element={<Login />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
+      <NotificationProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* Public Route */}
+            <Route path="/" element={<Login />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
 
-        {/* Protected Route */}
-        <Route element={<PrivateRoute />}>
-          <Route element={<AdminLayout />}>
-          <Route path="/admin/dashboard" element={<Dashboard />} />
-          <Route path="/admin/roles-permissions" element={<RolesPermissions />} />
-            <Route path="/users" element={<UsersPage />} />
-            <Route path="/users/create" element={<CreateUser />} />
-            <Route path="/users/:id/edit" element={<EditUser />} />
-            <Route path="/profile" element={<ProfileManagement />} />
-            <Route path="/reports" element={<ReportsPage />} />
-            <Route path="/reports/add" element={<WriteReport />} />
-            <Route path="/reports/:id/edit" element={<EditReport />} />
-            <Route path="/reports/:reportId/receipts" element={<ReportReceiptsPage />} />
-            <Route path="/reports/:reportId/travel-logs" element={<ReportTravelLogsPage />} />
-            <Route path="/reports/:reportId/send-email" element={<ReportSendEmailPage />} />
-            <Route path="/projects" element={<ProjectsPage />} />
-            <Route path="/projects/create" element={<CreateProject />} />
-            <Route path="/projects/:id/edit" element={<EditProject />} />
-            <Route path="/assessment" element={<AssessmentList />} />
-            <Route path="/assessment/add" element={<AddAssessment />} />
-            <Route path="/teams" element={<TeamsPage />} />
-            <Route path="/teams/create" element={<CreateTeam />} />
-            <Route path="/teams/:id/edit" element={<EditTeam />} />
-            <Route path="/docs/rohe-hapu" element={<RoheHapuPage />} />
-            <Route path="/documents" element={<DocumentsPage />} />
-            <Route path="/calendar" element={<CalendarPage />} />
-            <Route path="/calendar/create" element={<CalendarCreate />} />
-            <Route path="/calendar/:id/edit" element={<CalendarEdit />} />
-            <Route path="/support" element={<SupportChat />} />
-          </Route>
-        </Route>
+            {/* Protected Route */}
+            <Route element={<PrivateRoute />}>
+              <Route element={<AdminLayout />}>
+                <Route path="/admin/dashboard" element={<Dashboard />} />
+                <Route path="/admin/roles-permissions" element={<RolesPermissions />} />
+                <Route path="/users" element={<UsersPage />} />
+                <Route path="/users/create" element={<CreateUser />} />
+                <Route path="/users/:id/edit" element={<EditUser />} />
+                <Route path="/profile" element={<ProfileManagement />} />
+                <Route path="/reports" element={<ReportsPage />} />
+                <Route path="/reports/add" element={<WriteReport />} />
+                <Route path="/reports/:id/edit" element={<EditReport />} />
+                <Route path="/reports/:reportId/receipts" element={<ReportReceiptsPage />} />
+                <Route path="/reports/:reportId/travel-logs" element={<ReportTravelLogsPage />} />
+                <Route path="/reports/:reportId/send-email" element={<ReportSendEmailPage />} />
+                <Route path="/projects" element={<ProjectsPage />} />
+                <Route path="/projects/create" element={<CreateProject />} />
+                <Route path="/projects/:id/edit" element={<EditProject />} />
+                <Route path="/assessment" element={<AssessmentList />} />
+                <Route path="/assessment/add" element={<AddAssessment />} />
+                <Route path="/teams" element={<TeamsPage />} />
+                <Route path="/teams/create" element={<CreateTeam />} />
+                <Route path="/teams/:id/edit" element={<EditTeam />} />
+                <Route path="/docs/rohe-hapu" element={<RoheHapuPage />} />
+                <Route path="/documents" element={<DocumentsPage />} />
+                <Route path="/calendar" element={<CalendarPage />} />
+                <Route path="/calendar/create" element={<CalendarCreate />} />
+                <Route path="/calendar/:id/edit" element={<CalendarEdit />} />
+                <Route path="/support" element={<SupportChat />} />
+              </Route>
+            </Route>
 
-        {/* 404 Fallback Route */}
-         <Route path="*" element={<NotFound />} />
-      </Routes>
-    </BrowserRouter>
+            {/* 404 Fallback Route */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </NotificationProvider>
     </AuthProvider>
   );
 }

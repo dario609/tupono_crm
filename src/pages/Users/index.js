@@ -4,6 +4,7 @@ import Swal from "sweetalert2";
 import UsersApi from "../../api/usersApi";
 import PermissionsApi from "../../api/permissionsApi";
 import { AuthApi } from "../../api/authApi";
+import { SkeletonTableRow } from "../../components/common/SkelentonTableRow.js";
 
 const UsersPage = ({ user, permissions }) => {
     const [loading, setLoading] = useState(false);
@@ -53,12 +54,6 @@ const UsersPage = ({ user, permissions }) => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Match Roles page: toggle global loader overlay
-    useEffect(() => {
-        const loader = document.querySelector(".loader-overlay");
-        if (!loader) return;
-        loader.style.display = loading ? "flex" : "none";
-    }, [loading]);
 
   const [updatingId, setUpdatingId] = useState(null);
 
@@ -250,9 +245,7 @@ const UsersPage = ({ user, permissions }) => {
                                         <th>Email</th>
                                         <th>Role</th>
                                         <th>Status</th>
-                                        {(perms?.user_management?.is_view === 1 || perms?.user_management?.is_edit === 1 || perms?.user_management?.is_delete === 1) && (
-                                            <th style={{ width: 120, minWidth: 120 }} className="text-center">Actions</th>
-                                        )}
+                                        <th>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -324,9 +317,13 @@ const UsersPage = ({ user, permissions }) => {
                                         );
                                     })}
                                     {rows.length === 0 && (
-                                        <tr className="text-center">
-                                            <td colSpan={6} className="py-4">{loading ? "Loading..." : "No Records found"}</td>
-                                        </tr>
+                                        loading ? (
+                                            <SkeletonTableRow rows={5} cols={6} />
+                                        ) : (
+                                            <tr className="text-center">
+                                                <td colSpan={6} className="py-4">No Records found</td>
+                                            </tr>
+                                        )
                                     )}
                                 </tbody>
                             </table>

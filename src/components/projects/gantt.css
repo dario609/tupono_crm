@@ -1,0 +1,102 @@
+/* Container scroll fix */
+.gantt-container {
+    width: 100%;
+    overflow-x: auto;
+    padding: 10px 0;
+    -webkit-overflow-scrolling: touch;  /* Smooth scrolling on iOS */
+  }
+  
+  /* Make the table expand properly */
+  .gantt-table {
+    width: max-content;
+    min-width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    table-layout: fixed; /* 🚀 prevents breaking in mobile */
+  }
+  
+  /* Generic cell styling */
+  .gantt-table th,
+  .gantt-table td {
+    border: 1px solid #d6d6d6;
+    padding: 6px;
+    white-space: nowrap;
+    text-align: center;
+  }
+  
+  /* Sticky left column (Task) */
+  .task-col {
+    
+    width: 160px;
+    left: 0;
+    z-index: 4;
+    font-weight: 600;
+    background: #ffffff;
+    border-right: 2px solid #ccc;
+  }
+  
+  /* Modern colorful header style */
+  .day-header {
+    background: #031356cf;
+    color: white;
+    font-weight: 600;
+    min-width: 70px;
+    padding: 8px 5px;
+    border-right: 1px solid rgba(255,255,255,0.25);
+  }
+  
+  /* Round left & right edges of header row */
+  .gantt-table thead tr th:first-child {
+    border-top-left-radius: 10px;
+  }
+  .gantt-table thead tr th:last-child {
+    border-top-right-radius: 10px;
+  }
+  
+  /* Timeline row (the bar area) */
+  .timeline-row {
+    background: #ffffff;
+    height: 34px;
+    position: relative;
+    padding: 0 !important;
+  }
+  
+  /* Smooth continuous bar */
+  .gantt-bar {
+    position: absolute;
+    top: 6px;
+    height: 22px;
+    background: #2ea3f2;
+    border-radius: 6px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    transition: width 0.2s ease;
+  }
+  
+  /* Prevent mobile breakage: lock cells */
+  .timeline-row,
+  .day-header,
+  .task-col {
+    overflow: hidden;
+  }
+  .gantt-switch {
+    display: flex;
+    justify-content: flex-end;
+    gap: 20px;
+    align-items: center;
+  }
+  
+  .switch-option {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  
+  .switch-option input[type="radio"] {
+    accent-color: #1f3cff; /* blue theme */
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+  }
+  
