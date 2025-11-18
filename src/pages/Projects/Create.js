@@ -495,8 +495,29 @@ const CreateProject = () => {
       {taskModalOpen && (
         <div className="modal-backdrop" style={modalStyles.backdrop}>
           <div style={modalStyles.modal}>
-            <h5>{taskEditIndex !== null ? "Edit Task" : "Add Task"}</h5>
-
+            <h4 className="text-bold mb-3">{taskEditIndex !== null ? "Edit Task" : "Add Task"}</h4>
+            <div className="col-md-4">
+                <div className="form-group mt-2">
+                  <h5>Content</h5>
+                  <select
+                    className="form-control form-select"
+                    name="content"
+                    value={task.content}
+                    onChange={(e) => setTask({ ...task, content: e.target.value })}
+                  >
+                    <option value="">Select Category</option>
+                    <option value="Admin">Admin</option>
+                    <option value="Finance">Finance</option>
+                    <option value="Other">Other</option>
+                    <option value="Vehicle">Vehicle</option>
+                    <option value="Travel">Travel</option>
+                    <option value="Report Support">Report Support</option>
+                  </select>
+                  {taskErrors.content && (
+                    <small className="text-danger">{taskErrors.content}</small>
+                  )}
+                </div>
+              </div>
             <div className="row mt-3">
 
               <div className="col-md-6">
@@ -574,28 +595,7 @@ const CreateProject = () => {
                 </select>
               </div>
 
-              <div className="col-md-4">
-                <div className="form-group mt-2">
-                  <h5>Content</h5>
-                  <select
-                    className="form-control form-select"
-                    name="content"
-                    value={task.content}
-                    onChange={(e) => setTask({ ...task, content: e.target.value })}
-                  >
-                    <option value="">Select Category</option>
-                    <option value="Admin">Admin</option>
-                    <option value="Finance">Finance</option>
-                    <option value="Other">Other</option>
-                    <option value="Vehicle">Vehicle</option>
-                    <option value="Travel">Travel</option>
-                    <option value="Report Support">Report Support</option>
-                  </select>
-                  {taskErrors.content && (
-                    <small className="text-danger">{taskErrors.content}</small>
-                  )}
-                </div>
-              </div>
+           
             </div>
 
             <div className="text-end mt-3">
@@ -629,10 +629,10 @@ const modalStyles = {
     background: "white",
     padding: "25px 25px",
     width: "100%",
-    maxWidth: "480px",
+    maxWidth: "580px",
     borderRadius: "12px",
     boxShadow: "0 5px 25px rgba(0,0,0,0.25)",
-    maxHeight: "90vh",
+    maxHeight: "100vh",
     overflowY: "auto",
     marginRight: "10px",
   },

@@ -1,5 +1,7 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { NotificationProvider } from "./context/NotificationProvider";
+import { AuthProvider } from "./context/AuthProvider";
+
 import Login from "./pages/auth/Login";
 import Dashboard from "./pages/Dashboard";
 import PrivateRoute from "./api/PrivateRoute";
@@ -26,15 +28,17 @@ import DocumentsPage from "./pages/Docs/Documents";
 import CalendarPage from "./pages/Calendar";
 import CalendarCreate from "./pages/Calendar/Create";
 import CalendarEdit from "./pages/Calendar/Edit";
-import { AuthProvider } from "./context/AuthProvider";
 import AdminLayout from "./layouts/AdminLayout";
-import './App.css';
 import ProfileManagement from "./pages/Users/Profile";
 import ReportReceiptsPage from "./pages/Reports/Receipts";
 import ReportTravelLogsPage from "./pages/Reports/TravelLogs";
 import ReportSendEmailPage from "./pages/Reports/ReportSendEmail";
 import EngagementTrackerPage from "./pages/Engagement";
 import EngagementTrackerCreatePage from "./pages/Engagement/create";
+import EngagementTrackerEditPage from "./pages/Engagement/Edit";
+
+import './App.css';
+
 function App() {
   return (
     <AuthProvider>
@@ -72,6 +76,7 @@ function App() {
                 <Route path="/documents" element={<DocumentsPage />} />
                 <Route path="/engagement-tracker" element={<EngagementTrackerPage />} />
                 <Route path="/engagement-tracker/create" element={<EngagementTrackerCreatePage />} />
+                <Route path="/engagement-tracker/:id/edit" element={<EngagementTrackerEditPage />} />
                 <Route path="/calendar" element={<CalendarPage />} />
                 <Route path="/calendar/create" element={<CalendarCreate />} />
                 <Route path="/calendar/:id/edit" element={<CalendarEdit />} />

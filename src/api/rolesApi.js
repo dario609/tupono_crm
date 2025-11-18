@@ -15,18 +15,8 @@ export const RolesApi = {
         },
     });
   },
-  async manageRoleStatus({ roleId }) {
-    return api.put(`/admin/roles/${roleId}/status`,{ roleId });
-  },
-
-   async createRole({role_name}) {
-    return api.post(`/admin/roles/create`,{
-      role_name: role_name  
-    });
-  },
-
-  async deleteRole({ roleId }) {
-    return api.delete(`/admin/roles/${roleId}`);
+  async editRole({ roleId, role_name }) {
+    return api.post(`/admin/roles/edit`, { roleId  });
   },
 
   async getPermissions({ roleId }) {

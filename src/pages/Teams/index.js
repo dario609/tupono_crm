@@ -169,20 +169,20 @@ const TeamsPage = () => {
                                             <td>{sn}</td>
                                             <td>{r.title || '-'}</td>
                                             <td>
-  {Array.isArray(r.assigned_users) && r.assigned_users.length > 0 ? (
-    r.assigned_users.map((u) => (
-      <span
-        key={u._id}
-        className="badge bg-primary me-1"
-        style={{ fontSize: "12px" }}
-      >
-        {u.name || u.email}
-      </span>
-    ))
-  ) : (
-    "-"
-  )}
-</td>
+                                                {Array.isArray(r.assigned_users) && r.assigned_users.length > 0 ? (
+                                                    r.assigned_users.map((u) => (
+                                                    <span
+                                                        key={u._id}
+                                                        className="badge bg-primary me-1"
+                                                        style={{ fontSize: "12px" }}
+                                                    >
+                                                        {u.name || u.email}
+                                                    </span>
+                                                    ))
+                                                ) : (
+                                                    "-"
+                                                )}
+                                                </td>
                                             <td>
                                                 <div className="custom-switch-wrapper">
                                                     <input type="checkbox" id={`switch_status_${r._id}`} className="custom-switch-input" defaultChecked={isActive} onChange={async (e) => {

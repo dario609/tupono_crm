@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react";
-import axios, { Axios } from "axios";
 import Swal from "sweetalert2";
 import { Modal, Button, Form } from "react-bootstrap";
 import { RolesApi } from "../api/rolesApi";
 import { basePermissionList } from "../constants";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "../assets/css/roles.css";
+import { SkeletonTableRow } from "../components/common/SkelentonTableRow";
 
 const RolesPermissions = () => {
   const [roles, setRoles] = useState([]);
@@ -112,12 +112,6 @@ const RolesPermissions = () => {
     fetchRoles();
   }, [search, perPage, page]);
 
-  useEffect(() => {
-    const loader = document.querySelector(".loader-overlay");
-    if (!loader) return;
-
-    loader.style.display = loading ? "flex" : "none";
-  }, [loading]);
 
   const handleAddRole = async (e) => {
     e.preventDefault();
@@ -135,7 +129,7 @@ const RolesPermissions = () => {
   const handleEditRole = async (e) => {
     e.preventDefault();
     try {
-      await axios.put(`/api/roles/${editRole.id}`, { role_name: editRole.name });
+      await RolesApi.editRole({ roleId: editRole.id, role_name: editRole.name });
       setShowEdit(false);
       Swal.fire("Updated!", "Role updated successfully", "success");
       fetchRoles();
@@ -316,11 +310,7 @@ const RolesPermissions = () => {
                       </thead>
                       <tbody>
                         {loading ? (
-                          <tr>
-                            <td colSpan="5" className="text-center text-muted">
-                              Loading...
-                            </td>
-                          </tr>
+                          <SkeletonTableRow rows={10} cols={5} />
                         ) : roles.length === 0 ? (
                           <tr className="text-center">
                             <td colSpan="5">No Records found</td>

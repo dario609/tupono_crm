@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { NavLink } from "react-router-dom";
+import { rolesLabel } from "../constants";
+import { permissionsInputLabel } from "../constants";
 
 const Sidebar = ({ user, permissions, supportBadge }) => {
   const [openMenu, setOpenMenu] = useState(null);
@@ -8,7 +10,7 @@ const Sidebar = ({ user, permissions, supportBadge }) => {
     setOpenMenu(openMenu === menuId ? null : menuId);
   };
 
-  const isSuperAdmin = (user?.role_id?.role_name === "Super Admin");
+  const isSuperAdmin = (user?.role_id?.role_name === rolesLabel.superAdmin);
   const canView = (key) => (isSuperAdmin || permissions?.[key]?.is_view === 1);
   const canAdd = (key) => (isSuperAdmin || permissions?.[key]?.is_add === 1);
   const canSeeProjects = isSuperAdmin || permissions?.["task_management"]?.is_view === 1 || !!user;
@@ -46,7 +48,7 @@ const Sidebar = ({ user, permissions, supportBadge }) => {
           </li>
         )}
 
-        {canView("user_management") && (
+        {canView(permissionsInputLabel.user_management) && (
           <li className="nav-item">
             <a
               href="#!"
@@ -77,7 +79,7 @@ const Sidebar = ({ user, permissions, supportBadge }) => {
         )}
 
         {/* Report Management */}
-        {canView("project_management") && (
+        {canView(permissionsInputLabel.report_management) && (
           <li className="nav-item">
             <a
               href="#!"
@@ -90,7 +92,7 @@ const Sidebar = ({ user, permissions, supportBadge }) => {
             </a>
             <div className={`collapse ${openMenu === "reports" ? "show" : ""}`}>
               <ul className="nav flex-column sub-menu">
-                {canAdd("project_management") && (
+                {canAdd(permissionsInputLabel.report_management) && (
                   <li className="nav-item">
                     <NavLink to="/reports/add" className="nav-link">
                       <i className="bi bi-chevron-double-right"></i> Create Report
@@ -108,7 +110,7 @@ const Sidebar = ({ user, permissions, supportBadge }) => {
         )}
 
         {/* Project Management */}
-        {canSeeProjects && (
+        {canView(permissionsInputLabel.project_management) && (
           <li className="nav-item">
             <a
               href="#!"
@@ -121,7 +123,7 @@ const Sidebar = ({ user, permissions, supportBadge }) => {
             </a>
             <div className={`collapse ${openMenu === "tasks" ? "show" : ""}`}>
               <ul className="nav flex-column sub-menu">
-                {canAdd("task_management") && (
+                {canAdd(permissionsInputLabel.project_management) && (
                   <li className="nav-item">
                     <NavLink to="/projects/create" className="nav-link">
                       <i className="bi bi-chevron-double-right"></i> Add Project
@@ -139,7 +141,7 @@ const Sidebar = ({ user, permissions, supportBadge }) => {
         )}
 
         {/* Assessment Feedback - separate entry */}
-        {canSeeProjects && (
+        {canView(permissionsInputLabel.assessment_management) && (
           <li className="nav-item">
             <NavLink to="/assessment" className="nav-link">
               <i className="mdi mdi-clipboard-text-search-outline text-warning menu-icon"></i>
@@ -149,7 +151,7 @@ const Sidebar = ({ user, permissions, supportBadge }) => {
         )}
 
         {/* Calendar */}
-        {canView("calendar_management") && (
+        {canView(permissionsInputLabel.calendar_management) && (
           <li className="nav-item">
             <a href="#!" className="nav-link" onClick={() => toggleMenu("calendar")}>
               <i className="mdi mdi-calendar-check-outline text-info menu-icon"></i>
@@ -158,7 +160,7 @@ const Sidebar = ({ user, permissions, supportBadge }) => {
             </a>
             <div className={`collapse ${openMenu === "calendar" ? "show" : ""}`}>
               <ul className="nav flex-column sub-menu">
-                {canAdd("calendar_management") && (
+                {canAdd(permissionsInputLabel.calendar_management) && (
                   <li className="nav-item">
                     <NavLink to="/calendar/create" className="nav-link">
                       <i className="bi bi-chevron-double-right"></i> Create Meeting
@@ -176,7 +178,7 @@ const Sidebar = ({ user, permissions, supportBadge }) => {
         )}
 
         {/* Document Management */}
-        {canView("document_file_management") && (
+        {canView(permissionsInputLabel.document_file_management) && (
           <li className="nav-item">
             <a
               href="#!"
@@ -191,7 +193,7 @@ const Sidebar = ({ user, permissions, supportBadge }) => {
               className={`collapse ${openMenu === "documents" ? "show" : ""}`}
             >
               <ul className="nav flex-column sub-menu">
-                {canAdd("document_file_management") && (
+                {canAdd(permissionsInputLabel.document_file_management) && (
                   <li className="nav-item">
                     <NavLink to="/teams/create" className="nav-link">
                       <i className="bi bi-chevron-double-right"></i> Rōpu Hou
@@ -217,37 +219,37 @@ const Sidebar = ({ user, permissions, supportBadge }) => {
             </div>
           </li>
         )}
-
-        <li className="nav-item">
-          <a
-            href="#!"
-            className="nav-link"
-            onClick={() => toggleMenu("engagement")}
-          >
-             <i className="menu-icon text-info mdi mdi-camera-iris"></i>
-            <span className="menu-title">Engagement Tracker</span>
-            <i className="menu-arrow"></i>
-          </a>
-          <div
-            className={`collapse ${openMenu === "engagement" ? "show" : ""}`}
-          >
-            <ul className="nav flex-column sub-menu">
-              <li className="nav-item">
-                <NavLink to="/engagement-tracker/create" className="nav-link">
-                  <span className="menu-title">Create Engagement</span>
-                </NavLink>
-              </li>
-              <li className="nav-item">
-                <NavLink to="/engagement-tracker" className="nav-link">
-                  <span className="menu-title">Engagements</span>
-                </NavLink>
-              </li>
-            </ul>
-          </div>
-        </li>
+        {canView(permissionsInputLabel.engagement_tracker) && (
+          <li className="nav-item">
+            <a
+              href="#!"
+              className="nav-link"
+              onClick={() => toggleMenu("engagement")}
+            >
+              <i className="menu-icon text-info mdi mdi-camera-iris"></i>
+              <span className="menu-title">Engagement Tracker</span>
+              <i className="menu-arrow"></i>
+            </a>
+            <div
+              className={`collapse ${openMenu === "engagement" ? "show" : ""}`}
+            >
+              <ul className="nav flex-column sub-menu">
+                <li className="nav-item">
+                  <NavLink to="/engagement-tracker/create" className="nav-link">
+                    <span className="menu-title">Create Engagement</span>
+                  </NavLink>
+                </li>
+                <li className="nav-item">
+                  <NavLink to="/engagement-tracker" className="nav-link">
+                    <span className="menu-title">Engagements</span>
+                  </NavLink>
+                </li>
+              </ul>
+            </div>
+          </li>)}
 
         {/* Support Management */}
-        {canView("message_support_management") && (
+        {canView(permissionsInputLabel.message_support_management) && (
           <li className="nav-item">
             <NavLink to="/support" className="nav-link">
               <i className="mdi mdi-message-reply-text-outline text-info menu-icon"></i>

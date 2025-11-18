@@ -114,7 +114,6 @@ const ReportsPage = () => {
       <td><div className="skeleton skeleton-sm" style={{ width: 90 }} /></td>
       <td><div className="skeleton skeleton-sm" style={{ width: 90 }} /></td>
       <td><div className="skeleton skeleton-sm" style={{ width: 90 }} /></td>
-      <td><div className="skeleton skeleton-line" style={{ width: "70%" }} /></td>
       <td><div className="skeleton skeleton-line" style={{ width: "60%" }} /></td>
       <td><div className="skeleton skeleton-sm" style={{ width: 50 }} /></td>
       <td><div className="skeleton skeleton-sm" style={{ width: 50 }} /></td>

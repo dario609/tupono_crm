@@ -1,10 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { NavLink } from "react-router-dom";
 import Swal from "sweetalert2";
+import { NavLink, useNavigate } from "react-router-dom";
 import EngagementApi from "../../api/engagementApi";
 import { SkeletonTableRow } from "../../components/common/SkelentonTableRow";
 
+
+
 export default function EngagementTrackerPage() {
+    const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [rows, setRows] = useState([]);
     const [search, setSearch] = useState("");
@@ -17,7 +20,6 @@ export default function EngagementTrackerPage() {
         return Math.max(1, Math.ceil(total / perpage));
     }, [total, perpage]);
 
-    // Load engagements
     const load = async (opts = {}) => {
         setLoading(true);
         try {
@@ -37,8 +39,51 @@ export default function EngagementTrackerPage() {
 
     useEffect(() => {
         load({ page: 1 });
-        // eslint-disable-next-line
     }, []);
+
+    const handleEdit = (id) => {
+        navigate(`/engagement-tracker/${id}/edit`);
+    };
+
+    const handleDelete = async (id) => {
+        const confirm = await Swal.fire({
+            title: "Delete Engagement?",
+            text: "This action cannot be undone.",
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonColor: "#d33",
+            cancelButtonColor: "#3085d6",
+            confirmButtonText: "Delete",
+            cancelButtonText: "Cancel"
+        });
+    
+        if (!confirm.isConfirmed) return;
+    
+        try {
+            const res = await EngagementApi.remove(id);
+            if (res?.success === false) {
+                throw new Error(res?.message || "Delete failed");
+            }
+    
+            await Swal.fire({
+                title: "Deleted",
+                text: "Engagement removed successfully",
+                icon: "success",
+                timer: 1400,
+                showConfirmButton: false,
+            });
+
+            setRows(rows.filter((r) => r._id !== id));
+            // Reload table
+            load({ page });
+        } catch (err) {
+            Swal.fire({
+                title: "Error",
+                text: err.message || "Could not delete engagement",
+                icon: "error",
+            });
+        }
+    };
 
     const onSearchKeyDown = (e) => {
         if (e.key === "Enter") load({ page: 1 });
@@ -155,23 +200,42 @@ export default function EngagementTrackerPage() {
                                             <td>{r.engage_type || "-"}</td>
                                             <td>{r.purpose || "-"}</td>
                                             <td>{r.engage_num || "-"}</td>
-                                            <td>{r.hapus?.name || "-"}</td>
+                                            <td>{r.hapus.map((h) => h.name).join(", ") || "-"}</td>
                                             <td>{r.project?.name || "-"}</td>
                                             <td style={{ maxWidth: 250 }}>{r.outcome}</td>
                                             <td>
-                                                <button className="btn badge-success btn-sm btn-rounded btn-icon" style={{ marginRight: 5 }} title="Edit" >
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="feather feather-edit-2 align-middle">
+                                                {/* EDIT */}
+                                                <button
+                                                    className="btn badge-success btn-sm btn-rounded btn-icon"
+                                                    style={{ marginRight: 5 }}
+                                                    title="Edit"
+                                                    onClick={() => handleEdit(r._id)}
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                                                        viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                                                        className="feather feather-edit-2 align-middle">
                                                         <polygon points="16 3 21 8 8 21 3 21 3 16 16 3"></polygon>
                                                     </svg>
                                                 </button>
-                                                <button className="btn badge-danger btn-sm btn-rounded btn-icon" title="Delete">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="feather feather-trash align-middle">
+
+                                                {/* DELETE */}
+                                                <button
+                                                    className="btn badge-danger btn-sm btn-rounded btn-icon"
+                                                    title="Delete"
+                                                    onClick={() => handleDelete(r._id)}
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                                                        viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                                                        className="feather feather-trash align-middle">
                                                         <polyline points="3 6 5 6 21 6"></polyline>
-                                                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2">
+                                                        </path>
                                                     </svg>
                                                 </button>
-
                                             </td>
+
                                         </tr>
                                     );
                                 })}
