@@ -92,89 +92,168 @@ const WriteReport = () => {
     if (cell.hidden && cell.master) return { r: cell.master.r, c: cell.master.c };
     return { r, c };
   };
+  const isFreeCell = (cell, mr, mc) => {
+    if (!cell) return false;
+    if (cell.hidden && (!cell.master || cell.master.r !== mr || cell.master.c !== mc))
+        return false;
+    return true;
+  };
+ // Checks if merge-right is allowed
+ const canMergeRight = useMemo(() => {
+  if (!focus) return false;
 
-  const canMergeRight = useMemo(() => {
-    if (!focus) return false;
-    const { r: mr, c: mc } = getMasterCoords(focus.r, focus.c);
-    const master = grid[mr][mc];
-    const nextCol = mc + (master.colSpan || 1);
-    if (nextCol >= cols) return false;
-    for (let rr = mr; rr < mr + (master.rowSpan || 1); rr++) {
+  const { r: mr, c: mc } = getMasterCoords(focus.r, focus.c);
+  const master = grid[mr][mc];
+  if (!master) return false;
+
+  const width = master.colSpan || 1;
+  const height = master.rowSpan || 1;
+  const nextCol = mc + width;
+
+  if (nextCol >= cols) return false;
+
+  for (let rr = mr; rr < mr + height; rr++) {
       const cell = grid[rr][nextCol];
-      if (!cell || cell.hidden || (cell.rowSpan !== 1 || cell.colSpan !== 1)) return false;
-    }
-    return true;
-  }, [focus, grid, cols]);
+      if (!isFreeCell(cell, mr, mc)) return false;
+  }
+  return true;
+}, [focus, grid, cols]);
 
-  const canMergeDown = useMemo(() => {
-    if (!focus) return false;
-    const { r: mr, c: mc } = getMasterCoords(focus.r, focus.c);
-    const master = grid[mr][mc];
-    const nextRow = mr + (master.rowSpan || 1);
-    if (nextRow >= rows) return false;
-    for (let cc = mc; cc < mc + (master.colSpan || 1); cc++) {
+// A cell is free if:
+//  - it is not hidden
+//  - AND it is not a master belonging to a different block (rare case)
+
+
+// Checks if merge-down is allowed
+const canMergeDown = useMemo(() => {
+  if (!focus) return false;
+
+  const { r: mr, c: mc } = getMasterCoords(focus.r, focus.c);
+  const master = grid[mr][mc];
+  if (!master) return false;
+
+  const width = master.colSpan || 1;
+  const height = master.rowSpan || 1;
+  const nextRow = mr + height;
+
+  if (nextRow >= rows) return false;
+
+  for (let cc = mc; cc < mc + width; cc++) {
       const cell = grid[nextRow][cc];
-      if (!cell || cell.hidden || (cell.rowSpan !== 1 || cell.colSpan !== 1)) return false;
+      if (!isFreeCell(cell, mr, mc)) return false;
+  }
+  return true;
+}, [focus, grid, rows]);
+
+
+const mergeRight = () => {
+  if (!canMergeRight) return;
+
+  const { r: mr, c: mc } = getMasterCoords(focus.r, focus.c);
+
+  setGrid(prev => {
+    const next = prev.map(row => row.map(cell => ({ ...cell })));
+    const master = next[mr][mc];
+
+    const height = master.rowSpan || 1;
+    const nextCol = mc + (master.colSpan || 1);
+
+    // Expand master colSpan
+    next[mr][mc] = { ...master, colSpan: (master.colSpan || 1) + 1 };
+
+    // Mark merged cells as hidden
+    for (let rr = 0; rr < height; rr++) {
+      const tr = mr + rr;
+      const tc = nextCol;
+      next[tr][tc] = {
+        ...next[tr][tc],
+        hidden: true,
+        master: { r: mr, c: mc },
+      };
     }
-    return true;
-  }, [focus, grid, rows]);
 
-  const mergeRight = () => {
-    if (!canMergeRight) return;
-    const { r: mr, c: mc } = getMasterCoords(focus.r, focus.c);
-    setGrid((g) => {
-      const next = g.map((row) => row.map((cell) => ({ ...cell })));
-      const master = next[mr][mc];
-      const rs = master.rowSpan || 1;
-      const nextCol = mc + (master.colSpan || 1);
-      next[mr][mc] = { ...master, colSpan: (master.colSpan || 1) + 1 };
-      for (let rr = 0; rr < rs; rr++) {
-        const tr = mr + rr; const tc = nextCol;
-        next[tr][tc] = { ...next[tr][tc], hidden: true, master: { r: mr, c: mc } };
-      }
-      return next;
-    });
-    setFocus(getMasterCoords(focus.r, focus.c));
-  };
+    return next;
+  });
 
-  const mergeDown = () => {
-    if (!canMergeDown) return;
-    const { r: mr, c: mc } = getMasterCoords(focus.r, focus.c);
-    setGrid((g) => {
-      const next = g.map((row) => row.map((cell) => ({ ...cell })));
-      const master = next[mr][mc];
-      const cs = master.colSpan || 1;
-      const nextRow = mr + (master.rowSpan || 1);
-      next[mr][mc] = { ...master, rowSpan: (master.rowSpan || 1) + 1 };
-      for (let cc = 0; cc < cs; cc++) {
-        const tr = nextRow; const tc = mc + cc;
-        next[tr][tc] = { ...next[tr][tc], hidden: true, master: { r: mr, c: mc } };
-      }
-      return next;
-    });
-    setFocus(getMasterCoords(focus.r, focus.c));
-  };
+  setFocus(getMasterCoords(focus.r, focus.c));
+};
 
-  const split = () => {
-    if (!focus) return;
-    const { r: mr, c: mc } = getMasterCoords(focus.r, focus.c);
-    setGrid((g) => {
-      const next = g.map((row) => row.map((cell) => ({ ...cell })));
-      const master = next[mr][mc];
-      const rs = master.rowSpan || 1;
-      const cs = master.colSpan || 1;
-      for (let rr = 0; rr < rs; rr++) {
-        for (let cc = 0; cc < cs; cc++) {
-          if (rr === 0 && cc === 0) continue;
-          const tr = mr + rr; const tc = mc + cc;
-          next[tr][tc] = { ...next[tr][tc], hidden: false, master: null };
-        }
+// ------------------------
+// MERGE DOWN
+// ------------------------
+const mergeDown = () => {
+  if (!canMergeDown) return;
+
+  const { r: mr, c: mc } = getMasterCoords(focus.r, focus.c);
+
+  setGrid(prev => {
+    const next = prev.map(row => row.map(cell => ({ ...cell })));
+    const master = next[mr][mc];
+
+    const width = master.colSpan || 1;
+    const nextRow = mr + (master.rowSpan || 1);
+
+    // Expand master rowSpan
+    next[mr][mc] = { ...master, rowSpan: (master.rowSpan || 1) + 1 };
+
+    // Mark merged cells as hidden
+    for (let cc = 0; cc < width; cc++) {
+      const tr = nextRow;
+      const tc = mc + cc;
+      next[tr][tc] = {
+        ...next[tr][tc],
+        hidden: true,
+        master: { r: mr, c: mc },
+      };
+    }
+
+    return next;
+  });
+
+  setFocus(getMasterCoords(focus.r, focus.c));
+};
+
+const split = () => {
+  if (!focus) return;
+
+  const { r: mr, c: mc } = getMasterCoords(focus.r, focus.c);
+
+  setGrid(prev => {
+    const next = prev.map(row => row.map(cell => ({ ...cell })));
+    const master = next[mr][mc];
+
+    const height = master.rowSpan || 1;
+    const width = master.colSpan || 1;
+
+    // Restore all merged cells
+    for (let rr = 0; rr < height; rr++) {
+      for (let cc = 0; cc < width; cc++) {
+        if (rr === 0 && cc === 0) continue;
+        const tr = mr + rr;
+        const tc = mc + cc;
+
+        next[tr][tc] = {
+          ...next[tr][tc],
+          hidden: false,
+          master: null,
+          rowSpan: 1,
+          colSpan: 1,
+        };
       }
-      next[mr][mc] = { ...master, rowSpan: 1, colSpan: 1 };
-      return next;
-    });
-    setFocus({ r: mr, c: mc });
-  };
+    }
+
+    // Restore master to default
+    next[mr][mc] = {
+      ...master,
+      rowSpan: 1,
+      colSpan: 1,
+    };
+
+    return next;
+  });
+
+  setFocus({ r: mr, c: mc });
+};
 
   // No global mouse handlers needed (no drag selection)
 
@@ -267,7 +346,16 @@ const WriteReport = () => {
 
   const serialize = () => {
     const masters = [];
-    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) { const cell = grid[r][c]; if (!cell.hidden) masters.push({ r, c, rowSpan: cell.rowSpan || 1, colSpan: cell.colSpan || 1, content: cell.content || "", bold: !!cell.bold, italic: !!cell.italic, align: cell.align || "left" }); }
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) { const cell = grid[r][c]; if (!cell.hidden) 
+      masters.push({ r, 
+     c, 
+     rowSpan: cell.rowSpan || 1, 
+     colSpan: cell.colSpan || 1, 
+     content: cell.content || "", 
+     bold: !!cell.bold, 
+     italic: !!cell.italic, 
+     align: cell.align || "left",
+     vAlign: cell.vAlign || "top", }); }
     return { rows, cols, cells: masters };
   };
 

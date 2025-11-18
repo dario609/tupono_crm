@@ -234,7 +234,7 @@ const Sidebar = ({ user, permissions, supportBadge }) => {
             <ul className="nav flex-column sub-menu">
               <li className="nav-item">
                 <NavLink to="/engagement-tracker/create" className="nav-link">
-                  <span className="menu-title">Engagement Tracker</span>
+                  <span className="menu-title">Create Engagement</span>
                 </NavLink>
               </li>
               <li className="nav-item">
