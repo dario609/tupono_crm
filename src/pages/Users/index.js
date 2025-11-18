@@ -244,7 +244,7 @@ const UsersPage = ({ user, permissions }) => {
                                     <th>Full Name</th>
                                     <th>Email</th>
                                     <th>Role</th>
-                                    <th>Assigned Teams</th>
+                                    <th>Nga Rōpu</th>
                                     <th>Status</th>
                                     <th>Actions</th>
                                 </tr>

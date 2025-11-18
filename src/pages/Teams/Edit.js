@@ -3,6 +3,12 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import UsersApi from "../../api/usersApi";
 import TeamsApi from "../../api/teamsApi";
 
+const initialForm = {
+  title: "",
+  status: "active",
+  description: "",
+  user_id: [],
+}
 const EditTeam = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -12,26 +18,38 @@ const EditTeam = () => {
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
   const [users, setUsers] = useState([]);
-
-  const [form, setForm] = useState({
-    title: "",
-    status: "active",
-    description: "",
-    user_id: [],
-  });
-
+  const [teams, setTeams] = useState([]);
+  const [form, setForm] = useState(initialForm);
   const [titleGhost, setTitleGhost] = useState("");
   const [descGhost, setDescGhost] = useState("");
   const [userInput, setUserInput] = useState("");
 
+  const userLabel = (u) => `${u.first_name ?? ''} ${u.last_name ?? ''}`.trim() || u.email || 'User';
+  const combinedOptions = [
+    ...teams.map(t => ({
+      type: "team",
+      label: `[Team] ${t.title}`,
+      value: t._id
+    })),
+    ...users.map(u => ({
+      type: "user",
+      label: `[User] ${userLabel(u)}`,
+      value: u._id
+    }))
+  ];
+  
+
   useEffect(() => {
     (async () => {
       try {
-        const [uJson, tJson] = await Promise.all([
+        const [uJson, tJson, teamJson] = await Promise.all([
           UsersApi.list({ perpage: -1 }),
           TeamsApi.getById(id),
+          TeamsApi.list()
         ]);
         setUsers(uJson?.data || []);
+        setTeams(teamJson?.data || []);
+
         if (tJson?.data) {
           setForm({
             title: tJson.data.title || "",
@@ -40,9 +58,63 @@ const EditTeam = () => {
             user_id: Array.isArray(tJson.data.user_id) ? tJson.data.user_id : [],
           });
         }
-      } catch {}
+      } catch { }
     })();
   }, [id]);
+  const handleCombinedSelection = async (label) => {
+    setUserInput("");
+
+    const opt = combinedOptions.find(
+      o => o.label.toLowerCase() === label.toLowerCase()
+    );
+    if (!opt) return;
+
+    // USER SELECTED
+    if (opt.type === "user") {
+      if (!form.user_id.includes(opt.value)) {
+        setForm((f) => ({
+          ...f,
+          user_id: [...f.user_id, opt.value]
+        }));
+      }
+      return;
+    }
+
+    // TEAM SELECTED → import team members
+    if (opt.type === "team") {
+      try {
+        const teamUsers = teams.find((t) => String(t._id) === String(opt.value)).assigned_users;
+
+        setUsers((prev) => {
+          const merged = [...prev];
+          teamUsers.forEach((u) => {
+            if (!merged.some((x) => x._id === u._id)) {
+              merged.push({
+                _id: u._id,
+                first_name: u.name?.split(" ")[0] ?? "",
+                last_name: u.name?.split(" ")[1] ?? "",
+                email: u.email
+              });
+            }
+          });
+          return merged;
+        });
+
+        // 2) Add assigned user IDs into form.user_id
+        setForm((f) => {
+          const mergedIds = [...f.user_id];
+          teamUsers.forEach((u) => {
+            if (!mergedIds.includes(u._id)) mergedIds.push(u._id);
+          });
+          return { ...f, user_id: mergedIds };
+        });
+
+      } catch (err) {
+        console.error("Team load failed", err);
+      }
+    }
+  };
+
 
   const onChange = (e) => {
     const { name, value } = e.target;
@@ -52,7 +124,7 @@ const EditTeam = () => {
   // ghost overlay placeholders (no backend suggestion yet)
   const handleSuggest = (_field, setter) => () => setter("");
 
-  const userLabel = (u) => `${u.first_name ?? ''} ${u.last_name ?? ''}`.trim() || u.email || 'User';
+
   const parseUserIdFromOption = (val) => {
     const match = users.find((x) => userLabel(x).toLowerCase() === String(val).toLowerCase());
     return match?._id || null;
@@ -91,7 +163,7 @@ const EditTeam = () => {
       <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-24 p-3">
         <h6 className="fw-semibold mb-0">Edit Team</h6>
         <div>
-          <Link to="/teams" className="btn btn-primary btn-rounded btn-fw" style={{fontSize: '15px'}}>
+          <Link to="/teams" className="btn btn-primary btn-rounded btn-fw" style={{ fontSize: '15px' }}>
             <i className="ti ti-arrow-circle-left ms-1"></i> Back
           </Link>
         </div>
@@ -144,18 +216,25 @@ const EditTeam = () => {
                         <label className="form-label">Select Team members</label>
                         <input
                           className="form-control"
-                          placeholder="Search and select user"
-                          list="teamUserOptions"
+                          placeholder="Search and select team or user"
+                          list="combinedOptionsList"
                           value={userInput}
                           onChange={(e) => setUserInput(e.target.value)}
-                          onBlur={(e) => addUser(e.target.value)}
-                          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addUser(userInput); } }}
+                          onBlur={(e) => handleCombinedSelection(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              handleCombinedSelection(userInput);
+                            }
+                          }}
                         />
-                        <datalist id="teamUserOptions">
-                          {users.map((u) => (
-                            <option key={u._id} value={userLabel(u)} />
+
+                        <datalist id="combinedOptionsList">
+                          {combinedOptions.map((opt) => (
+                            <option key={opt.value} value={opt.label} />
                           ))}
                         </datalist>
+
                         {form.user_id.length > 0 && (
                           <div className="mt-2" style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                             {form.user_id.map((uid) => {
@@ -187,7 +266,7 @@ const EditTeam = () => {
 
                 <div className="modal-footer1 text-center mt-3">
                   <button type="button" className="btn btn-danger btn-rounded btn-fw" onClick={() => navigate('/teams')}>Cancel</button>
-                  <button type="submit" disabled={loading} className="btn btn-primary btn-rounded btn-fw" style={{marginLeft: '8px'}}>{loading ? 'Saving...' : 'Save'}</button>
+                  <button type="submit" disabled={loading} className="btn btn-primary btn-rounded btn-fw" style={{ marginLeft: '8px' }}>{loading ? 'Saving...' : 'Save'}</button>
                 </div>
               </form>
             </div>
