@@ -625,7 +625,7 @@ const split = () => {
                       <div className="col-sm-6 col-md-3 mobile-mb"><label>Start Date</label><input type="date" className="form-control" value={meta.start_date} onChange={(e) => setMeta((m) => ({ ...m, start_date: e.target.value }))} onMouseDown={(e) => { try { e.currentTarget.showPicker && e.currentTarget.showPicker(); } catch { } }} /></div>
                       <div className="col-sm-6 col-md-3 mobile-mb"><label>End Date</label><input type="date" className="form-control" value={meta.end_date} onChange={(e) => setMeta((m) => ({ ...m, end_date: e.target.value }))} onMouseDown={(e) => { try { e.currentTarget.showPicker && e.currentTarget.showPicker(); } catch { } }} /></div>
                       <div className="col-sm-6 col-md-3 mobile-mb"><label>Created Date</label><input type="date" className="form-control" value={meta.created_date} onChange={(e) => setMeta((m) => ({ ...m, created_date: e.target.value }))} /></div>
-                      <div className="col-sm-6 col-md-3 mobile-mb"><label>Created By</label>
+                      <div className="col-sm-6 col-md-3 mobile-mb"><label>Assigned To</label>
                         <select className="form-control" value={meta.created_by} onChange={(e) => setMeta((m) => ({ ...m, created_by: e.target.value }))}>
                           <option value="">Select User</option>
                           {users.map((u) => (

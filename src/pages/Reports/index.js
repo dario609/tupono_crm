@@ -167,12 +167,11 @@ const ReportsPage = () => {
                   <th style={{ width: "5%" }}>SN</th>
                   <th>Report Title</th>
                   <th>Project</th>
+                  <th>Assigned To</th>
                   <th>Description</th>
                   <th>Status</th>
                   <th>Start Date</th>
                   <th>End Date</th>
-                  <th>Created Date</th>
-                  <th>Created By</th>
                   <th>Report Type</th>
                   <th>Report Phase</th>
                   <th>Hours</th>
@@ -190,12 +189,11 @@ const ReportsPage = () => {
                       <td>{sn}</td>
                       <td>{r.project_title || '-'}</td>
                       <td>{projectName}</td>
+                      <td>{createdName}</td>
                       <td>{r.project_description || '-'}</td>
                       <td>{r.report_status || r.project_status || '-'}</td>
                       <td>{r.start_date ? new Date(r.start_date).toLocaleDateString('en-GB') : '-'}</td>
-                      <td>{r.end_date ? new Date(r.end_date).toLocaleDateString('en-GB') : '-'}</td>
-                      <td>{r.created_date ? new Date(r.created_date).toLocaleDateString('en-GB') : '-'}</td>
-                      <td>{createdName}</td>
+                      <td>{r.end_date ? new Date(r.end_date).toLocaleDateString('en-GB') : '-'}</td>            
                       <td>{r.report_type || '-'}</td>
                       <td>{r.report_phase || '-'}</td>
                       <td>{typeof r.hours === 'number' ? r.hours : (r.hours || 0)}</td>

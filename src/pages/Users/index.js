@@ -244,6 +244,7 @@ const UsersPage = ({ user, permissions }) => {
                                     <th>Full Name</th>
                                     <th>Email</th>
                                     <th>Role</th>
+                                    <th>Assigned Teams</th>
                                     <th>Status</th>
                                     <th>Actions</th>
                                 </tr>
@@ -252,16 +253,57 @@ const UsersPage = ({ user, permissions }) => {
                                 {rows.map((r, idx) => {
                                     const name = `${r.first_name || ""} ${r.last_name || ""}`.trim();
                                     const sn = perpage === -1 ? idx + 1 : (page - 1) * perpage + idx + 1;
+
                                     const canView = perms?.user_management?.is_view === 1;
                                     const canEdit = perms?.user_management?.is_edit === 1;
                                     const canDelete = perms?.user_management?.is_delete === 1;
+
                                     const isOwn = currentUser && currentUser.id === r._id;
+
+                                    // Extract team names safely
+                                    const teamNames = Array.isArray(r.userTeams)
+                                        ? r.userTeams
+                                            .map(tu => tu.team?.title)
+                                            .filter(Boolean)
+                                        : [];
+
                                     return (
                                         <tr key={r._id}>
                                             <td>{sn}</td>
+
                                             <td>{name ? `${name.charAt(0).toUpperCase()}${name.slice(1)}` : '-'}</td>
+
                                             <td>{r.email}</td>
+
                                             <td>{r.role_id?.role_name || '-'}</td>
+
+                                            {/* 🔥 Display comma-separated team names */}
+                                            <td>
+                                                {teamNames.length > 0 ? (
+                                                    teamNames.map((title, i) => {
+                                                        const team = r.userTeams[i]?.team;
+                                                        if (!team) return null;
+
+                                                        return (
+                                                            <span key={team._id}>
+                                                                <a
+                                                                    href={`/teams/${team._id}/edit`}
+                                                                    className="text-primary"
+                                                                    style={{ textDecoration: "underline", cursor: "pointer" }}
+                                                                >
+                                                                    {title}
+                                                                </a>
+                                                                {i < teamNames.length - 1 ? ", " : ""}
+                                                            </span>
+                                                        );
+                                                    })
+                                                ) : (
+                                                    <span className="text-muted">–</span>
+                                                )}
+                                            </td>
+
+
+                                            {/* Status toggle */}
                                             <td>
                                                 <div className="custom-switch-wrapper">
                                                     <input
@@ -270,9 +312,9 @@ const UsersPage = ({ user, permissions }) => {
                                                         className="custom-switch-input"
                                                         checked={Boolean(r.status)}
                                                         onChange={(e) => {
-                                                            const prev = e.target.checked;
+                                                            const prevChecked = e.target.checked;
                                                             handleStatusToggle(r._id, e.target.checked).catch(() => {
-                                                                e.target.checked = !prev;
+                                                                e.target.checked = !prevChecked;
                                                             });
                                                         }}
                                                         disabled={!canEdit || updatingId === r._id}
@@ -284,29 +326,56 @@ const UsersPage = ({ user, permissions }) => {
                                                     </label>
                                                 </div>
                                             </td>
+
                                             {(canView || canEdit || canDelete) && (
                                                 <td className="actions-column">
-                                                    <div style={{ display: 'flex', gap: 4, justifyContent: 'center', flexWrap: 'nowrap' }}>
+                                                    <div style={{
+                                                        display: 'flex',
+                                                        gap: 4,
+                                                        justifyContent: 'center',
+                                                        flexWrap: 'nowrap'
+                                                    }}>
                                                         {canView && (
                                                             <button className="btn badge-info btn-sm btn-rounded btn-icon" title="View Activity">
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" className="bi bi-person-workspace" viewBox="0 0 16 16">
-                                                                    <path d="M4 16s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1zm4-5.95a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5"></path>
-                                                                    <path d="M2 1a2 2 0 0 0-2 2v9.5A1.5 1.5 0 0 0 1.5 14h.653a5.4 5.4 0 0 1 1.066-2H1V3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v9h-2.219c.554.654.89 1.373 1.066 2h.653a1.5 1.5 0 0 0 1.5-1.5V3a2 2 0 0 0-2-2z"></path>
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                                                                    fill="currentColor" className="bi bi-person-workspace"
+                                                                    viewBox="0 0 16 16">
+                                                                    <path d="M4 16s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1zm4-5.95a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5" />
+                                                                    <path d="M2 1a2 2 0 0 0-2 2v9.5A1.5 1.5 0 0 0 1.5 14h.653a5.4 5.4 0 0 1 1.066-2H1V3a1 1
+                                        0 0 1 1-1h12a1 1 0 0 1 1 1v9h-2.219c.554.654.89 1.373
+                                        1.066 2h.653a1.5 1.5 0 0 0 1.5-1.5V3a2 2 0 0 0-2-2z"/>
                                                                 </svg>
                                                             </button>
                                                         )}
+
                                                         {canEdit && (
-                                                            <button className="btn badge-success btn-sm btn-rounded btn-icon" title="Edit" onClick={() => navigate(`/users/${r._id}/edit`)}>
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="feather feather-edit-2 align-middle">
-                                                                    <polygon points="16 3 21 8 8 21 3 21 3 16 16 3"></polygon>
+                                                            <button
+                                                                className="btn badge-success btn-sm btn-rounded btn-icon"
+                                                                title="Edit"
+                                                                onClick={() => navigate(`/users/${r._id}/edit`)}
+                                                            >
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                                                                    fill="none" stroke="currentColor" strokeWidth="2"
+                                                                    strokeLinecap="round" strokeLinejoin="round"
+                                                                    className="feather feather-edit-2 align-middle">
+                                                                    <polygon points="16 3 21 8 8 21 3 21 3 16 16 3" />
                                                                 </svg>
                                                             </button>
                                                         )}
+
                                                         {canDelete && !isOwn && (
-                                                            <button className="btn badge-danger btn-sm btn-rounded btn-icon" title="Delete" onClick={() => handleDelete(r._id)}>
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="feather feather-trash align-middle">
-                                                                    <polyline points="3 6 5 6 21 6"></polyline>
-                                                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                                            <button
+                                                                className="btn badge-danger btn-sm btn-rounded btn-icon"
+                                                                title="Delete"
+                                                                onClick={() => handleDelete(r._id)}
+                                                            >
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                                                                    fill="none" stroke="currentColor" strokeWidth="2"
+                                                                    strokeLinecap="round" strokeLinejoin="round"
+                                                                    className="feather feather-trash align-middle">
+                                                                    <polyline points="3 6 5 6 21 6" />
+                                                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3
+                                        0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
                                                                 </svg>
                                                             </button>
                                                         )}
@@ -316,9 +385,10 @@ const UsersPage = ({ user, permissions }) => {
                                         </tr>
                                     );
                                 })}
+
                                 {rows.length === 0 && (
                                     loading ? (
-                                        <SkeletonTableRow rows={5} cols={6} />
+                                        <SkeletonTableRow rows={5} cols={7} />
                                     ) : (
                                         <tr className="text-center">
                                             <td colSpan={6} className="py-4">No Records found</td>
