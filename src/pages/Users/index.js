@@ -184,20 +184,39 @@ const UsersPage = ({ user, permissions }) => {
                 <div className="col-12 p-0">
                     {/* legacy custom switch + actions CSS */}
                     <style>{`
-    .custom-switch-wrapper { display: inline-flex; align-items: center; gap: 10px; position: relative; font-size: 0.9rem; }
-    .custom-switch-input { display: none; }
-    .custom-switch-label { display: inline-flex; align-items: center; cursor: pointer; position: relative; width: 90px; height: 34px; background-color: #dd2923; border-radius: 50px; transition: background-color 0.3s ease; padding: 0 10px; box-sizing: border-box; }
-    .custom-switch-label .switch-handle { position: absolute; top: 4px; left: 4px; width: 26px; height: 26px; background-color: #fff; border-radius: 50%; transition: left 0.15s ease-in-out; z-index: 2; }
-    .custom-switch-input:checked + .custom-switch-label { background-color: #28a745; }
-    .custom-switch-input:checked + .custom-switch-label .switch-handle { left: 60px; transform: scale(1.05); }
-    .switch-text { position: absolute; font-size: 13px; font-weight: 500; color: white; width: 100%; text-align: center; z-index: 1; pointer-events: none; transition: opacity 0.3s; }
-    .switch-text.on { opacity: 0; }
-    .switch-text.off { opacity: 1; }
-    .custom-switch-input:checked + .custom-switch-label .switch-text.on { opacity: 1; }
-    .custom-switch-input:checked + .custom-switch-label .switch-text.off { opacity: 0; }
-    .custom-switch-input:disabled + .custom-switch-label { opacity: 0.6; cursor: not-allowed; }
-    .actions-column { white-space: nowrap; text-align: center; width: fit-content !important; max-width: 100%; }
-  `}</style>
+                            .custom-switch-wrapper { display: inline-flex; align-items: center; gap: 10px; position: relative; font-size: 0.9rem; }
+                            .custom-switch-input { display: none; }
+                            .custom-switch-label { display: inline-flex; align-items: center; cursor: pointer; position: relative; width: 90px; height: 34px; background-color: #dd2923; border-radius: 50px; transition: background-color 0.3s ease; padding: 0 10px; box-sizing: border-box; }
+                            .custom-switch-label .switch-handle { position: absolute; top: 4px; left: 4px; width: 26px; height: 26px; background-color: #fff; border-radius: 50%; transition: left 0.15s ease-in-out; z-index: 2; }
+                            .custom-switch-input:checked + .custom-switch-label { background-color: #28a745; }
+                            .custom-switch-input:checked + .custom-switch-label .switch-handle { left: 60px; transform: scale(1.05); }
+                            .switch-text { position: absolute; font-size: 13px; font-weight: 500; color: white; width: 100%; text-align: center; z-index: 1; pointer-events: none; transition: opacity 0.3s; }
+                            .switch-text.on { opacity: 0; }
+                            .switch-text.off { opacity: 1; }
+                            .custom-switch-input:checked + .custom-switch-label .switch-text.on { opacity: 1; }
+                            .custom-switch-input:checked + .custom-switch-label .switch-text.off { opacity: 0; }
+                            .custom-switch-input:disabled + .custom-switch-label { opacity: 0.6; cursor: not-allowed; }
+                           .actions-column {
+                                white-space: normal;
+                                text-align: center;
+                                }
+
+                                .actions-wrapper {
+                                display: flex;
+                                gap: 6px;
+                                justify-content: center;
+                                flex-direction: row;
+                                flex-wrap: nowrap;
+                                }
+
+                                @media (max-width: 576px) {
+                                .actions-wrapper button {
+                                    min-width: 35px;
+                                    padding: 6px 6px;
+                                }
+                                }
+
+                        `}</style>
 
                     <div className="d-flex align-items-center justify-content-between p-2">
                         <div className="d-flex align-items-center">
@@ -329,21 +348,16 @@ const UsersPage = ({ user, permissions }) => {
 
                                             {(canView || canEdit || canDelete) && (
                                                 <td className="actions-column">
-                                                    <div style={{
-                                                        display: 'flex',
-                                                        gap: 4,
-                                                        justifyContent: 'center',
-                                                        flexWrap: 'nowrap'
-                                                    }}>
+                                                    <div className="actions-wrapper">
                                                         {canView && (
-                                                            <button className="btn badge-info btn-sm btn-rounded btn-icon" title="View Activity">
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
-                                                                    fill="currentColor" className="bi bi-person-workspace"
-                                                                    viewBox="0 0 16 16">
-                                                                    <path d="M4 16s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1zm4-5.95a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5" />
-                                                                    <path d="M2 1a2 2 0 0 0-2 2v9.5A1.5 1.5 0 0 0 1.5 14h.653a5.4 5.4 0 0 1 1.066-2H1V3a1 1
-                                        0 0 1 1-1h12a1 1 0 0 1 1 1v9h-2.219c.554.654.89 1.373
-                                        1.066 2h.653a1.5 1.5 0 0 0 1.5-1.5V3a2 2 0 0 0-2-2z"/>
+                                                            <button className="btn badge-info btn-sm btn-rounded btn-icon" title="View Activity" onClick={() => navigate(`/users/${r._id}/report`)} >
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none"
+                                                                    stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round"
+                                                                    className="feather feather-edit-2 align-middle">
+                                                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                                                    <polyline points="14 2 14 8 20 8" />
+                                                                    <line x1="12" x2="12" y1="18" y2="12" />
+                                                                    <line x1="9" x2="15" y1="15" y2="15" />
                                                                 </svg>
                                                             </button>
                                                         )}
@@ -354,7 +368,7 @@ const UsersPage = ({ user, permissions }) => {
                                                                 title="Edit"
                                                                 onClick={() => navigate(`/users/${r._id}/edit`)}
                                                             >
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
                                                                     fill="none" stroke="currentColor" strokeWidth="2"
                                                                     strokeLinecap="round" strokeLinejoin="round"
                                                                     className="feather feather-edit-2 align-middle">
@@ -369,7 +383,7 @@ const UsersPage = ({ user, permissions }) => {
                                                                 title="Delete"
                                                                 onClick={() => handleDelete(r._id)}
                                                             >
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
                                                                     fill="none" stroke="currentColor" strokeWidth="2"
                                                                     strokeLinecap="round" strokeLinejoin="round"
                                                                     className="feather feather-trash align-middle">

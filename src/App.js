@@ -36,7 +36,7 @@ import ReportSendEmailPage from "./pages/Reports/ReportSendEmail";
 import EngagementTrackerPage from "./pages/Engagement";
 import EngagementTrackerCreatePage from "./pages/Engagement/create";
 import EngagementTrackerEditPage from "./pages/Engagement/Edit";
-
+import UserReport from "./pages/Users/UserReport";
 import './App.css';
 
 function App() {
@@ -57,7 +57,7 @@ function App() {
                 <Route path="/users" element={<UsersPage />} />
                 <Route path="/users/create" element={<CreateUser />} />
                 <Route path="/users/:id/edit" element={<EditUser />} />
-                <Route path="/profile" element={<ProfileManagement />} />
+                <Route path="/users/:id/report" element={<UserReport />} />
                 <Route path="/reports" element={<ReportsPage />} />
                 <Route path="/reports/add" element={<WriteReport />} />
                 <Route path="/reports/:id/edit" element={<EditReport />} />
