@@ -9,6 +9,8 @@ import HapuListsApi from "../../api/hapulistsApi";
 import ProjectsApi from "../../api/projectsApi";
 import TasksApi from "../../api/tasksApi";
 import GanttChartTable from "../../components/projects/GanttChart.js";
+import { tasksTemplates, taskDurationTypes, taskStatuses } from "../../constants/index.js";
+
 const initialForm = {
   name: "",
   start_date: "",
@@ -22,13 +24,13 @@ const initialForm = {
 };
 
 const emptyTask = {
-  assignee: "",
-  assigned_by: "",
-  duration: "",
+  assignee: null,
+  assigned_by: null,
+  duration: 0,
   duration_type: "Daily",
-  status: "starting",
-  start_date: "",
-  end_date: "",
+  status: taskStatuses[0],
+  start_date: new Date(),
+  end_date: new Date(),
   content: "",
 };
 
@@ -37,6 +39,7 @@ const EditProject = () => {
   const [taskErrors, setTaskErrors] = useState({});
   const navigate = useNavigate();
   const formRef = useRef(null);
+  const [importing, setImporting] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
@@ -256,42 +259,80 @@ const EditProject = () => {
   };
   // ---------------------- Save Task (Add or Edit) ----------------------
   const saveTask = async () => {
-    const errors = {};
+    const now = new Date();
 
-    if (!task.assignee) errors.assignee = "Assignee is required";
-    if (!task.assigned_by) errors.assigned_by = "Assigned by is required";
-    if (!task.start_date) errors.start_date = "Start date is required";
-    if (!task.end_date) errors.end_date = "End date is required";
-    if (!task.content) errors.content = "Content is required";
-    if (Object.keys(errors).length > 0) {
-      setTaskErrors(errors);
-      return;
+    // --- VALIDATION: end_date must be >= start_date ---
+    const s = task.start_date ? new Date(task.start_date) : now;
+    const e = task.end_date ? new Date(task.end_date) : now;
+
+    if (e < s) {
+      setTaskErrors({
+        end_date: "End Date cannot be earlier than Start Date.",
+      });
+      return; // abort save!
     }
 
-    try {
+    // build safe task
+    const safeTask = {
+      ...task,
+      start_date: s,
+      end_date: e,
+    };
 
+    try {
       let saved;
 
       if (editTaskId) {
-        saved = await TasksApi.update(editTaskId, { ...task, project_id: id });
+        saved = await TasksApi.update(editTaskId, { ...safeTask, project_id: id });
         setProjectTasks((prev) =>
           prev.map((t) => (t._id === editTaskId ? saved.data : t))
         );
-
-      }
-      else {
-        // Create new task
-        saved = await TasksApi.create({ ...task, project_id: id });
+      } else {
+        saved = await TasksApi.create({ ...safeTask, project_id: id });
         setProjectTasks((prev) => [...prev, saved.data]);
       }
 
       setTaskModalOpen(false);
       setTaskErrors({});
     } catch (err) {
-      setTaskErrors({ global: err.message || "Failed to save task. Please try again." });
+      setTaskErrors({ global: err.message || "Failed to save task." });
     }
   };
 
+
+  const handleImportTasks = async () => {
+    setImporting(true);
+    setTaskErrors({});
+
+    try {
+      const newTasks = await Promise.all(tasksTemplates.tasks.map(async (t) => {
+        const task = await TasksApi.create({
+          project_id: id,
+          duration: 0,
+          duration_type: taskDurationTypes[1],
+          content: t.content,
+          status: taskStatuses[0],
+          assignee: null,
+          assigned_by: null,
+          start_date: new Date(),
+          end_date: new Date(),
+        });
+        return task.data;
+      }));
+      setProjectTasks([...projectTasks, ...newTasks]);
+      setTaskModalOpen(false);
+
+      Swal.fire({
+        title: 'Tasks imported successfully',
+        text: 'Tasks have been imported successfully',
+        icon: 'success',
+      });
+    } catch (err) {
+      setTaskErrors({ global: err.message || "Failed to import tasks. Please try again." });
+    } finally {
+      setImporting(false);
+    }
+  };
 
 
   return (
@@ -450,14 +491,43 @@ const EditProject = () => {
                           </div>
                         </div>
                         <h5 className="mt-4 mb-2">Tasks</h5>
-                        <button
-                          type="button"
-                          className="btn btn-success btn-sm mb-2"
-                          style={{ borderRadius: 20, width: "100px", marginLeft: "10px" }}
-                          onClick={openAddTask}
-                        >
-                          + Add Task
-                        </button>
+                        <div className="dropdown mb-2" style={{ marginLeft: "10px" }}>
+                          <button
+                            className="btn btn-success btn-sm dropdown-toggle"
+                            style={{ borderRadius: 20, width: "120px" }}
+                            type="button"
+                            data-bs-toggle="dropdown"
+                            aria-expanded="false"
+                          >
+                            + Add
+                          </button>
+
+                          <ul className="dropdown-menu">
+                            <li>
+                              <a
+                                className="dropdown-item"
+                                href="#"
+                                onClick={() => {
+                                  openAddTask();
+                                }}
+                              >
+                                Add Single Task
+                              </a>
+                            </li>
+                            <li>
+                              <a className="dropdown-item" onClick={handleImportTasks}>
+                                {importing ? (
+                                  <span>
+                                    <i className="fa fa-spinner fa-spin me-2"></i> Importing...
+                                  </span>
+                                ) : (
+                                  "Add From Template"
+                                )}
+                              </a>
+                            </li>
+                          </ul>
+                        </div>
+
                         <div className="text-end mb-2 gantt-switch">
                           <label className="switch-option">
                             <input
@@ -592,8 +662,8 @@ const EditProject = () => {
                     onChange={(e) => setTask({ ...task, assignee: e.target.value })}
                   >
                     <option value="">Select</option>
-                    {users.map((u) => (
-                      <option key={u._id} value={u._id}>{getUserName(u._id)}</option>
+                    {teamMembers.map((u) => (
+                      <option key={u._id} value={u._id}>{u.name}</option>
                     ))}
                   </select>
                   {taskErrors.assignee && (
@@ -657,7 +727,7 @@ const EditProject = () => {
                 </div>
 
                 <div className="col-md-6 mt-2">
-                  <label>Start Date*</label>
+                  <label>Start Date</label>
                   <input type="date"
                     className="form-control"
                     value={task.start_date}
@@ -669,16 +739,20 @@ const EditProject = () => {
                 </div>
 
                 <div className="col-md-6 mt-2">
-                  <label>End Date*</label>
-                  <input type="date"
-                    className="form-control"
+                  <label>End Date</label>
+                  <input
+                    type="date"
+                    className={`form-control ${taskErrors.end_date ? "is-invalid" : ""}`}
                     value={task.end_date}
-                    onChange={(e) => setTask({ ...task, end_date: e.target.value })}
+                    onChange={(e) =>
+                      setTask({ ...task, end_date: e.target.value })
+                    }
                   />
                   {taskErrors.end_date && (
-                    <div className="text-danger mt-1">{taskErrors.end_date}</div>
+                    <div className="invalid-feedback">{taskErrors.end_date}</div>
                   )}
                 </div>
+
 
                 <div className="col-md-12 mt-2">
                   <label>Content</label>
@@ -729,41 +803,66 @@ const EditProject = () => {
 
 
 const GanttChart = ({ tasks }) => {
+  // Convert date safely and consistently
+  const parseDate = (d) => {
+    if (!d) return null;
+    const v = d instanceof Date ? d : new Date(d);
+    return isNaN(v.getTime()) ? null : v;
+  };
 
-  // timeline boundaries
-  const minDate = new Date(
-    Math.min(...tasks.map(t => new Date(t.start_date)))
-  );
-  const maxDate = new Date(
-    Math.max(...tasks.map(t => new Date(t.end_date)))
-  );
+  // Normalize tasks with parsed dates
+  const normalized = tasks.map(t => ({
+    ...t,
+    _start: parseDate(t.start_date),
+    _end: parseDate(t.end_date),
+  }));
 
-  // convert date → % position
-  const totalMs = maxDate - minDate;
+  // Only tasks with valid date ranges
+  const validTasks = normalized.filter(t => t._start && t._end);
 
-  const getLeft = (d) => ((new Date(d) - minDate) / totalMs) * 100;
-  const getWidth = (s, e) =>
-    ((new Date(e) - new Date(s)) / totalMs) * 100;
+  if (validTasks.length === 0) {
+    return (
+      <div className="alert alert-info mt-2">
+        No valid tasks to display in Gantt view (missing or invalid dates).
+      </div>
+    );
+  }
+
+  // Safe min/max
+  const minDate = new Date(Math.min(...validTasks.map(t => t._start.getTime())));
+  const maxDate = new Date(Math.max(...validTasks.map(t => t._end.getTime())));
+  const totalMs = Math.max(maxDate - minDate, 1);
+
+  const getLeft = (date) => {
+    const v = ((date - minDate) / totalMs) * 100;
+    return isNaN(v) ? 0 : Math.max(0, Math.min(100, v));
+  };
+
+  const getWidth = (s, e) => {
+    const v = ((e - s) / totalMs) * 100;
+    return isNaN(v) ? 0 : Math.max(0, v);
+  };
 
   return (
     <div style={{ border: "1px solid #ddd", padding: 15, borderRadius: 10 }}>
       <div style={{ fontWeight: 600, marginBottom: 10 }}>Gantt Timeline</div>
 
-      {tasks.map((t, i) => (
-        <div key={t._id} style={{ marginBottom: 25 }}>
+      {validTasks.map((t, i) => (
+        <div key={t._id || i} style={{ marginBottom: 25 }}>
           <div style={{ marginBottom: 4, fontSize: 13 }}>
-            <b>{i + 1}. {t.content}</b> — {t.start_date.slice(0, 10)} → {t.end_date.slice(0, 10)}
+            <b>{i + 1}. {t.content}</b> —
+            {t._start.toISOString().slice(0, 10)} → {t._end.toISOString().slice(0, 10)}
           </div>
 
           <div style={{ position: "relative", height: 22, background: "#eee", borderRadius: 4 }}>
             <div
               style={{
                 position: "absolute",
-                left: `${getLeft(t.start_date)}%`,
-                width: `${getWidth(t.start_date, t.end_date)}%`,
+                left: `${getLeft(t._start)}%`,
+                width: `${getWidth(t._start, t._end)}%`,
                 height: "100%",
                 background: "#007bff",
-                borderRadius: 4
+                borderRadius: 4,
               }}
             ></div>
           </div>
@@ -772,6 +871,8 @@ const GanttChart = ({ tasks }) => {
     </div>
   );
 };
+
+
 
 
 const modalStyles = {

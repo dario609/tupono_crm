@@ -103,7 +103,6 @@ export default function EngagementTrackerEditPage() {
         setSaving(true);
 
         try {
-            console.log('form',form)
             const fd = new FormData();
             fd.append("engage_date", form.engage_date);
             fd.append("engage_type", form.engage_type);

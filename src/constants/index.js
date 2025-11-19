@@ -111,3 +111,176 @@ export const rolesLabel = {
     teTokotoru,
 };
 
+export const tasksTemplates = {
+    tasks: [
+        {   
+            category: 'General Administration',
+            content: 'Open and set up office (lights, alarms, HVAC as required).',
+            description: '',
+        },
+        {
+            category: 'General Administration',
+            content: 'Check emails and phone messages; prioritise responses.',
+            description: '',
+        },
+        {
+            category: 'General Administration',
+            content: 'Update calendars, schedules, and shared diaries.',
+            description: '',
+        },
+        
+        {
+            category: 'General Administration',
+            content: 'Prepare meeting rooms and materials.',
+            description: '',
+        },
+        {
+            category: 'General Administration',
+            content: 'Order office supplies and check inventory levels.',
+            description: '',
+        },
+        {
+            category: 'Communication & Coordination',
+            content: 'Respond to staff enquiries.',
+            description: '',
+        },
+        {
+            category: 'Communication & Coordination',
+            content: 'Distribute internal communications and memos.',
+            description: '',
+        },
+        {
+            category: 'Communication & Coordination',
+            content: 'Coordinate weekly team meetings and prepare agendas.',
+            description: '',
+        },
+        {
+            category: 'Communication & Coordination',
+            content: 'Send meeting minutes and follow-up actions.',
+            description: '',
+        },      
+        {
+            category: 'Document & Data Management',
+            content: 'File incoming paperwork (digital and physical).',
+            description: '',
+        },
+        {
+            category: 'Document & Data Management',
+            content: 'Update databases, registers, and CRM entries.',
+            description: '',
+        },
+        {
+            category: 'Document & Data Management',
+            content: 'Scan, upload, and archive documents.',
+            description: '',
+        },
+        {
+            category: 'Document & Data Management',
+            content: 'Prepare reports, templates, or spreadsheets as required.',
+            description: '',
+        },
+        {
+            category: 'Finance & Procurement Support',
+            content: 'Process invoices and receipts.',
+            description: '',
+        },
+        {
+            category: 'Finance & Procurement Support',
+            content: 'Prepare purchase orders.',
+            description: '',
+        },
+        {
+            category: 'Finance & Procurement Support',
+            content: 'Reconcile weekly spending or petty cash.',
+            description: '',
+        },
+        {
+            category: 'Finance & Procurement Support',
+            content: 'Liaise with suppliers for deliveries and quotes.',
+            description: '',
+        },
+        {
+            category: 'Staff & Office Support',
+            content: 'Organise staff travel/accommodation bookings.',
+            description: '',
+        },
+        {
+            category: 'Staff & Office Support',
+            content: 'Assist with onboarding forms for new staff.',
+            description: '',
+        },
+        {
+            category: 'Staff & Office Support',
+            content: 'Schedule training sessions.',
+            description: '',
+        },
+        {
+            category: 'Staff & Office Support',
+            content: 'Support team project work (printing, formatting, logistics).',
+            description: '',
+        },
+        {
+            category: 'Health, Safety & Compliance',
+            content: 'Update H&S registers and incident logs.',
+            description: '',
+        },
+        {
+            category: 'Health, Safety & Compliance',
+            content: 'Check first aid kits and emergency supplies.',
+            description: '',
+        },
+        {
+            category: 'Health, Safety & Compliance',
+            content: 'Ensure office is tidy and hazard‑free.',
+            description: '',
+        },      
+        {
+            category: 'Health, Safety & Compliance',
+            content: 'Confirm contractor sign-ins and H&S documentation.',
+            description: '',
+        },
+        {
+            category: 'End-of-Week Wrap‑Up',
+            content: 'Prepare weekly summary report.',
+            description: '',
+        },
+        {
+            category: 'End-of-Week Wrap‑Up',
+            content: 'Update task list for the following week.',
+            description: '',
+        },
+        {
+            category: 'End-of-Week Wrap‑Up',
+            content: 'Organise and back up digital files.',
+            description: '',
+        },
+        {
+            category: 'End-of-Week Wrap‑Up',
+            content: 'Ensure meeting rooms and shared spaces are reset.',
+            description: '',
+        },
+    ]
+}
+const taskStatuses = [
+    'Just starting',
+    'Working',
+    'Nearly Complete',
+    'Complete',
+];
+
+const taskCategories = [
+    'Admin',
+    'Finance',
+    'Other',
+    'Vehicle',
+    'Travel',
+    'Report Support',
+];
+
+export const taskDurationTypes = [
+    'Daily',
+    'Weekly',
+    'Monthly',
+];
+
+export { taskStatuses, taskCategories };
