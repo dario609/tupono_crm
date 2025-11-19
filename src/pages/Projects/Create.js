@@ -7,15 +7,17 @@ import TeamsApi from "../../api/teamsApi";
 import RoheApi from "../../api/roheApi";
 import HapuListsApi from "../../api/hapulistsApi";
 import ProjectsApi from "../../api/projectsApi";
+import TasksApi from "../../api/tasksApi";
+import { tasksTemplates, taskDurationTypes, taskStatuses } from "../../constants/index.js";
 
 const emptyTask = {
-  assignee: "",
-  assigned_by: "",
-  duration: "",
-  duration_type: "Daily",
-  status: "Just starting",
+  assignee: null,
+  assigned_by: null,
+  duration: 0,
+  duration_type: taskDurationTypes[1],
+  status: taskStatuses[0],
   start_date: "",
-  end_date: "",
+  end_date: '',
   content: "",
 };
 
@@ -37,6 +39,7 @@ const CreateProject = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const formRef = useRef(null);
+  const [importing, setImporting] = useState(false);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
@@ -121,6 +124,27 @@ const CreateProject = () => {
 
   // removed add/remove Rohe/Hapu functions
 
+  const handleImportTasks = async () => {
+    setImporting(true);
+    const newTasks = tasksTemplates.tasks.map(t => ({
+      assignee: null,
+      assigned_by: user.id,
+      duration: 0,
+      duration_type: taskDurationTypes[1],
+      status: taskStatuses[0],
+      content: t.content,
+      start_date: new Date().toISOString().split('T')[0],
+      end_date: new Date().toISOString().split('T')[0],
+    }));
+    setTasks([...tasks, ...newTasks]);
+    setImporting(false);
+    Swal.fire({
+      title: 'Tasks imported successfully',
+      text: 'Tasks have been imported successfully',
+      icon: 'success',
+    }); 
+  };
+
   const parseHapuIdFromOption = (val) => {
     const match = hapus.find((x) => (x?.name || "").toLowerCase() === String(val).toLowerCase());
     return match?._id || null;
@@ -154,36 +178,30 @@ const CreateProject = () => {
   };
 
   const saveTask = () => {
-    const errors = {};
+    const s = task.start_date || new Date().toISOString().split('T')[0];
+    const e = task.end_date || new Date().toISOString().split('T')[0];
   
-    if (!task.assignee) errors.assignee = "Assignee is required";
-    if (!task.start_date) errors.start_date = "Start Date is required";
-    if (!task.end_date) errors.end_date = "End Date is required";
-    if (!task.content) errors.content = "Content is required";
-  
-    // Apply errors
-    if (Object.keys(errors).length > 0) {
-      setTaskErrors(errors);
-      return;
-    }
-  
-    // Clear errors
-    setTaskErrors({});
-  
-    // Auto-assign "Assigned By"
-    task.assigned_by = user.id;
-  
-    const updated = [...tasks];
+    const safeTask = {
+      ...task,
+      assigned_by: user.id,
+      start_date: s,
+      end_date: e,
+      content: task.content || "",
+    };
   
     if (taskEditIndex !== null) {
-      updated[taskEditIndex] = task;
+      const updated = [...tasks];
+      updated[taskEditIndex] = safeTask;
+      setTasks(updated);
     } else {
-      updated.push(task);
+      setTasks([...tasks, safeTask]);
     }
   
-    setTasks(updated);
     setTaskModalOpen(false);
+    setTaskErrors({});
+    setTaskEditIndex(null);
   };
+  
   
 
   const deleteTask = async (index) => {
@@ -214,8 +232,8 @@ const CreateProject = () => {
       setLoading(true);
       const payload = {
         name: form.name,
-        start_date: form.start_date,
-        end_date: form.end_date,
+        start_date: form.start_date ? new Date(form.start_date) : new Date(),
+        end_date: form.end_date ? new Date(form.end_date) : new Date(),
         owner: form.owner || undefined,
         team_id: form.team_id || undefined,
         rohe: form.rohe || undefined,
@@ -392,14 +410,21 @@ const CreateProject = () => {
                     <div className="col-md-12 mt-4">
                       <h5 className="fw-semibold" style={{ marginBottom: "10px" }}>Tasks</h5>
 
-                      <button
-                        type="button"
-                        className="btn btn-primary btn-sm mb-2"
-                        onClick={openTaskModal}
-                        style={{ borderRadius: 20 }}
-                      >
-                        + Add Task
-                      </button>
+                      <div className="dropdown mb-2" style={{ marginLeft: "10px" }}>
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-sm dropdown-toggle"
+                          style={{ borderRadius: 20 }}
+                          data-bs-toggle="dropdown"
+                          aria-expanded="false"
+                        >
+                          + Add Task
+                        </button>
+                        <ul className="dropdown-menu">
+                          <li><a className="dropdown-item" href="#" onClick={openTaskModal}>Add Single Task</a></li>
+                          <li><a className="dropdown-item" href="#" onClick={handleImportTasks}>Import Tasks from Template</a></li>
+                        </ul>
+                      </div>
 
                       <div className="table-responsive">
                         <table className="table table-bordered table-hover">
@@ -411,9 +436,9 @@ const CreateProject = () => {
                               <th>Duration</th>
                               <th>Type</th>
                               <th>Status</th>
-                              <th>Start</th>
-                              <th>End</th>
-                              <th>Description</th>
+                              <th>Start Date</th>
+                              <th>End Date</th>
+                              <th>Content</th>
                               <th style={{ width: "110px" }}>Actions</th>
                             </tr>
                           </thead>
@@ -464,7 +489,7 @@ const CreateProject = () => {
                                         <polygon points="16 3 21 8 8 21 3 21 3 16 16 3"></polygon>
                                       </svg>
                                     </a>
-                                    <a className="btn badge-danger btn-sm btn-rounded btn-icon" title="Delete" onClick={() => deleteTask(t._id)}>
+                                    <a className="btn badge-danger btn-sm btn-rounded btn-icon" title="Delete" onClick={() => deleteTask(i)}>
                                       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="feather feather-trash align-middle">
                                         <polyline points="3 6 5 6 21 6"></polyline>
                                         <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -513,9 +538,6 @@ const CreateProject = () => {
                     <option value="Travel">Travel</option>
                     <option value="Report Support">Report Support</option>
                   </select>
-                  {taskErrors.content && (
-                    <small className="text-danger">{taskErrors.content}</small>
-                  )}
                 </div>
               </div>
             <div className="row mt-3">
@@ -528,15 +550,22 @@ const CreateProject = () => {
                   onChange={(e) => setTask({ ...task, assignee: e.target.value })}
                 >
                   <option value="">Select Assignee</option>
-                  {users.map((u) => (
-                    <option key={u._id} value={u._id}>
-                      {u.first_name} {u.last_name}
-                    </option>
-                  ))}
+                  {
+                    teamMembers?.length > 0 ? (
+                      teamMembers.map((u) => (
+                        <option key={u._id} value={u._id}>
+                          {u.name}
+                        </option>
+                      ))
+                    ) : (
+                      users.map((u) => (
+                        <option key={u._id} value={u._id}>
+                          {u.first_name} {u.last_name}
+                        </option>
+                      ))
+                    )
+                  }
                 </select>
-                {taskErrors.assignee && (
-                  <small className="text-danger">{taskErrors.assignee}</small>
-                )}
               </div>
 
 
@@ -567,22 +596,19 @@ const CreateProject = () => {
               </div>
 
               <div className="col-md-6 mt-2">
-                <label>Start Date*</label>
-                <input type="date" className="form-control" value={task.start}
+                <label>Start Date</label>
+                <input type="date" className="form-control" value={task.start_date}
                   onChange={(e) => setTask({ ...task, start_date: e.target.value })} />
-                  {taskErrors.start_date && (
-                    <small className="text-danger">{taskErrors.start_date}</small>
-                  )}
               </div>
 
               <div className="col-md-6 mt-2">
-                <label>End Date*</label>
-                <input type="date" className="form-control" value={task.end}
-                  onChange={(e) => setTask({ ...task, end_date: e.target.value })} />
-                  {taskErrors.end_date && (
-                    <small className="text-danger">{taskErrors.end_date}</small>
-                  )}
+                <label>End Date</label>
+                <input type="date" className="form-control" value={task.end_date}
+                  onChange={(e) => setTask({ ...task, end_date: e.target.value })} />     
               </div>
+              {taskErrors.end_date && (
+                <div className="text-danger mt-1">{taskErrors.end_date}</div>
+              )}
 
               <div className="col-md-4 mt-2">
                 <label>Status</label>

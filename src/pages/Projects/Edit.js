@@ -254,7 +254,13 @@ const EditProject = () => {
     });
     if (!confirm.isConfirmed) return;
     await TasksApi.remove(taskId);
-
+    Swal.fire({
+      title: 'Deleted!',
+      text: 'The task has been deleted successfully',
+      icon: 'success',
+      timer: 900,
+      showConfirmButton: false,
+    });
     setProjectTasks((prev) => prev.filter((t) => t._id !== taskId));
   };
   // ---------------------- Save Task (Add or Edit) ----------------------
@@ -493,7 +499,7 @@ const EditProject = () => {
                         <h5 className="mt-4 mb-2">Tasks</h5>
                         <div className="dropdown mb-2" style={{ marginLeft: "10px" }}>
                           <button
-                            className="btn btn-success btn-sm dropdown-toggle"
+                            className="btn btn-primary btn-sm dropdown-toggle"
                             style={{ borderRadius: 20, width: "120px" }}
                             type="button"
                             data-bs-toggle="dropdown"
@@ -584,22 +590,22 @@ const EditProject = () => {
                                       <td>{t.duration || "-"}</td>
                                       <td>{t.duration_type || "-"}</td>
                                       <td>
-                                        {t.status === "Just starting" && (
+                                        {t.status === taskStatuses[0] && (
                                           <span className="badge bg-secondary">Just Starting</span>
                                         )}
-                                        {t.status === "Working" && (
+                                        {t.status === taskStatuses[1] && (
                                           <span className="badge bg-info text-dark">Working On</span>
                                         )}
-                                        {t.status === "Nearly Complete" && (
+                                        {t.status === taskStatuses[2] && (
                                           <span className="badge bg-warning text-dark">Nearly Complete</span>
                                         )}
-                                        {t.status === "Complete" && (
+                                        {t.status === taskStatuses[3] && (
                                           <span className="badge bg-success">Complete</span>
                                         )}
                                       </td>
 
-                                      <td>{t.start_date ? t.start_date.slice(0, 10) : "-"}</td>
-                                      <td>{t.end_date ? t.end_date.slice(0, 10) : "-"}</td>
+                                      <td>{t.start_date ? t.start_date.slice(0, 10) : new Date().toISOString().split('T')[0]}</td>
+                                      <td>{t.end_date ? t.end_date.slice(0, 10) : new Date().toISOString().split('T')[0]}</td>
                                       <td>{t.content || "-"}</td>
 
                                       <td className="text-center">
