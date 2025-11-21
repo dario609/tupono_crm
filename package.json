@@ -21,6 +21,7 @@
     "react-chartjs-2": "^5.3.1",
     "react-datepicker": "^8.8.0",
     "react-dom": "^19.2.0",
+    "react-input-mask": "^2.0.4",
     "react-router": "^7.9.4",
     "react-router-dom": "^7.9.4",
     "react-scripts": "5.0.1",

@@ -37,6 +37,7 @@ import EngagementTrackerPage from "./pages/Engagement";
 import EngagementTrackerCreatePage from "./pages/Engagement/create";
 import EngagementTrackerEditPage from "./pages/Engagement/Edit";
 import UserReport from "./pages/Users/UserReport";
+import Profile from "./pages/Profile";
 import './App.css';
 
 function App() {
@@ -50,7 +51,7 @@ function App() {
             <Route path="/forgot-password" element={<ForgotPassword />} />
 
             {/* Protected Route */}
-            <Route element={<PrivateRoute />}>
+            <Route element={<PrivateRoute />}>      
               <Route element={<AdminLayout />}>
                 <Route path="/admin/dashboard" element={<Dashboard />} />
                 <Route path="/admin/roles-permissions" element={<RolesPermissions />} />
@@ -81,6 +82,7 @@ function App() {
                 <Route path="/calendar/create" element={<CalendarCreate />} />
                 <Route path="/calendar/:id/edit" element={<CalendarEdit />} />
                 <Route path="/support" element={<SupportChat />} />
+                <Route path="/profile" element={<Profile />} />
               </Route>
             </Route>
 

@@ -1,36 +1,51 @@
-import React, { useState, useEffect } from "react";
-import axios from "../../api/axiosInstance";
-import Swal from "sweetalert2";
-import $ from "jquery";
-import "jquery-mask-plugin";
-import "bootstrap/dist/css/bootstrap.min.css";
+import React, { useEffect, useState } from "react";
+import {
+  Card,
+  Row,
+  Col,
+  Form,
+  Button,
+  Breadcrumb,
+  Alert,
+} from "react-bootstrap";
+import axios from "axios";
+import InputMask from "react-input-mask";
 
-const ProfileManagement = ({ userId }) => {
+const ProfilePage = () => {
   const [user, setUser] = useState(null);
-  const [success, setSuccess] = useState("");
   const [errors, setErrors] = useState([]);
+  const [success, setSuccess] = useState("");
+  const [profileImagePreview, setProfileImagePreview] = useState(null);
 
   useEffect(() => {
-    // Fetch user details
-    const fetchData = async () => {
-      try {
-        const { data } = await axios.get(`/users/${userId}`);
-        setUser(data.user);
-      } catch (err) {
-        setErrors(["Failed to load user data."]);
-      }
-    };
-    fetchData();
-  }, [userId]);
-
-  useEffect(() => {
-    $("#phone").mask("(000) 000-0000");
-    $("#zip_code").mask("000000");
+    loadUser();
   }, []);
 
+  const loadUser = async () => {
+    try {
+      const res = await axios.get("/api/user/profile");
+      setUser(res.data);
+      setProfileImagePreview(
+        res.data.profile_image
+          ? `/assets/images/uploads/users/${res.data.profile_image}`
+          : "/assets/images/user.jpg"
+      );
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const handleChange = (e) => {
-    const { name, value, files } = e.target;
-    setUser({ ...user, [name]: files ? files[0] : value });
+    setUser({ ...user, [e.target.name]: e.target.value });
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    setUser({ ...user, profile_image: file });
+
+    if (file) {
+      setProfileImagePreview(URL.createObjectURL(file));
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -39,310 +54,231 @@ const ProfileManagement = ({ userId }) => {
     setSuccess("");
 
     const formData = new FormData();
-    Object.entries(user).forEach(([key, val]) => formData.append(key, val));
-    formData.append("user_id", user._id);
+    Object.keys(user).forEach((key) => {
+      formData.append(key, user[key]);
+    });
 
     try {
-      const res = await axios.put("/users/profile", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      setSuccess(res.data.message || "Profile updated successfully!");
-    } catch (err) {
-      setErrors([err.response?.data?.message || "Failed to update profile."]);
+      const res = await axios.post("/api/user/profile/update", formData);
+      setSuccess("Profile updated successfully.");
+    } catch (e) {
+      if (e.response?.data?.errors) {
+        setErrors(Object.values(e.response.data.errors).flat());
+      } else {
+        setErrors(["Something went wrong."]);
+      }
     }
   };
 
-  if (!user) return <div className="text-center mt-5">Loading...</div>;
+  if (!user) return <div>Loading...</div>;
 
   return (
-    <div className="container-full">
-      <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24 card mt-3">
-        <div className="col-12 card-body">
-          <nav aria-label="breadcrumb">
-            <ol className="breadcrumb breadcrumb-custom">
-              <li className="breadcrumb-item">
-                <a href="/dashboard" style={{ textDecoration: "none" }}>
-                  Dashboard
-                </a>
-              </li>
-              <li className="breadcrumb-item active">
-                <span>Edit Profile</span>
-              </li>
-            </ol>
-          </nav>
-        </div>
-      </div>
+    <div className="container mt-3">
 
-      <section className="card mt-3 h-100 w-100">
-        <div className="row card-body">
-          <ul
-            className="nav border-gradient-tab nav-pills d-inline-flex p-3"
-            id="pills-tab"
-            style={{ borderBottom: "0px" }}
-          >
-            <li className="nav-item">
-              <button
-                className="nav-link d-flex align-items-center px-24 active"
-                onClick={() => (window.location.href = "/profile")}
-              >
-                Edit Profile
-              </button>
-            </li>
-            <li className="nav-item">
-              <button
-                className="nav-link d-flex align-items-center px-24"
-                onClick={() => (window.location.href = "/change-password")}
-              >
-                Change Password
-              </button>
-            </li>
-          </ul>
+      {/* Breadcrumb */}
+      <Card className="mb-3 p-3">
+        <Breadcrumb>
+          <Breadcrumb.Item href="/admin/dashboard">Dashboard</Breadcrumb.Item>
+          <Breadcrumb.Item active>Edit Profile</Breadcrumb.Item>
+        </Breadcrumb>
+      </Card>
 
-          {/* Left profile card */}
-          <div className="col-xl-4 col-lg-5">
-            <div className="card text-center">
-              <div className="card-body">
-                <img
-                  src={
-                    user.profile_image
-                      ? `/uploads/users/${user.profile_image}`
-                      : "/assets/images/user.jpg"
-                  }
-                  className="bg-light w-50 h-50 rounded-circle avatar-lg img-thumbnail"
-                  alt="profile"
-                  style={{
-                    objectFit: "cover",
-                    height: "200px",
-                    width: "200px",
-                  }}
-                />
-                <h4 className="mb-0 mt-2">
-                  {user.first_name} {user.last_name}
-                </h4>
+      <Row>
+        <Col xl={4} lg={5}>
+          <Card className="text-center">
+            <Card.Body>
+              <img
+                src={profileImagePreview}
+                className="rounded-circle img-thumbnail mb-3"
+                alt="profile"
+                style={{
+                  width: 200,
+                  height: 200,
+                  objectFit: "cover",
+                }}
+              />
+              <h4>{user.first_name} {user.last_name}</h4>
 
-                <div className="text-start mt-3">
-                  <p>
-                    <strong>Phone Number:</strong>{" "}
-                    <span className="ms-2">{user.phone}</span>
-                  </p>
-                  <p>
-                    <strong>Email:</strong>{" "}
-                    <span className="ms-2">{user.email}</span>
-                  </p>
-                  <p>
-                    <strong>Address:</strong>{" "}
-                    <span className="ms-2">{user.address}</span>
-                  </p>
-                  <p>
-                    <strong>City:</strong>{" "}
-                    <span className="ms-2">{user.city}</span>
-                  </p>
-                  <p>
-                    <strong>State:</strong>{" "}
-                    <span className="ms-2">{user.state}</span>
-                  </p>
-                  <p>
-                    <strong>County:</strong>{" "}
-                    <span className="ms-2">{user.country}</span>
-                  </p>
-                  <p>
-                    <strong>Zip Code:</strong>{" "}
-                    <span className="ms-2">{user.zip_code}</span>
-                  </p>
-                </div>
+              <div className="text-start mt-3">
+                <p><strong>Phone:</strong> {user.phone}</p>
+                <p><strong>Email:</strong> {user.email}</p>
+                <p><strong>Address:</strong> {user.address}</p>
+                <p><strong>City:</strong> {user.city}</p>
+                <p><strong>State:</strong> {user.state}</p>
+                <p><strong>Country:</strong> {user.country}</p>
+                <p><strong>Zip:</strong> {user.zip_code}</p>
               </div>
-            </div>
-          </div>
+            </Card.Body>
+          </Card>
+        </Col>
 
-          {/* Right form */}
-          <div className="col-xl-8 col-lg-7">
-            <div className="card">
-              <div className="card-body">
-                <div className="tab-content" style={{ borderTop: "1px solid #dee2e6" }}>
-                  <div className="tab-pane show active" id="settings">
-                    {success && (
-                      <div className="alert alert-success alert-dismissible fade show">
-                        <ul style={{ listStyle: "none", marginBottom: 0 }}>
-                          <li>{success}</li>
-                        </ul>
-                        <button
-                          type="button"
-                          className="btn-close"
-                          data-bs-dismiss="alert"
-                        ></button>
-                      </div>
-                    )}
-                    {errors.length > 0 && (
-                      <div className="alert alert-danger alert-dismissible fade show">
-                        <ul style={{ listStyle: "none", marginBottom: 0 }}>
-                          {errors.map((err, i) => (
-                            <li key={i}>{err}</li>
-                          ))}
-                        </ul>
-                        <button
-                          type="button"
-                          className="btn-close"
-                          data-bs-dismiss="alert"
-                        ></button>
-                      </div>
-                    )}
+        <Col xl={8} lg={7}>
+          <Card>
+            <Card.Body>
 
-                    <form onSubmit={handleSubmit} encType="multipart/form-data">
-                      <h5 className="mb-4 display-5">
-                        <i className="mdi mdi-account-circle me-1"></i> Personal Info
-                      </h5>
+              {/* Success alert */}
+              {success && (
+                <Alert variant="success" onClose={() => setSuccess("")} dismissible>
+                  {success}
+                </Alert>
+              )}
 
-                      <div className="row">
-                        <div className="col-md-6 mb-3">
-                          <label className="form-label">
-                            First Name <span className="text-danger">*</span>
-                          </label>
-                          <input
-                            type="text"
-                            className="form-control"
-                            name="first_name"
-                            value={user.first_name}
-                            onChange={handleChange}
-                            maxLength="50"
-                            required
-                          />
-                        </div>
-                        <div className="col-md-6 mb-3">
-                          <label className="form-label">
-                            Last Name <span className="text-danger">*</span>
-                          </label>
-                          <input
-                            type="text"
-                            className="form-control"
-                            name="last_name"
-                            value={user.last_name}
-                            onChange={handleChange}
-                            maxLength="50"
-                            required
-                          />
-                        </div>
-                      </div>
+              {/* Error alert */}
+              {errors.length > 0 && (
+                <Alert variant="danger" onClose={() => setErrors([])} dismissible>
+                  <ul style={{ margin: 0 }}>
+                    {errors.map((err, i) => (
+                      <li key={i}>{err}</li>
+                    ))}
+                  </ul>
+                </Alert>
+              )}
 
-                      <div className="row">
-                        <div className="col-12 mb-3">
-                          <label className="form-label">
-                            Address <span className="text-danger">*</span>
-                          </label>
-                          <textarea
-                            className="form-control"
-                            name="address"
-                            rows="2"
-                            maxLength="250"
-                            value={user.address}
-                            onChange={handleChange}
-                            required
-                          ></textarea>
-                        </div>
-                      </div>
+              <h5><i className="mdi mdi-account-circle"></i> Personal Info</h5>
 
-                      <div className="row">
-                        <div className="col-md-6 mb-3">
-                          <label className="form-label">
-                            City <span className="text-danger">*</span>
-                          </label>
-                          <input
-                            type="text"
-                            className="form-control"
-                            name="city"
-                            value={user.city}
-                            onChange={handleChange}
-                            required
-                          />
-                        </div>
-                        <div className="col-md-6 mb-3">
-                          <label className="form-label">
-                            State <span className="text-danger">*</span>
-                          </label>
-                          <input
-                            type="text"
-                            className="form-control"
-                            name="state"
-                            value={user.state}
-                            onChange={handleChange}
-                            required
-                          />
-                        </div>
-                      </div>
+              <Form onSubmit={handleSubmit} className="mt-3">
 
-                      <div className="row">
-                        <div className="col-md-6 mb-3">
-                          <label className="form-label">
-                            County <span className="text-danger">*</span>
-                          </label>
-                          <input
-                            type="text"
-                            className="form-control"
-                            name="country"
-                            value={user.country}
-                            onChange={handleChange}
-                            required
-                          />
-                        </div>
-                        <div className="col-md-6 mb-3">
-                          <label className="form-label">
-                            Zip Code <span className="text-danger">*</span>
-                          </label>
-                          <input
-                            type="text"
-                            id="zip_code"
-                            className="form-control"
+                <Row>
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>First Name *</Form.Label>
+                      <Form.Control
+                        name="first_name"
+                        value={user.first_name}
+                        onChange={handleChange}
+                        required
+                      />
+                    </Form.Group>
+                  </Col>
+
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Last Name *</Form.Label>
+                      <Form.Control
+                        name="last_name"
+                        value={user.last_name}
+                        onChange={handleChange}
+                        required
+                      />
+                    </Form.Group>
+                  </Col>
+                </Row>
+
+                <Form.Group className="mb-3">
+                  <Form.Label>Address *</Form.Label>
+                  <Form.Control
+                    as="textarea"
+                    rows={2}
+                    name="address"
+                    value={user.address}
+                    onChange={handleChange}
+                    required
+                  />
+                </Form.Group>
+
+                <Row>
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>City *</Form.Label>
+                      <Form.Control
+                        name="city"
+                        value={user.city}
+                        onChange={handleChange}
+                        required
+                      />
+                    </Form.Group>
+                  </Col>
+
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>State *</Form.Label>
+                      <Form.Control
+                        name="state"
+                        value={user.state}
+                        onChange={handleChange}
+                        required
+                      />
+                    </Form.Group>
+                  </Col>
+                </Row>
+
+                <Row>
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Country *</Form.Label>
+                      <Form.Control
+                        name="country"
+                        value={user.country}
+                        onChange={handleChange}
+                        required
+                      />
+                    </Form.Group>
+                  </Col>
+
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Zip Code *</Form.Label>
+                      <InputMask
+                        mask="999999"
+                        value={user.zip_code}
+                        onChange={handleChange}
+                      >
+                        {(inputProps) => (
+                          <Form.Control
+                            {...inputProps}
                             name="zip_code"
-                            value={user.zip_code}
-                            onChange={handleChange}
                             required
                           />
-                        </div>
-                      </div>
+                        )}
+                      </InputMask>
+                    </Form.Group>
+                  </Col>
+                </Row>
 
-                      <div className="row">
-                        <div className="col-md-6 mb-3">
-                          <label className="form-label">
-                            Phone Number <span className="text-danger">*</span>
-                          </label>
-                          <input
-                            type="text"
-                            id="phone"
-                            className="form-control"
+                <Row>
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Phone *</Form.Label>
+                      <InputMask
+                        mask="(999) 999-9990"
+                        value={user.phone}
+                        onChange={handleChange}
+                      >
+                        {(inputProps) => (
+                          <Form.Control
+                            {...inputProps}
                             name="phone"
-                            value={user.phone}
-                            onChange={handleChange}
                             required
                           />
-                        </div>
-                        <div className="col-md-6 mb-3">
-                          <label className="form-label">Profile Image</label>
-                          <input
-                            type="file"
-                            className="form-control"
-                            name="profile_image"
-                            onChange={handleChange}
-                          />
-                        </div>
-                      </div>
+                        )}
+                      </InputMask>
+                    </Form.Group>
+                  </Col>
 
-                      <div className="text-center">
-                        <button
-                          type="submit"
-                          className="btn btn-primary btn-rounded btn-fw"
-                        >
-                          Save
-                        </button>
-                      </div>
-                    </form>
-                  </div>
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Profile Image</Form.Label>
+                      <Form.Control
+                        type="file"
+                        onChange={handleImageChange}
+                      />
+                    </Form.Group>
+                  </Col>
+                </Row>
+
+                <div className="text-center">
+                  <Button type="submit" variant="primary" className="px-4">
+                    Save
+                  </Button>
                 </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+
+              </Form>
+            </Card.Body>
+          </Card>
+        </Col>
+      </Row>
     </div>
   );
 };
 
-export default ProfileManagement;
+export default ProfilePage;
