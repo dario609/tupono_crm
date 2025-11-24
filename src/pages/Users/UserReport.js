@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Card, Row, Col, Badge, Spinner, Tabs, Tab } from "react-bootstrap";
+import { Card, Row, Col, Badge, Tabs, Tab } from "react-bootstrap";
 import UsersApi from "../../api/usersApi";
 import Swal from "sweetalert2";
 import defaultProfileImage from "../../assets/images/user.jpg";
@@ -55,11 +55,106 @@ const UserReport = () => {
 
     if (loading) {
         return (
-            <div className="d-flex justify-content-center align-items-center" style={{ minHeight: "400px" }}>
-                <Spinner animation="border" role="status">
-                    <span className="visually-hidden">Loading...</span>
-                </Spinner>
-            </div>
+            <>
+                {/* Breadcrumb Skeleton */}
+                <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24 card mt-3">
+                    <div className="col-12 card-body">
+                        <div className="template-demo">
+                            <div className="skeleton skeleton-line" style={{ width: "300px", height: "20px" }} />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="card mt-3 shadow-sm">
+                    <div className="card-body">
+                        {/* User Profile Header Skeleton */}
+                        <Row className="mb-4">
+                            <Col md={12}>
+                                <Card className="border">
+                                    <Card.Body>
+                                        <Row className="align-items-center">
+                                            <Col xs="auto">
+                                                <div className="skeleton border" style={{ width: "100px", height: "100px", borderRadius: "50%" }} />
+                                            </Col>
+                                            <Col>
+                                                <div className="skeleton skeleton-line mb-2" style={{ width: "250px", height: "24px" }} />
+                                                <div className="skeleton skeleton-line mb-3" style={{ width: "200px", height: "16px" }} />
+                                                <div className="d-flex gap-2">
+                                                    <div className="skeleton" style={{ width: "80px", height: "24px", borderRadius: "4px" }} />
+                                                    <div className="skeleton" style={{ width: "100px", height: "24px", borderRadius: "4px" }} />
+                                                </div>
+                                            </Col>
+                                        </Row>
+                                    </Card.Body>
+                                </Card>
+                            </Col>
+                        </Row>
+
+                        {/* Statistics Cards Skeleton */}
+                        <Row className="mb-4">
+                            {[1, 2, 3, 4].map((i) => (
+                                <Col md={3} sm={6} key={i} className="mb-3">
+                                    <Card className="border-0 shadow-sm h-100" style={{ background: "#eef1f5" }}>
+                                        <Card.Body>
+                                            <div className="d-flex justify-content-between align-items-center">
+                                                <div style={{ flex: 1 }}>
+                                                    <div className="skeleton skeleton-line mb-2" style={{ width: "80px", height: "14px" }} />
+                                                    <div className="skeleton skeleton-line mb-2" style={{ width: "50px", height: "32px" }} />
+                                                    <div className="skeleton skeleton-line" style={{ width: "100px", height: "12px" }} />
+                                                </div>
+                                                <div className="skeleton" style={{ width: "48px", height: "48px", borderRadius: "50%", opacity: 0.3 }} />
+                                            </div>
+                                        </Card.Body>
+                                    </Card>
+                                </Col>
+                            ))}
+                        </Row>
+
+                        {/* Tabs Skeleton */}
+                        <div className="mb-3">
+                            <div className="d-flex gap-2 mb-3">
+                                {[1, 2, 3, 4, 5].map((i) => (
+                                    <div key={i} className="skeleton" style={{ width: "120px", height: "40px", borderRadius: "4px" }} />
+                                ))}
+                            </div>
+                            
+                            {/* Tab Content Skeleton */}
+                            <Card className="border">
+                                <Card.Body>
+                                    <Row>
+                                        <Col md={6} className="mb-4">
+                                            <div className="skeleton skeleton-line mb-3" style={{ width: "150px", height: "20px" }} />
+                                            {[1, 2, 3, 4, 5].map((i) => (
+                                                <div key={i} className="mb-3 pb-3 border-bottom">
+                                                    <div className="skeleton skeleton-line mb-2" style={{ width: "80%", height: "18px" }} />
+                                                    <div className="skeleton skeleton-line mb-2" style={{ width: "60%", height: "14px" }} />
+                                                    <div className="d-flex gap-2">
+                                                        <div className="skeleton" style={{ width: "60px", height: "20px", borderRadius: "4px" }} />
+                                                        <div className="skeleton" style={{ width: "80px", height: "20px", borderRadius: "4px" }} />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </Col>
+                                        <Col md={6} className="mb-4">
+                                            <div className="skeleton skeleton-line mb-3" style={{ width: "150px", height: "20px" }} />
+                                            {[1, 2, 3, 4, 5].map((i) => (
+                                                <div key={i} className="mb-3 pb-3 border-bottom">
+                                                    <div className="skeleton skeleton-line mb-2" style={{ width: "80%", height: "18px" }} />
+                                                    <div className="skeleton skeleton-line mb-2" style={{ width: "60%", height: "14px" }} />
+                                                    <div className="d-flex gap-2">
+                                                        <div className="skeleton" style={{ width: "60px", height: "20px", borderRadius: "4px" }} />
+                                                        <div className="skeleton" style={{ width: "80px", height: "20px", borderRadius: "4px" }} />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </Col>
+                                    </Row>
+                                </Card.Body>
+                            </Card>
+                        </div>
+                    </div>
+                </div>
+            </>
         );
     }
 
@@ -221,20 +316,7 @@ const UserReport = () => {
 
                     {/* Tabs for Detailed Views */}
                     {/* style={{ backgroundColor: "green", color: 'red'}} */}
-                    <style>
-                        {`
-                            .nav-tabs .nav-link {
-                                background-color: green;
-                                color: white;
-                                border: 1px solid white;
-                            }
-                            .nav-tabs .nav-link.active {
-                                background-color: white;
-                                color: black;
-                            }
-                            
-                        `}
-                    </style>
+                 
                     <Tabs
                         activeKey={activeTab}
                         onSelect={(k) => setActiveTab(k)}
