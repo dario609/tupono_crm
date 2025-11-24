@@ -32,6 +32,7 @@ const DocsApi = {
   remove: (p) => api.delete('/admin/docs', { params: { path: p } }).then(r => r.data),
   downloadUrl: (p) => `${api.defaults.baseURL.replace(/\/$/, '')}/admin/docs/download?path=${encodeURIComponent(p)}`,
   setAcl: (p, acl) => api.put('/admin/docs/acl', { path: p, acl }).then(r => r.data),
+  createWebLink: (path, name, webLink) => api.post('/admin/docs/weblink', { path, name, webLink }).then(r => r.data),
 };
 
 export default DocsApi;

@@ -2,8 +2,10 @@ import React, { useState, useEffect } from "react";
 import EngagementApi from "../../api/engagementApi";
 import HapuListsApi from "../../api/hapulistsApi";
 import ProjectsApi from "../../api/projectsApi";
+import CalendarApi from "../../api/calendarApi";
 import { useNavigate } from "react-router-dom";
 import { EditProjectSkeleton } from "../../components/common/SkelentonTableRow.js";
+import { AuthApi } from "../../api/authApi";
 
 const initialForm = {
     engage_date: "",
@@ -14,6 +16,7 @@ const initialForm = {
     hapus: [],
     project: "",
     meeting_minutes: null,
+    add_to_calendar: false,
 };
 
 export default function EngagementTrackerPage() {
@@ -25,6 +28,7 @@ export default function EngagementTrackerPage() {
     const [projects, setProjects] = useState([]);
     const [success, setSuccess] = useState("");
     const [loading, setLoading] = useState(false);
+    const [currentUser, setCurrentUser] = useState(null);
 
     const validateForm = () => {
         const newErrors = {};
@@ -36,7 +40,6 @@ export default function EngagementTrackerPage() {
             newErrors.engage_num = "Number of people is required";
         if (!form.hapus || form.hapus.length === 0) newErrors.hapus = "Hapū is required";
         if (!form.project) newErrors.project = "Project is required";
-        if (!form.outcome) newErrors.outcome = "Outcome is required";
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -48,14 +51,16 @@ export default function EngagementTrackerPage() {
             EngagementApi.list(),
             HapuListsApi.list(),
             ProjectsApi.list(),
-        ]).then(([engagementsRes, hapusRes, projectsRes]) => {
+            AuthApi.check(),
+        ]).then(([engagementsRes, hapusRes, projectsRes, authRes]) => {
             setEngagements(engagementsRes?.data?.data || []);
             setHapus(hapusRes?.data || []);
             setProjects(projectsRes?.data || []);
+            setCurrentUser(authRes?.user);
         }).finally(() => setLoading(false));
     }, []);
 
-    const handleSave = () => {
+    const handleSave = async () => {
         if (!validateForm()) return;
         const formData = new FormData();
         formData.append('engage_date', form.engage_date);
@@ -68,23 +73,50 @@ export default function EngagementTrackerPage() {
         form.hapus.forEach((h) => formData.append("hapus[]", h));
         setErrors({});
 
-        EngagementApi.create(formData)
-            .then((res) => {
-                if (res.success) {
-                    setSuccess("Engagement created successfully");
-                    setTimeout(() => {
-                        setSuccess("");
-                        navigate("/engagement-tracker");
-                    }, 2000);
-                    setForm(initialForm);
-                }
-                else {
-                }
-            })
-            .catch((err) => {
-                const msg = err.response?.data?.message || "Server error";
-            });
+        try {
+            const res = await EngagementApi.create(formData);
+            if (res.success) {
+                // If "Add to Calendar" is checked, create calendar event
+                if (form.add_to_calendar && currentUser) {
+                    try {
+                        const project = projects.find(p => p._id === form.project);
+                        const projectName = project ? project.name : "Engagement";
+                        const title = `${form.purpose} - ${projectName}`;
+                        const description = `Engagement Type: ${form.engage_type}\nPurpose: ${form.purpose}\nNumber of People: ${form.engage_num}\nOutcome: ${form.outcome}`;
+                        
+                        // Convert engage_date to datetime format (start and end)
+                        const engageDate = new Date(form.engage_date);
+                        const start = engageDate.toISOString().slice(0, 16); // Format: YYYY-MM-DDTHH:mm
+                        const endDate = new Date(engageDate);
+                        endDate.setHours(endDate.getHours() + 1); // Default 1 hour duration
+                        const end = endDate.toISOString().slice(0, 16);
 
+                        await CalendarApi.create({
+                            title,
+                            description,
+                            start,
+                            end,
+                            color: "#2563eb",
+                            link: "",
+                            assignments: currentUser ? [{ refType: 'user', refId: currentUser.id, color: "#2563eb" }] : []
+                        });
+                    } catch (calendarErr) {
+                        console.error("Failed to create calendar event:", calendarErr);
+                        // Don't fail the whole operation if calendar creation fails
+                    }
+                }
+
+                setSuccess("Engagement created successfully" + (form.add_to_calendar ? " and added to calendar" : ""));
+                setTimeout(() => {
+                    setSuccess("");
+                    navigate("/engagement-tracker");
+                }, 2000);
+                setForm(initialForm);
+            }
+        } catch (err) {
+            const msg = err.response?.data?.message || "Server error";
+            console.error("Error creating engagement:", err);
+        }
     };
 
     const addHapu = (id) => {
@@ -268,9 +300,6 @@ export default function EngagementTrackerPage() {
                                 value={form.outcome}
                                 onChange={(e) => setForm({ ...form, outcome: e.target.value })}
                             ></textarea>
-                            {errors.outcome && (
-                                <div className="invalid-feedback">{errors.outcome}</div>
-                            )}
                         </div>
 
                         {/* Attachment */}
@@ -284,6 +313,25 @@ export default function EngagementTrackerPage() {
                                     setForm({ ...form, meeting_minutes: e.target.files[0] })
                                 }
                             />
+                        </div>
+
+                        {/* Add to Calendar Checkbox */}
+                        <div className="col-12 mb-3">
+                            <div className="form-check">
+                                <input
+                                    className="form-check-input"
+                                    type="checkbox"
+                                    id="add_to_calendar"
+                                    checked={form.add_to_calendar}
+                                    style={{ marginLeft: "5px" }}
+                                    onChange={(e) =>
+                                        setForm({ ...form, add_to_calendar: e.target.checked })
+                                    }
+                                />
+                                <label className="form-check-label" style={{padding: "7px"}} htmlFor="add_to_calendar">
+                                    Add to Calendar
+                                </label>
+                            </div>
                         </div>
                     </div>
 

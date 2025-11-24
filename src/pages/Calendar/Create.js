@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import CalendarApi from "../../api/calendarApi";
 import UsersApi from "../../api/usersApi";
 import TeamsApi from "../../api/teamsApi";
+import EngagementApi from "../../api/engagementApi";
+import ProjectsApi from "../../api/projectsApi";
 
 const CalendarCreate = () => {
   const navigate = useNavigate();
@@ -20,16 +22,21 @@ const CalendarCreate = () => {
   const [teamMembersMap, setTeamMembersMap] = useState({});
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [addToEngagementTracker, setAddToEngagementTracker] = useState(false);
+  const [projects, setProjects] = useState([]);
+  const [selectedProject, setSelectedProject] = useState("");
 
   useEffect(() => {
     (async () => {
       try {
-        const [u, t] = await Promise.all([
+        const [u, t, p] = await Promise.all([
           UsersApi.list({ perpage: -1 }).catch(() => ({ data: [] })),
           TeamsApi.list({ perpage: -1 }).catch(() => ({ data: [] })),
+          ProjectsApi.list({ perpage: -1 }).catch(() => ({ data: [] })),
         ]);
         setUsers(u?.data || []);
         setTeams(t?.data || []);
+        setProjects(p?.data || []);
       } catch {}
     })();
   }, []);
@@ -50,6 +57,14 @@ const CalendarCreate = () => {
     try {
       setError(""); setSaving(true);
       if (!title || !start || !end) { setError("Title, Start date and End date are required"); return; }
+      
+      // Validate project selection if adding to engagement tracker
+      if (addToEngagementTracker && !selectedProject) {
+        setError("Please select a project to add this meeting to the Engagement Tracker");
+        setSaving(false);
+        return;
+      }
+      
       const assignments = [
         ...selectedUserIds.map(id => ({ refType: 'user', refId: id, color })),
         ...selectedTeamIds.map(id => ({ refType: 'team', refId: id, color })),
@@ -57,6 +72,41 @@ const CalendarCreate = () => {
       const res = await CalendarApi.create({ title, description, start, end, color, link, assignments });
       const newId = res?.data?.id || res?.data?.data?.id;
       try { if (newId) await CalendarApi.invite(newId, {}); } catch {}
+
+      // If "Add to Engagement Tracker" is checked, create engagement record
+      if (addToEngagementTracker && selectedProject) {
+        try {
+          const startDate = new Date(start);
+          const engageDate = startDate.toISOString().split('T')[0]; // Format: YYYY-MM-DD
+          
+          // Determine engagement type based on link presence
+          const engageType = link && link.trim() ? "Online meeting" : "In person meeting";
+          
+          // Default purpose to "Other" (required field)
+          const purpose = "Other";
+          
+          // Calculate number of people (at least 1)
+          const engageNum = Math.max(1, selectedUserIds.length + (selectedTeamIds.length * 2));
+          
+          // Create form data for engagement
+          const formData = new FormData();
+          formData.append('engage_date', engageDate);
+          formData.append('engage_type', engageType);
+          formData.append('purpose', purpose);
+          formData.append('engage_num', engageNum.toString());
+          formData.append('outcome', description || title || "Meeting scheduled");
+          formData.append('project', selectedProject);
+          
+          // Note: Hapū is required but we can't determine it from calendar
+          // We'll skip hapu for now - users can edit the engagement later to add proper hapus
+          
+          await EngagementApi.create(formData);
+        } catch (engagementErr) {
+          console.error("Failed to create engagement:", engagementErr);
+          // Don't fail the whole operation if engagement creation fails
+        }
+      }
+
       navigate('/calendar');
     } catch (e) { setError(e.message || 'Failed to create'); }
     finally { setSaving(false); }
@@ -67,7 +117,7 @@ const CalendarCreate = () => {
       <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-24 p-3">
         <h6 className="fw-semibold mb-0">Create Meeting</h6>
         <div>
-          <button className="btn btn-outline-secondary btn-sm" onClick={() => navigate('/calendar')}>Back</button>
+          <button className="btn btn-secondary btn-sm" onClick={() => navigate('/calendar')}>Back</button>
         </div>
       </div>
 
@@ -88,8 +138,8 @@ const CalendarCreate = () => {
               <div className="row g-2 align-items-center mb-2">
                 <div className="col-auto">
                   <div className="btn-group" role="group" aria-label="participant-mode">
-                    <button type="button" className={`btn btn-sm ${participantMode==='users'?'btn-primary':'btn-outline-primary'}`} onClick={()=> changeMode('users')}>Users</button>
-                    <button type="button" className={`btn btn-sm ${participantMode==='teams'?'btn-primary':'btn-outline-primary'}`} onClick={()=> changeMode('teams')}>Teams</button>
+                    <button type="button" className={`btn btn-sm ${participantMode==='users'?'btn-primary':'btn-success'}`} onClick={()=> changeMode('users')}>Users</button>
+                    <button type="button" className={`btn btn-sm ${participantMode==='teams'?'btn-primary':'btn-success'}`} onClick={()=> changeMode('teams')}>Teams</button>
                   </div>
                 </div>
                 <div className="col">
@@ -174,6 +224,38 @@ const CalendarCreate = () => {
                   </div>
                 </div>
               ))}
+            </div>
+
+            {/* Project Selection */}
+            <div className="col-12 mb-3">
+              <label className="form-label">Project</label>
+              <select 
+                className="form-control" 
+                value={selectedProject} 
+                onChange={(e) => setSelectedProject(e.target.value)}
+              >
+                <option value="">Select Project</option>
+                {projects.map(p => (
+                  <option key={p._id} value={p._id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Add to Engagement Tracker Checkbox */}
+            <div className="col-12 mb-3">
+              <div className="form-check">
+                <input
+                  className="form-check-input"
+                  type="checkbox"
+                  id="add_to_engagement_tracker"
+                  style={{ marginLeft: "5px" }}
+                  checked={addToEngagementTracker}
+                  onChange={(e) => setAddToEngagementTracker(e.target.checked)}
+                />
+                <label className="form-check-label" style={{padding: "7px"}} htmlFor="add_to_engagement_tracker">
+                  Add to Engagement Tracker
+                </label>
+              </div>
             </div>
           </div>
 

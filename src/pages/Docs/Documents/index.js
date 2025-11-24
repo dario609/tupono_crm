@@ -55,6 +55,8 @@ const DocumentsPage = () => {
   const [folderUploadModal, setFolderUploadModal] = useState(null); // {folderName, fileCount, files}
   const [uploadProgress, setUploadProgress] = useState(0); // Upload progress percentage
   const [viewportW, setViewportW] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  const [webLinkModal, setWebLinkModal] = useState(null); // {name, url} for creating
+  const [viewWebLinkModal, setViewWebLinkModal] = useState(null); // {name, url} for viewing
 
   const load = async (path = cwd) => {
     setLoading(true);
@@ -303,6 +305,34 @@ const DocumentsPage = () => {
 
   const onPaste = async () => pasteInto(cwd);
 
+  const onCreateWebLink = async () => {
+    if (!webLinkModal?.name?.trim() || !webLinkModal?.url?.trim()) {
+      setToasts((t) => {
+        const id = Date.now();
+        setTimeout(() => setToasts((tt) => tt.filter(x => x.id !== id)), 3000);
+        return [...t, { id, text: 'Name and URL are required' }];
+      });
+      return;
+    }
+
+    try {
+      await DocsApi.createWebLink(cwd, webLinkModal.name.trim(), webLinkModal.url.trim());
+      setWebLinkModal(null);
+      setToasts((t) => {
+        const id = Date.now();
+        setTimeout(() => setToasts((tt) => tt.filter(x => x.id !== id)), 2200);
+        return [...t, { id, text: `Web link "${webLinkModal.name}" created` }];
+      });
+      await load();
+    } catch (err) {
+      setToasts((t) => {
+        const id = Date.now();
+        setTimeout(() => setToasts((tt) => tt.filter(x => x.id !== id)), 3000);
+        return [...t, { id, text: `Failed to create web link: ${err?.response?.data?.message || err.message || 'Server error'}` }];
+      });
+    }
+  };
+
   const confirmDelete = (p, name) => {
     // Prevent opening delete modal if a delete is already in progress
     if (deleting) return;
@@ -505,6 +535,21 @@ const DocumentsPage = () => {
             <i className="mdi mdi-folder-upload"></i> {uploading ? 'Uploading...' : 'Upload Folder'}
             <input type="file" hidden webkitdirectory="" directory="" multiple onChange={onUploadFolderSelect} disabled={uploading} />
           </label>
+          
+          <button 
+            className="btn btn-sm mb-0" 
+            style={{ 
+              ...btnFilled(colors.primary, colors.primaryLight), 
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6
+            }}
+            onClick={() => setWebLinkModal({ name: '', url: '' })}
+            onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 8px rgba(99, 102, 241, 0.3)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06)'; }}
+          >
+            <i className="mdi mdi-link-variant"></i> Add Web Link
+          </button>
           {/* Action buttons with modern styling */}
           <div className="d-flex align-items-center gap-2 flex-wrap"
             style={{ 
@@ -614,6 +659,22 @@ const DocumentsPage = () => {
                 <i className="mdi mdi-download"></i> Download
               </a>
             )}
+            {selectedItem && selectedItem.type === 'weblink' && (
+              <button 
+                className="btn btn-sm" 
+                style={{
+                  ...btnOutline(colors.primary, `${colors.primary}15`),
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6
+                }} 
+                onClick={() => setViewWebLinkModal({ name: selectedItem.name, url: selectedItem.webLink })}
+                onMouseEnter={(e) => { e.currentTarget.style.background = `${colors.primary}15`; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.transform = 'translateY(0)'; }}
+              >
+                <i className="mdi mdi-open-in-new"></i> Open Link
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -677,9 +738,24 @@ const DocumentsPage = () => {
                     ...tileStyles.tile(selected === it.path),
                     position: 'relative'
                   }}
-                  onClick={(e)=> { e.stopPropagation(); setSelected(it.path); setContextMenu(null); }}
+                  onClick={(e)=> { 
+                    e.stopPropagation(); 
+                    setSelected(it.path); 
+                    setContextMenu(null);
+                    if (it.type === 'weblink') {
+                      setViewWebLinkModal({ name: it.name, url: it.webLink });
+                    }
+                  }}
                   onContextMenu={(e)=> { e.preventDefault(); setSelected(it.path); setContextMenu({ x: e.clientX, y: e.clientY, item: it }); }}
-                  onDoubleClick={()=> { if (it.type === 'folder') goInto(it.name); else window.open(DocsApi.downloadUrl(it.path), '_blank'); }}
+                  onDoubleClick={()=> { 
+                    if (it.type === 'folder') {
+                      goInto(it.name);
+                    } else if (it.type === 'weblink') {
+                      setViewWebLinkModal({ name: it.name, url: it.webLink });
+                    } else {
+                      window.open(DocsApi.downloadUrl(it.path), '_blank');
+                    }
+                  }}
                   onMouseEnter={(e) => {
                     if (selected !== it.path) {
                       e.currentTarget.style.transform = 'translateY(-4px)';
@@ -700,6 +776,8 @@ const DocumentsPage = () => {
                   <div style={{ fontSize: 48, transition: 'transform 0.2s ease' }}>
                     {it.type === 'folder' ? (
                       <i className="mdi mdi-folder" style={{ color:'#f59e0b', filter: 'drop-shadow(0 2px 4px rgba(245, 158, 11, 0.2))' }}></i>
+                    ) : it.type === 'weblink' ? (
+                      <i className="mdi mdi-link-variant" style={{ color:'#6366f1', filter: 'drop-shadow(0 2px 4px rgba(99, 102, 241, 0.2))' }}></i>
                     ) : (
                       <i className="mdi mdi-file" style={{ color:'#64748b' }}></i>
                     )}
@@ -1034,6 +1112,169 @@ const DocumentsPage = () => {
                     <div className="d-flex justify-content-end gap-2">
                       <button className="btn btn-sm btn-secondary" onClick={()=> setRename(null)}>Cancel</button>
                       <button className="btn btn-sm btn-primary" onClick={doRename} disabled={!rename.value || rename.value.trim()===rename.name}>Save</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Create Web Link Modal */}
+            {webLinkModal && (
+              <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1200, display:'flex', alignItems:'center', justifyContent:'center', backdropFilter: 'blur(4px)' }} onClick={()=> setWebLinkModal(null)}>
+                <div className="card" style={{ width:'min(500px, 92vw)', borderRadius:16, boxShadow:'0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)', border:'none' }} onClick={(e)=> e.stopPropagation()}>
+                  <div className="card-body" style={{ padding: '24px' }}>
+                    <div className="d-flex align-items-center gap-3 mb-3">
+                      <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)' }}>
+                        <i className="mdi mdi-link-variant" style={{ fontSize: 28, color: '#fff' }}></i>
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <h5 className="fw-bold mb-1" style={{ fontSize: 20, color: '#111827' }}>Add Web Link</h5>
+                        <p className="mb-0" style={{ fontSize: 14, color: '#6b7280' }}>Create a shortcut to a web page</p>
+                      </div>
+                    </div>
+
+                    <div className="mb-3">
+                      <label className="form-label" style={{ fontWeight: 600, color: '#374151', marginBottom: 8 }}>Link Name</label>
+                      <input 
+                        className="form-control" 
+                        placeholder="e.g., Project Documentation"
+                        value={webLinkModal.name}
+                        onChange={(e) => setWebLinkModal({ ...webLinkModal, name: e.target.value })}
+                        onKeyDown={(e) => { if (e.key === 'Enter') onCreateWebLink(); if (e.key === 'Escape') setWebLinkModal(null); }}
+                        autoFocus
+                        style={{ borderRadius: 10, padding: '12px', fontSize: 14 }}
+                      />
+                    </div>
+
+                    <div className="mb-4">
+                      <label className="form-label" style={{ fontWeight: 600, color: '#374151', marginBottom: 8 }}>URL</label>
+                      <input 
+                        className="form-control" 
+                        type="url"
+                        placeholder="https://example.com"
+                        value={webLinkModal.url}
+                        onChange={(e) => setWebLinkModal({ ...webLinkModal, url: e.target.value })}
+                        onKeyDown={(e) => { if (e.key === 'Enter') onCreateWebLink(); if (e.key === 'Escape') setWebLinkModal(null); }}
+                        style={{ borderRadius: 10, padding: '12px', fontSize: 14 }}
+                      />
+                    </div>
+
+                    <div className="d-flex justify-content-end gap-2">
+                      <button 
+                        className="btn btn-sm" 
+                        style={{ 
+                          background: '#f3f4f6', 
+                          color: '#374151', 
+                          border: 'none', 
+                          borderRadius: 10, 
+                          padding: '10px 20px', 
+                          fontWeight: 600,
+                          fontSize: 14
+                        }} 
+                        onClick={() => setWebLinkModal(null)}
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        className="btn btn-sm" 
+                        style={{ 
+                          background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                          color: '#fff', 
+                          border: 'none', 
+                          borderRadius: 10, 
+                          padding: '10px 20px', 
+                          fontWeight: 600,
+                          fontSize: 14,
+                          boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)',
+                          transition: 'all 0.2s ease',
+                          opacity: (!webLinkModal.name?.trim() || !webLinkModal.url?.trim()) ? 0.6 : 1,
+                          cursor: (!webLinkModal.name?.trim() || !webLinkModal.url?.trim()) ? 'not-allowed' : 'pointer'
+                        }} 
+                        onClick={onCreateWebLink}
+                        disabled={!webLinkModal.name?.trim() || !webLinkModal.url?.trim()}
+                        onMouseEnter={(e) => { if (webLinkModal.name?.trim() && webLinkModal.url?.trim()) { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(99, 102, 241, 0.4)'; } }}
+                        onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(99, 102, 241, 0.3)'; }}
+                      >
+                        <i className="mdi mdi-check me-1"></i>
+                        Create Link
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* View Web Link Modal */}
+            {viewWebLinkModal && (
+              <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1200, display:'flex', alignItems:'center', justifyContent:'center', backdropFilter: 'blur(4px)' }} onClick={()=> setViewWebLinkModal(null)}>
+                <div className="card" style={{ width:'min(500px, 92vw)', borderRadius:16, boxShadow:'0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)', border:'none' }} onClick={(e)=> e.stopPropagation()}>
+                  <div className="card-body" style={{ padding: '24px' }}>
+                    <div className="d-flex align-items-center gap-3 mb-3">
+                      <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)' }}>
+                        <i className="mdi mdi-link-variant" style={{ fontSize: 28, color: '#fff' }}></i>
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <h5 className="fw-bold mb-1" style={{ fontSize: 20, color: '#111827' }}>{viewWebLinkModal.name}</h5>
+                        <p className="mb-0" style={{ fontSize: 14, color: '#6b7280' }}>Web Link</p>
+                      </div>
+                    </div>
+
+                    <div className="mb-4" style={{ background: '#f8fafc', borderRadius: 12, padding: '16px', border: '1px solid #e2e8f0' }}>
+                      <label className="form-label" style={{ fontWeight: 600, color: '#374151', marginBottom: 8, fontSize: 13 }}>URL</label>
+                      <div style={{ 
+                        wordBreak: 'break-all', 
+                        fontSize: 14, 
+                        color: '#6366f1', 
+                        padding: '10px 12px',
+                        background: '#fff',
+                        borderRadius: 8,
+                        border: '1px solid #e2e8f0'
+                      }}>
+                        {viewWebLinkModal.url}
+                      </div>
+                    </div>
+
+                    <div className="d-flex justify-content-end gap-2">
+                      <button 
+                        className="btn btn-sm" 
+                        style={{ 
+                          background: '#f3f4f6', 
+                          color: '#374151', 
+                          border: 'none', 
+                          borderRadius: 10, 
+                          padding: '10px 20px', 
+                          fontWeight: 600,
+                          fontSize: 14
+                        }} 
+                        onClick={() => setViewWebLinkModal(null)}
+                      >
+                        Close
+                      </button>
+                      <button 
+                        className="btn btn-sm" 
+                        style={{ 
+                          background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                          color: '#fff', 
+                          border: 'none', 
+                          borderRadius: 10, 
+                          padding: '10px 20px', 
+                          fontWeight: 600,
+                          fontSize: 14,
+                          boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)',
+                          transition: 'all 0.2s ease',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6
+                        }} 
+                        onClick={() => {
+                          window.open(viewWebLinkModal.url, '_blank', 'noopener,noreferrer');
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(99, 102, 241, 0.4)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(99, 102, 241, 0.3)'; }}
+                      >
+                        <i className="mdi mdi-open-in-new"></i>
+                        Open in New Tab
+                      </button>
                     </div>
                   </div>
                 </div>

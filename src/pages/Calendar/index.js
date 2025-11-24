@@ -291,7 +291,7 @@ const CalendarPage = () => {
           <button type="button" className={`btn btn-sm ${viewMode==='table'?'btn-primary':'btn-outline-primary'}`} onClick={()=> setViewMode('table')}>Table</button>
           <button type="button" className={`btn btn-sm ${viewMode==='calendar'?'btn-primary':'btn-outline-primary'}`} onClick={()=> setViewMode('calendar')}>Calendar</button>
         </div>
-        <NavLink to="/calendar/create" className="btn btn-primary btn-sm">Add Meeting</NavLink>
+        <NavLink to="/calendar/create" className="btn btn-primary btn-sm">Create Meeting</NavLink>
       </div>
 
       {/* Delete confirm modal */}
