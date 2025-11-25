@@ -61,6 +61,8 @@ const EditProject = () => {
   const [editTaskId, setEditTaskId] = useState(null);
   const [taskEditIndex, setTaskEditIndex] = useState(null);
   const [ganttView, setGanttView] = useState(false);
+  const [ganttChartLink, setGanttChartLink] = useState("");
+  const [ganttChartModalOpen, setGanttChartModalOpen] = useState(false);
 
 
   const userLabel = (u) => `${u.first_name ?? ''} ${u.last_name ?? ''}`.trim() || u.email || 'User';
@@ -137,6 +139,9 @@ const EditProject = () => {
 
         // Load tasks
         setProjectTasks(p.tasks || []);
+        
+        // Load Gantt Chart link
+        setGanttChartLink(p.gantt_chart_link || "");
 
         setPageLoading(false);
 
@@ -214,6 +219,7 @@ const EditProject = () => {
         status: form.status,
         description: form.description,
         tasks: projectTasks.map((t) => t._id),
+        gantt_chart_link: ganttChartLink,
       };
       const data = await ProjectsApi.update(id, payload);
       if (data?.success === false) throw new Error(data?.message || "Failed to update project");
@@ -497,23 +503,25 @@ const EditProject = () => {
                           </div>
                         </div>
                         <h5 className="mt-4 mb-2">Tasks</h5>
-                        <div className="dropdown mb-2" style={{ marginLeft: "10px" }}>
-                          <button
-                            className="btn btn-primary btn-sm dropdown-toggle"
-                            style={{ borderRadius: 20, width: "120px" }}
-                            type="button"
-                            data-bs-toggle="dropdown"
-                            aria-expanded="false"
-                          >
-                            + Add
-                          </button>
+                        <div className="d-flex align-items-center gap-2 mb-2" style={{ marginLeft: "10px" }}>
+                          <div className="dropdown">
+                            <button
+                              className="btn btn-primary btn-sm dropdown-toggle"
+                              style={{ borderRadius: 20, width: "120px" }}
+                              type="button"
+                              data-bs-toggle="dropdown"
+                              aria-expanded="false"
+                            >
+                              + Add
+                            </button>
 
                           <ul className="dropdown-menu">
                             <li>
                               <a
                                 className="dropdown-item"
                                 href="#"
-                                onClick={() => {
+                                onClick={(e) => {
+                                  e.preventDefault();
                                   openAddTask();
                                 }}
                               >
@@ -521,7 +529,14 @@ const EditProject = () => {
                               </a>
                             </li>
                             <li>
-                              <a className="dropdown-item" onClick={handleImportTasks}>
+                              <a 
+                                className="dropdown-item" 
+                                href="#"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  handleImportTasks();
+                                }}
+                              >
                                 {importing ? (
                                   <span>
                                     <i className="fa fa-spinner fa-spin me-2"></i> Importing...
@@ -531,7 +546,30 @@ const EditProject = () => {
                                 )}
                               </a>
                             </li>
+                            <li>
+                              <a 
+                                className="dropdown-item" 
+                                href="#"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  setGanttChartModalOpen(true);
+                                }}
+                              >
+                                Import Gantt Chart
+                              </a>
+                            </li>
                           </ul>
+                        </div>
+                        {ganttChartLink && (
+                          <button
+                            className="btn btn-success btn-sm"
+                            style={{ borderRadius: 20 }}
+                            type="button"
+                            onClick={() => window.open(ganttChartLink, '_blank', 'noopener,noreferrer')}
+                          >
+                            <i className="mdi mdi-link-variant me-1"></i> View Link
+                          </button>
+                        )}
                         </div>
 
                         <div className="text-end mb-2 gantt-switch">
@@ -802,6 +840,60 @@ const EditProject = () => {
           </div>
         )
       }
+
+      {/* Gantt Chart Link Modal */}
+      {ganttChartModalOpen && (
+        <div style={modalStyles.backdrop} onClick={() => setGanttChartModalOpen(false)}>
+          <div style={modalStyles.modal} onClick={(e) => e.stopPropagation()}>
+            <h5>Import Gantt Chart</h5>
+            <div className="mt-3">
+              <label>Gantt Chart Web Link</label>
+              <input
+                type="url"
+                className="form-control"
+                placeholder="https://example.com/gantt-chart"
+                value={ganttChartLink}
+                onChange={(e) => setGanttChartLink(e.target.value)}
+                autoFocus
+              />
+              <small className="text-muted">Enter the web link to your Gantt Chart</small>
+            </div>
+            <div className="text-end mt-3">
+              <button
+                className="btn btn-secondary me-2"
+                onClick={() => setGanttChartModalOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={async () => {
+                  try {
+                    // Save the link immediately
+                    await ProjectsApi.update(id, { gantt_chart_link: ganttChartLink });
+                    setGanttChartModalOpen(false);
+                    Swal.fire({
+                      title: 'Gantt Chart link saved',
+                      text: 'The Gantt Chart link has been saved. Click "View Link" to open it.',
+                      icon: 'success',
+                      timer: 2000,
+                      showConfirmButton: false,
+                    });
+                  } catch (err) {
+                    Swal.fire({
+                      title: 'Error',
+                      text: err.message || 'Failed to save Gantt Chart link',
+                      icon: 'error',
+                    });
+                  }
+                }}
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

@@ -3,17 +3,23 @@ import api from './axiosInstance';
 const DocsApi = {
   list: (path = '/') => api.get('/admin/docs', { params: { path } }).then(r => r.data),
   mkdir: (path, name) => api.post('/admin/docs/mkdir', { path, name }).then(r => r.data),
-  upload: (path, file) => {
+  upload: (path, file, acl = null) => {
     const fd = new FormData();
     fd.append('path', path);
     fd.append('file', file);
+    if (acl && (acl.readUsers?.length > 0 || acl.readTeams?.length > 0 || acl.writeUsers?.length > 0 || acl.writeTeams?.length > 0)) {
+      fd.append('acl', JSON.stringify(acl));
+    }
     return api.post('/admin/docs/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data);
   },
-  uploadFolder: (path, files, folderName) => {
+  uploadFolder: (path, files, folderName, acl = null) => {
     const fd = new FormData();
     fd.append('path', path);
     if (folderName) {
       fd.append('folderName', folderName);
+    }
+    if (acl && (acl.readUsers?.length > 0 || acl.readTeams?.length > 0 || acl.writeUsers?.length > 0 || acl.writeTeams?.length > 0)) {
+      fd.append('acl', JSON.stringify(acl));
     }
     for (const f of files) {
       // Use webkitRelativePath if available (for folder uploads), otherwise just the filename
@@ -32,7 +38,13 @@ const DocsApi = {
   remove: (p) => api.delete('/admin/docs', { params: { path: p } }).then(r => r.data),
   downloadUrl: (p) => `${api.defaults.baseURL.replace(/\/$/, '')}/admin/docs/download?path=${encodeURIComponent(p)}`,
   setAcl: (p, acl) => api.put('/admin/docs/acl', { path: p, acl }).then(r => r.data),
-  createWebLink: (path, name, webLink) => api.post('/admin/docs/weblink', { path, name, webLink }).then(r => r.data),
+  createWebLink: (path, name, webLink, acl = null) => {
+    const payload = { path, name, webLink };
+    if (acl && (acl.readUsers?.length > 0 || acl.readTeams?.length > 0 || acl.writeUsers?.length > 0 || acl.writeTeams?.length > 0)) {
+      payload.acl = acl;
+    }
+    return api.post('/admin/docs/weblink', payload).then(r => r.data);
+  },
 };
 
 export default DocsApi;

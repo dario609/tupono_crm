@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import DocsApi from '../../../api/docsApi';
+import UsersApi from '../../../api/usersApi';
+import TeamsApi from '../../../api/teamsApi';
 
 const tileStyles = {
   tile: (selected) => ({
@@ -57,6 +59,12 @@ const DocumentsPage = () => {
   const [viewportW, setViewportW] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
   const [webLinkModal, setWebLinkModal] = useState(null); // {name, url} for creating
   const [viewWebLinkModal, setViewWebLinkModal] = useState(null); // {name, url} for viewing
+  const [users, setUsers] = useState([]);
+  const [teams, setTeams] = useState([]);
+  const [aclModal, setAclModal] = useState(null); // {item, acl} for editing ACL
+  const [uploadAcl, setUploadAcl] = useState({ users: [], teams: [] }); // Simplified: single access list
+  const [hoveredItem, setHoveredItem] = useState(null); // For showing access list on hover
+  const [fileUploadModal, setFileUploadModal] = useState(null); // {file} for file upload with ACL
 
   const load = async (path = cwd) => {
     setLoading(true);
@@ -75,6 +83,20 @@ const DocumentsPage = () => {
   };
 
   useEffect(() => { load('/'); }, []);
+
+  // Load users and teams for ACL
+  useEffect(() => {
+    (async () => {
+      try {
+        const [uJson, tJson] = await Promise.all([
+          UsersApi.list({ perpage: -1 }),
+          TeamsApi.list({ perpage: -1 }),
+        ]);
+        setUsers(uJson?.data || []);
+        setTeams(tJson?.data || []);
+      } catch {}
+    })();
+  }, []);
 
   // Track viewport width for responsive tweaks (prevents toolbar wrap glitches)
   useEffect(() => {
@@ -104,19 +126,33 @@ const DocumentsPage = () => {
   const onUpload = async (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
+    e.target.value = ''; // Reset file input
     
-    // Prevent concurrent uploads
-    if (uploading) {
-      e.target.value = '';
-      return;
-    }
+    // Show modal with access control
+    setFileUploadModal({ file: f });
+  };
+
+  const doUploadFile = async () => {
+    if (!fileUploadModal || uploading) return;
     
+    const f = fileUploadModal.file;
     setUploading(true);
     const fileName = f.name;
-    const filePath = ((cwd === '/' ? '' : cwd) + '/' + fileName);
     
     try {
-      await DocsApi.upload(cwd, f);
+      // Convert simplified ACL to backend format (both read and write)
+      const aclToSend = (uploadAcl.users.length > 0 || uploadAcl.teams.length > 0) ? {
+        readUsers: uploadAcl.users,
+        writeUsers: uploadAcl.users,
+        readTeams: uploadAcl.teams,
+        writeTeams: uploadAcl.teams,
+      } : null;
+      
+      await DocsApi.upload(cwd, f, aclToSend);
+      
+      // Reset ACL selection and close modal
+      setUploadAcl({ users: [], teams: [] });
+      setFileUploadModal(null);
       
       // Success toast
       setToasts((t) => {
@@ -125,22 +161,7 @@ const DocumentsPage = () => {
         return [...t, { id, text: `Uploaded ${fileName}` }];
       });
       
-      // Optimistically update the grid using functional state update
-      setItems((prev) => {
-        // Check if item already exists (avoid duplicates)
-        const exists = prev.some((it) => it.path === filePath);
-        if (exists) return prev;
-        
-        // Add new item
-        const newItem = {
-          name: fileName,
-          type: 'file',
-          size: f.size || 0,
-          path: filePath,
-          modified: new Date().toISOString(),
-        };
-        return [...prev, newItem];
-      });
+      await load();
     } catch (err) {
       const errorMsg = err?.message || err?.response?.data?.message || 'Upload failed';
       console.error('Upload error:', err);
@@ -151,7 +172,6 @@ const DocumentsPage = () => {
       });
     } finally {
       setUploading(false);
-      e.target.value = ''; // Reset file input
     }
   };
 
@@ -200,9 +220,20 @@ const DocumentsPage = () => {
     }, 200);
     
     try {
-      await DocsApi.uploadFolder(cwd, files, folderName);
+      // Convert simplified ACL to backend format
+      const aclToUse = (uploadAcl.users.length > 0 || uploadAcl.teams.length > 0) ? {
+        readUsers: uploadAcl.users,
+        writeUsers: uploadAcl.users,
+        readTeams: uploadAcl.teams,
+        writeTeams: uploadAcl.teams,
+      } : null;
+      
+      await DocsApi.uploadFolder(cwd, files, folderName, aclToUse);
       clearInterval(progressInterval);
       setUploadProgress(100);
+      
+      // Reset ACL selection
+      setUploadAcl({ users: [], teams: [] });
       
       // Success toast
       setToasts((t) => {
@@ -316,8 +347,17 @@ const DocumentsPage = () => {
     }
 
     try {
-      await DocsApi.createWebLink(cwd, webLinkModal.name.trim(), webLinkModal.url.trim());
+      // Convert simplified ACL to backend format
+      const aclToUse = (uploadAcl.users.length > 0 || uploadAcl.teams.length > 0) ? {
+        readUsers: uploadAcl.users,
+        writeUsers: uploadAcl.users,
+        readTeams: uploadAcl.teams,
+        writeTeams: uploadAcl.teams,
+      } : null;
+      
+      await DocsApi.createWebLink(cwd, webLinkModal.name.trim(), webLinkModal.url.trim(), aclToUse);
       setWebLinkModal(null);
+      setUploadAcl({ users: [], teams: [] });
       setToasts((t) => {
         const id = Date.now();
         setTimeout(() => setToasts((tt) => tt.filter(x => x.id !== id)), 2200);
@@ -783,6 +823,50 @@ const DocumentsPage = () => {
                     )}
                   </div>
                   <div style={tileStyles.name} title={it.name}>{it.name}</div>
+                  {/* Access List Tooltip */}
+                  {hoveredItem?.path === it.path && (
+                    <div style={{
+                      position: 'absolute',
+                      bottom: '100%',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      marginBottom: 8,
+                      background: '#1e293b',
+                      color: '#fff',
+                      padding: '8px 12px',
+                      borderRadius: 8,
+                      fontSize: 12,
+                      zIndex: 1000,
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                      pointerEvents: 'none',
+                      maxWidth: 300,
+                      whiteSpace: 'normal'
+                    }}>
+                      <div style={{ fontWeight: 600, marginBottom: 4 }}>Access Control:</div>
+                      {it.acl && ((it.acl.readUsers || []).length > 0 || (it.acl.readTeams || []).length > 0) ? (
+                        <div>
+                          {it.acl.readUsers?.length > 0 && (
+                            <div style={{ marginBottom: 4 }}>
+                              <strong>Users:</strong> {it.acl.readUsers.map((uid) => {
+                                const u = users.find(us => String(us._id) === String(uid._id || uid));
+                                return u ? `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email : '';
+                              }).filter(Boolean).join(', ')}
+                            </div>
+                          )}
+                          {it.acl.readTeams?.length > 0 && (
+                            <div>
+                              <strong>Teams:</strong> {it.acl.readTeams.map((tid) => {
+                                const t = teams.find(te => String(te._id) === String(tid._id || tid));
+                                return t ? t.title : '';
+                              }).filter(Boolean).join(', ')}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div style={{ opacity: 0.7 }}>Public (no restrictions)</div>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
               {items.length === 0 && (
@@ -907,6 +991,48 @@ const DocumentsPage = () => {
                   <i className="mdi mdi-content-cut" style={{ color: '#6366f1' }}></i> Cut
                 </button>
                 <div style={{ height: 1, background: '#e2e8f0', margin: '4px 0' }}></div>
+                <button 
+                  className="dropdown-item" 
+                  style={{ 
+                    padding:'10px 16px', 
+                    width:'100%', 
+                    textAlign:'left', 
+                    border:'none', 
+                    background:'transparent',
+                    borderRadius: 8,
+                    fontSize: 14,
+                    fontWeight: 500,
+                    color: '#334155',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    transition: 'all 0.15s ease'
+                  }} 
+                  onClick={()=> { 
+                    const itemAcl = contextMenu.item.acl || {};
+                    // Combine read and write users/teams into single lists
+                    const allUsers = [...new Set([
+                      ...(itemAcl.readUsers || []).map(u => String(u._id || u)),
+                      ...(itemAcl.writeUsers || []).map(u => String(u._id || u))
+                    ])];
+                    const allTeams = [...new Set([
+                      ...(itemAcl.readTeams || []).map(t => String(t._id || t)),
+                      ...(itemAcl.writeTeams || []).map(t => String(t._id || t))
+                    ])];
+                    setAclModal({ 
+                      item: contextMenu.item, 
+                      acl: { 
+                        users: allUsers,
+                        teams: allTeams
+                      } 
+                    }); 
+                    setContextMenu(null); 
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#f1f5f9'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                >
+                  <i className="mdi mdi-shield-account" style={{ color: '#6366f1' }}></i> Edit Access Control
+                </button>
                 <button 
                   className="dropdown-item" 
                   style={{ 
@@ -1045,6 +1171,71 @@ const DocumentsPage = () => {
                       </div>
                     )}
 
+                    {/* Access Control */}
+                    <div className="mb-4">
+                      <label className="form-label" style={{ fontWeight: 600, color: '#374151', marginBottom: 8 }}>Access Control</label>
+                      <select 
+                        className="form-control" 
+                        multiple
+                        style={{ minHeight: 100 }}
+                        value={[...uploadAcl.users, ...uploadAcl.teams.map(t => `team_${t}`)]}
+                        onChange={(e) => {
+                          const selected = Array.from(e.target.selectedOptions, opt => opt.value);
+                          const users = selected.filter(v => !v.startsWith('team_')).map(v => v);
+                          const teams = selected.filter(v => v.startsWith('team_')).map(v => v.replace('team_', ''));
+                          setUploadAcl({ users, teams });
+                        }}
+                      >
+                        <optgroup label="Users">
+                          {users.map(u => (
+                            <option key={u._id} value={u._id}>
+                              {`${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email}
+                            </option>
+                          ))}
+                        </optgroup>
+                        <optgroup label="Teams">
+                          {teams.map(t => (
+                            <option key={t._id} value={`team_${t._id}`}>{t.title}</option>
+                          ))}
+                        </optgroup>
+                      </select>
+                      <small className="text-muted">Hold Ctrl/Cmd to select multiple. Leave empty for public access.</small>
+                      {(uploadAcl.users.length > 0 || uploadAcl.teams.length > 0) && (
+                        <div className="mt-2" style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                          {uploadAcl.users.map(uid => {
+                            const u = users.find(us => String(us._id) === String(uid));
+                            if (!u) return null;
+                            return (
+                              <span key={`user-${uid}`} className="badge badge-primary" style={{ padding: '4px 8px', fontSize: 12 }}>
+                                {`${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email}
+                                <button 
+                                  type="button"
+                                  className="btn-close btn-close-white ms-1" 
+                                  style={{ fontSize: '10px' }}
+                                  onClick={() => setUploadAcl({ ...uploadAcl, users: uploadAcl.users.filter(id => id !== uid) })}
+                                ></button>
+                              </span>
+                            );
+                          })}
+                          {uploadAcl.teams.map(tid => {
+                            const t = teams.find(te => String(te._id) === String(tid));
+                            if (!t) return null;
+                            return (
+                              <span key={`team-${tid}`} className="badge badge-info" style={{ padding: '4px 8px', fontSize: 12 }}>
+                                {t.title}
+                                <button 
+                                  type="button"
+                                  className="btn-close btn-close-white ms-1" 
+                                  style={{ fontSize: '10px' }}
+                                  onClick={() => setUploadAcl({ ...uploadAcl, teams: uploadAcl.teams.filter(id => id !== tid) })}
+                                ></button>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
                     {/* Action Buttons */}
                     <div className="d-flex justify-content-end gap-2">
                       <button 
@@ -1058,7 +1249,7 @@ const DocumentsPage = () => {
                           fontWeight: 600,
                           fontSize: 14
                         }} 
-                        onClick={()=> { setFolderUploadModal(null); setUploadProgress(0); }} 
+                        onClick={()=> { setFolderUploadModal(null); setUploadProgress(0); setUploadAcl({ users: [], teams: [] }); }} 
                         disabled={uploading}
                       >
                         Cancel
@@ -1159,6 +1350,71 @@ const DocumentsPage = () => {
                       />
                     </div>
 
+                    {/* Access Control */}
+                    <div className="mb-4">
+                      <label className="form-label" style={{ fontWeight: 600, color: '#374151', marginBottom: 8 }}>Access Control</label>
+                      <select 
+                        className="form-control" 
+                        multiple
+                        style={{ minHeight: 100 }}
+                        value={[...uploadAcl.users, ...uploadAcl.teams.map(t => `team_${t}`)]}
+                        onChange={(e) => {
+                          const selected = Array.from(e.target.selectedOptions, opt => opt.value);
+                          const users = selected.filter(v => !v.startsWith('team_')).map(v => v);
+                          const teams = selected.filter(v => v.startsWith('team_')).map(v => v.replace('team_', ''));
+                          setUploadAcl({ users, teams });
+                        }}
+                      >
+                        <optgroup label="Users">
+                          {users.map(u => (
+                            <option key={u._id} value={u._id}>
+                              {`${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email}
+                            </option>
+                          ))}
+                        </optgroup>
+                        <optgroup label="Teams">
+                          {teams.map(t => (
+                            <option key={t._id} value={`team_${t._id}`}>{t.title}</option>
+                          ))}
+                        </optgroup>
+                      </select>
+                      <small className="text-muted">Hold Ctrl/Cmd to select multiple. Leave empty for public access.</small>
+                      {(uploadAcl.users.length > 0 || uploadAcl.teams.length > 0) && (
+                        <div className="mt-2" style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                          {uploadAcl.users.map(uid => {
+                            const u = users.find(us => String(us._id) === String(uid));
+                            if (!u) return null;
+                            return (
+                              <span key={`user-${uid}`} className="badge badge-primary" style={{ padding: '4px 8px', fontSize: 12 }}>
+                                {`${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email}
+                                <button 
+                                  type="button"
+                                  className="btn-close btn-close-white ms-1" 
+                                  style={{ fontSize: '10px' }}
+                                  onClick={() => setUploadAcl({ ...uploadAcl, users: uploadAcl.users.filter(id => id !== uid) })}
+                                ></button>
+                              </span>
+                            );
+                          })}
+                          {uploadAcl.teams.map(tid => {
+                            const t = teams.find(te => String(te._id) === String(tid));
+                            if (!t) return null;
+                            return (
+                              <span key={`team-${tid}`} className="badge badge-info" style={{ padding: '4px 8px', fontSize: 12 }}>
+                                {t.title}
+                                <button 
+                                  type="button"
+                                  className="btn-close btn-close-white ms-1" 
+                                  style={{ fontSize: '10px' }}
+                                  onClick={() => setUploadAcl({ ...uploadAcl, teams: uploadAcl.teams.filter(id => id !== tid) })}
+                                ></button>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
                     <div className="d-flex justify-content-end gap-2">
                       <button 
                         className="btn btn-sm" 
@@ -1171,7 +1427,7 @@ const DocumentsPage = () => {
                           fontWeight: 600,
                           fontSize: 14
                         }} 
-                        onClick={() => setWebLinkModal(null)}
+                        onClick={() => { setWebLinkModal(null); setUploadAcl({ users: [], teams: [] }); }}
                       >
                         Cancel
                       </button>
@@ -1197,6 +1453,269 @@ const DocumentsPage = () => {
                       >
                         <i className="mdi mdi-check me-1"></i>
                         Create Link
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* File Upload Modal with Access Control */}
+            {fileUploadModal && (
+              <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1200, display:'flex', alignItems:'center', justifyContent:'center', backdropFilter: 'blur(4px)' }} onClick={()=> !uploading && setFileUploadModal(null)}>
+                <div className="card" style={{ width:'min(500px, 92vw)', borderRadius:16, boxShadow:'0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)', border:'none' }} onClick={(e)=> e.stopPropagation()}>
+                  <div className="card-body" style={{ padding: '24px' }}>
+                    <div className="d-flex align-items-center gap-3 mb-3">
+                      <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'linear-gradient(135deg, #10b981 0%, #34d399 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)' }}>
+                        <i className="mdi mdi-upload" style={{ fontSize: 28, color: '#fff' }}></i>
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <h5 className="fw-bold mb-1" style={{ fontSize: 20, color: '#111827' }}>Upload File</h5>
+                        <p className="mb-0" style={{ fontSize: 14, color: '#6b7280' }}>{fileUploadModal.file.name}</p>
+                      </div>
+                    </div>
+
+                    {/* Access Control */}
+                    <div className="mb-4">
+                      <label className="form-label" style={{ fontWeight: 600, color: '#374151', marginBottom: 8 }}>Access Control</label>
+                      <select 
+                        className="form-control" 
+                        multiple
+                        style={{ minHeight: 100 }}
+                        value={[...uploadAcl.users, ...uploadAcl.teams.map(t => `team_${t}`)]}
+                        onChange={(e) => {
+                          const selected = Array.from(e.target.selectedOptions, opt => opt.value);
+                          const users = selected.filter(v => !v.startsWith('team_')).map(v => v);
+                          const teams = selected.filter(v => v.startsWith('team_')).map(v => v.replace('team_', ''));
+                          setUploadAcl({ users, teams });
+                        }}
+                      >
+                        <optgroup label="Users">
+                          {users.map(u => (
+                            <option key={u._id} value={u._id}>
+                              {`${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email}
+                            </option>
+                          ))}
+                        </optgroup>
+                        <optgroup label="Teams">
+                          {teams.map(t => (
+                            <option key={t._id} value={`team_${t._id}`}>{t.title}</option>
+                          ))}
+                        </optgroup>
+                      </select>
+                      <small className="text-muted">Hold Ctrl/Cmd to select multiple. Leave empty for public access.</small>
+                      {(uploadAcl.users.length > 0 || uploadAcl.teams.length > 0) && (
+                        <div className="mt-2" style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                          {uploadAcl.users.map(uid => {
+                            const u = users.find(us => String(us._id) === String(uid));
+                            if (!u) return null;
+                            return (
+                              <span key={`user-${uid}`} className="badge badge-primary" style={{ padding: '4px 8px', fontSize: 12 }}>
+                                {`${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email}
+                                <button 
+                                  type="button"
+                                  className="btn-close btn-close-white ms-1" 
+                                  style={{ fontSize: '10px' }}
+                                  onClick={() => setUploadAcl({ ...uploadAcl, users: uploadAcl.users.filter(id => id !== uid) })}
+                                ></button>
+                              </span>
+                            );
+                          })}
+                          {uploadAcl.teams.map(tid => {
+                            const t = teams.find(te => String(te._id) === String(tid));
+                            if (!t) return null;
+                            return (
+                              <span key={`team-${tid}`} className="badge badge-info" style={{ padding: '4px 8px', fontSize: 12 }}>
+                                {t.title}
+                                <button 
+                                  type="button"
+                                  className="btn-close btn-close-white ms-1" 
+                                  style={{ fontSize: '10px' }}
+                                  onClick={() => setUploadAcl({ ...uploadAcl, teams: uploadAcl.teams.filter(id => id !== tid) })}
+                                ></button>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="d-flex justify-content-end gap-2">
+                      <button 
+                        className="btn btn-sm" 
+                        style={{ 
+                          background: '#f3f4f6', 
+                          color: '#374151', 
+                          border: 'none', 
+                          borderRadius: 10, 
+                          padding: '10px 20px', 
+                          fontWeight: 600,
+                          fontSize: 14
+                        }} 
+                        onClick={() => { setFileUploadModal(null); setUploadAcl({ users: [], teams: [] }); }} 
+                        disabled={uploading}
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        className="btn btn-sm" 
+                        style={{ 
+                          background: uploading ? '#94a3b8' : 'linear-gradient(135deg, #10b981 0%, #34d399 100%)',
+                          color: '#fff', 
+                          border: 'none', 
+                          borderRadius: 10, 
+                          padding: '10px 20px', 
+                          fontWeight: 600,
+                          fontSize: 14,
+                          boxShadow: uploading ? 'none' : '0 4px 12px rgba(16, 185, 129, 0.3)',
+                          transition: 'all 0.2s ease'
+                        }} 
+                        onClick={doUploadFile} 
+                        disabled={uploading}
+                      >
+                        {uploading ? 'Uploading...' : 'Upload'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ACL Edit Modal */}
+            {aclModal && (
+              <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1200, display:'flex', alignItems:'center', justifyContent:'center', backdropFilter: 'blur(4px)' }} onClick={()=> setAclModal(null)}>
+                <div className="card" style={{ width:'min(500px, 92vw)', borderRadius:16, boxShadow:'0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)', border:'none' }} onClick={(e)=> e.stopPropagation()}>
+                  <div className="card-body" style={{ padding: '24px' }}>
+                    <div className="d-flex align-items-center gap-3 mb-3">
+                      <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)' }}>
+                        <i className="mdi mdi-shield-account" style={{ fontSize: 28, color: '#fff' }}></i>
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <h5 className="fw-bold mb-1" style={{ fontSize: 20, color: '#111827' }}>Edit Access Control</h5>
+                        <p className="mb-0" style={{ fontSize: 14, color: '#6b7280' }}>Control who can access "{aclModal.item.name}"</p>
+                      </div>
+                    </div>
+
+                    <div className="mb-4">
+                      <label className="form-label" style={{ fontWeight: 600, color: '#374151', marginBottom: 8 }}>Access Control</label>
+                      <select 
+                        className="form-control" 
+                        multiple
+                        style={{ minHeight: 150 }}
+                        value={[...aclModal.acl.users, ...aclModal.acl.teams.map(t => `team_${t}`)]}
+                        onChange={(e) => {
+                          const selected = Array.from(e.target.selectedOptions, opt => opt.value);
+                          const users = selected.filter(v => !v.startsWith('team_')).map(v => v);
+                          const teams = selected.filter(v => v.startsWith('team_')).map(v => v.replace('team_', ''));
+                          setAclModal({ ...aclModal, acl: { users, teams } });
+                        }}
+                      >
+                        <optgroup label="Users">
+                          {users.map(u => (
+                            <option key={u._id} value={u._id}>
+                              {`${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email}
+                            </option>
+                          ))}
+                        </optgroup>
+                        <optgroup label="Teams">
+                          {teams.map(t => (
+                            <option key={t._id} value={`team_${t._id}`}>{t.title}</option>
+                          ))}
+                        </optgroup>
+                      </select>
+                      <small className="text-muted">Hold Ctrl/Cmd to select multiple. Leave empty for public access.</small>
+                      {(aclModal.acl.users.length > 0 || aclModal.acl.teams.length > 0) && (
+                        <div className="mt-2" style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                          {aclModal.acl.users.map(uid => {
+                            const u = users.find(us => String(us._id) === String(uid));
+                            if (!u) return null;
+                            return (
+                              <span key={`user-${uid}`} className="badge badge-primary" style={{ padding: '4px 8px', fontSize: 12 }}>
+                                {`${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email}
+                                <button 
+                                  type="button"
+                                  className="btn-close btn-close-white ms-1" 
+                                  style={{ fontSize: '10px' }}
+                                  onClick={() => setAclModal({ ...aclModal, acl: { ...aclModal.acl, users: aclModal.acl.users.filter(id => id !== uid) } })}
+                                ></button>
+                              </span>
+                            );
+                          })}
+                          {aclModal.acl.teams.map(tid => {
+                            const t = teams.find(te => String(te._id) === String(tid));
+                            if (!t) return null;
+                            return (
+                              <span key={`team-${tid}`} className="badge badge-info" style={{ padding: '4px 8px', fontSize: 12 }}>
+                                {t.title}
+                                <button 
+                                  type="button"
+                                  className="btn-close btn-close-white ms-1" 
+                                  style={{ fontSize: '10px' }}
+                                  onClick={() => setAclModal({ ...aclModal, acl: { ...aclModal.acl, teams: aclModal.acl.teams.filter(id => id !== tid) } })}
+                                ></button>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="d-flex justify-content-end gap-2">
+                      <button 
+                        className="btn btn-sm" 
+                        style={{ 
+                          background: '#f3f4f6', 
+                          color: '#374151', 
+                          border: 'none', 
+                          borderRadius: 10, 
+                          padding: '10px 20px', 
+                          fontWeight: 600,
+                          fontSize: 14
+                        }} 
+                        onClick={() => setAclModal(null)}
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        className="btn btn-sm" 
+                        style={{ 
+                          background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                          color: '#fff', 
+                          border: 'none', 
+                          borderRadius: 10, 
+                          padding: '10px 20px', 
+                          fontWeight: 600,
+                          fontSize: 14,
+                          boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)',
+                          transition: 'all 0.2s ease'
+                        }} 
+                        onClick={async () => {
+                          try {
+                            // Convert simplified ACL to backend format
+                            const aclToSend = {
+                              readUsers: aclModal.acl.users,
+                              writeUsers: aclModal.acl.users,
+                              readTeams: aclModal.acl.teams,
+                              writeTeams: aclModal.acl.teams,
+                            };
+                            await DocsApi.setAcl(aclModal.item.path, aclToSend);
+                            setAclModal(null);
+                            setToasts((t) => {
+                              const id = Date.now();
+                              setTimeout(() => setToasts((tt) => tt.filter(x => x.id !== id)), 2200);
+                              return [...t, { id, text: 'Access control updated' }];
+                            });
+                            await load();
+                          } catch (err) {
+                            setToasts((t) => {
+                              const id = Date.now();
+                              setTimeout(() => setToasts((tt) => tt.filter(x => x.id !== id)), 3000);
+                              return [...t, { id, text: `Failed to update access control: ${err?.response?.data?.message || err.message || 'Server error'}` }];
+                            });
+                          }
+                        }}
+                      >
+                        Save
                       </button>
                     </div>
                   </div>
