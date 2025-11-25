@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../../api/axiosInstance";
 import Select from "react-select";
 import { Bar, Doughnut } from "react-chartjs-2";
 import {
@@ -33,19 +33,19 @@ const Dashboard = () => {
   const fetchDashboardData = async () => {
     try {
       const filter = selectedProject ? selectedProject.value : "";
-      const res = await axios.get(`/api/dashboard?filter=${filter}`);
+      const res = await api.get(`/dashboard?filter=${filter}`);
 
-      setUsers(res.data.users);
-      setProjects(res.data.projects);
-      setTasks(res.data.tasks);
-      setDocuments(res.data.documents);
+      setUsers(res.users);
+      setProjects(res.projects);
+      setTasks(res.tasks);
+      setDocuments(res.documents);
       setProjectsList(
-        res.data.projects_list.map((item) => ({
+        res.projects_list.map((item) => ({
           value: item.id,
           label: item.project_title,
         }))
       );
-      setChartData(res.data.chartData);
+      setChartData(res.chartData);
     } catch (error) {
       console.error("Error loading dashboard:", error);
     }

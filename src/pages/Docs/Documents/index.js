@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import DocsApi from '../../../api/docsApi';
 import UsersApi from '../../../api/usersApi';
 import TeamsApi from '../../../api/teamsApi';
+import { useNotifications } from '../../../context/NotificationProvider';
 
 const tileStyles = {
   tile: (selected) => ({
@@ -41,6 +42,7 @@ const tileStyles = {
 };
 
 const DocumentsPage = () => {
+  const { pushNotification } = useNotifications();
   const [cwd, setCwd] = useState('/');
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -148,7 +150,23 @@ const DocumentsPage = () => {
         writeTeams: uploadAcl.teams,
       } : null;
       
-      await DocsApi.upload(cwd, f, aclToSend);
+      const result = await DocsApi.upload(cwd, f, aclToSend);
+      
+      // Create detailed notification message
+      const sizeMB = (f.size / (1024 * 1024)).toFixed(2);
+      const aclInfo = (uploadAcl.users.length > 0 || uploadAcl.teams.length > 0)
+        ? `Access restricted to ${uploadAcl.users.length} user(s) and ${uploadAcl.teams.length} team(s).`
+        : "Public access (no restrictions).";
+      
+      if (result?.notificationId) {
+        pushNotification({
+          _id: result.notificationId,
+          title: "File Uploaded",
+          body: `File "${fileName}" (${sizeMB} MB) has been uploaded successfully. ${aclInfo}`,
+          isRead: false,
+          createdAt: new Date(),
+        });
+      }
       
       // Reset ACL selection and close modal
       setUploadAcl({ users: [], teams: [] });
@@ -228,9 +246,24 @@ const DocumentsPage = () => {
         writeTeams: uploadAcl.teams,
       } : null;
       
-      await DocsApi.uploadFolder(cwd, files, folderName, aclToUse);
+      const result = await DocsApi.uploadFolder(cwd, files, folderName, aclToUse);
       clearInterval(progressInterval);
       setUploadProgress(100);
+      
+      // Create detailed notification message
+      const aclInfo = (uploadAcl.users.length > 0 || uploadAcl.teams.length > 0)
+        ? `Access restricted to ${uploadAcl.users.length} user(s) and ${uploadAcl.teams.length} team(s).`
+        : "Public access (no restrictions).";
+      
+      if (result?.notificationId) {
+        pushNotification({
+          _id: result.notificationId,
+          title: "Folder Uploaded",
+          body: `Folder "${folderName}" with ${files.length} file(s) has been uploaded successfully. ${aclInfo}`,
+          isRead: false,
+          createdAt: new Date(),
+        });
+      }
       
       // Reset ACL selection
       setUploadAcl({ users: [], teams: [] });
@@ -355,7 +388,23 @@ const DocumentsPage = () => {
         writeTeams: uploadAcl.teams,
       } : null;
       
-      await DocsApi.createWebLink(cwd, webLinkModal.name.trim(), webLinkModal.url.trim(), aclToUse);
+      const result = await DocsApi.createWebLink(cwd, webLinkModal.name.trim(), webLinkModal.url.trim(), aclToUse);
+      
+      // Create detailed notification message
+      const aclInfo = (uploadAcl.users.length > 0 || uploadAcl.teams.length > 0)
+        ? `Access restricted to ${uploadAcl.users.length} user(s) and ${uploadAcl.teams.length} team(s).`
+        : "Public access (no restrictions).";
+      
+      if (result?.notificationId) {
+        pushNotification({
+          _id: result.notificationId,
+          title: "Web Link Created",
+          body: `Web link "${webLinkModal.name}" (${webLinkModal.url.trim()}) has been created. ${aclInfo}`,
+          isRead: false,
+          createdAt: new Date(),
+        });
+      }
+      
       setWebLinkModal(null);
       setUploadAcl({ users: [], teams: [] });
       setToasts((t) => {
@@ -1689,31 +1738,47 @@ const DocumentsPage = () => {
                           boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)',
                           transition: 'all 0.2s ease'
                         }} 
-                        onClick={async () => {
-                          try {
-                            // Convert simplified ACL to backend format
-                            const aclToSend = {
-                              readUsers: aclModal.acl.users,
-                              writeUsers: aclModal.acl.users,
-                              readTeams: aclModal.acl.teams,
-                              writeTeams: aclModal.acl.teams,
-                            };
-                            await DocsApi.setAcl(aclModal.item.path, aclToSend);
-                            setAclModal(null);
-                            setToasts((t) => {
-                              const id = Date.now();
-                              setTimeout(() => setToasts((tt) => tt.filter(x => x.id !== id)), 2200);
-                              return [...t, { id, text: 'Access control updated' }];
-                            });
-                            await load();
-                          } catch (err) {
-                            setToasts((t) => {
-                              const id = Date.now();
-                              setTimeout(() => setToasts((tt) => tt.filter(x => x.id !== id)), 3000);
-                              return [...t, { id, text: `Failed to update access control: ${err?.response?.data?.message || err.message || 'Server error'}` }];
-                            });
-                          }
-                        }}
+                          onClick={async () => {
+                            try {
+                              // Convert simplified ACL to backend format
+                              const aclToSend = {
+                                readUsers: aclModal.acl.users,
+                                writeUsers: aclModal.acl.users,
+                                readTeams: aclModal.acl.teams,
+                                writeTeams: aclModal.acl.teams,
+                              };
+                              const result = await DocsApi.setAcl(aclModal.item.path, aclToSend);
+                              
+                              // Create detailed notification message
+                              const aclInfo = (aclModal.acl.users.length > 0 || aclModal.acl.teams.length > 0)
+                                ? `Access updated: ${aclModal.acl.users.length} user(s) and ${aclModal.acl.teams.length} team(s) can now access this ${aclModal.item.type}.`
+                                : "Access updated: Public access (no restrictions).";
+                              
+                              if (result?.notificationId) {
+                                pushNotification({
+                                  _id: result.notificationId,
+                                  title: "Access Control Updated",
+                                  body: `Access control for "${aclModal.item.name}" (${aclModal.item.type}) has been updated. ${aclInfo}`,
+                                  isRead: false,
+                                  createdAt: new Date(),
+                                });
+                              }
+                              
+                              setAclModal(null);
+                              setToasts((t) => {
+                                const id = Date.now();
+                                setTimeout(() => setToasts((tt) => tt.filter(x => x.id !== id)), 2200);
+                                return [...t, { id, text: 'Access control updated' }];
+                              });
+                              await load();
+                            } catch (err) {
+                              setToasts((t) => {
+                                const id = Date.now();
+                                setTimeout(() => setToasts((tt) => tt.filter(x => x.id !== id)), 3000);
+                                return [...t, { id, text: `Failed to update access control: ${err?.response?.data?.message || err.message || 'Server error'}` }];
+                              });
+                            }
+                          }}
                       >
                         Save
                       </button>
