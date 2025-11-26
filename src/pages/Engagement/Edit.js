@@ -5,6 +5,11 @@ import HapuListsApi from "../../api/hapulistsApi";
 import ProjectsApi from "../../api/projectsApi";
 import { EditProjectSkeleton } from "../../components/common/SkelentonTableRow";
 import Swal from "sweetalert2";
+import EngageHapuForm from "../../components/engagements/create/engageHapu";
+import EngageTotalHours from "../../components/engagements/create/engageTotalHours";
+import EngageTimeSelector from "../../components/engagements/create/engageTimeSelector";
+import EngageDateForm from "../../components/engagements/create/engageDateForm";
+import "../../styles/engagementAdd.css";
 
 const initialForm = {
     engage_date: "",
@@ -15,6 +20,9 @@ const initialForm = {
     hapus: [],
     project: "",
     meeting_minutes: null,
+    total_hours: "",
+    time_start: "00:00",
+    time_finish: "00:00",
 };
 
 export default function EngagementTrackerEditPage() {
@@ -29,6 +37,7 @@ export default function EngagementTrackerEditPage() {
     const [projects, setProjects] = useState([]);
     const [errors, setErrors] = useState({});
     const [success, setSuccess] = useState("");
+    const [originalMeetingMinutes, setOriginalMeetingMinutes] = useState(null);
 
     const validateForm = () => {
         const e = {};
@@ -41,7 +50,6 @@ export default function EngagementTrackerEditPage() {
         if (!form.hapus || form.hapus.length === 0)
             e.hapus = "Hapū is required";
         if (!form.project) e.project = "Project is required";
-        if (!form.outcome) e.outcome = "Outcome is required";
 
         setErrors(e);
         return Object.keys(e).length === 0;
@@ -73,7 +81,11 @@ export default function EngagementTrackerEditPage() {
                     project: e.project?._id || "",
                     meeting_minutes: null, // new upload only
                 });
-                console.log('form',form)
+                
+                // Store original meeting minutes path
+                if (e.meeting_minutes) {
+                    setOriginalMeetingMinutes(e.meeting_minutes);
+                }
             } catch (err) {
                 Swal.fire("Error", "Unable to load engagement", "error");
             } finally {
@@ -110,6 +122,9 @@ export default function EngagementTrackerEditPage() {
             fd.append("engage_num", form.engage_num);
             fd.append("project", form.project);
             fd.append("outcome", form.outcome);
+            fd.append("total_hours", form.total_hours || "0");
+            fd.append("time_start", form.time_start || "");
+            fd.append("time_finish", form.time_finish || "");
 
             if (form.meeting_minutes)
                 fd.append("meeting_minutes", form.meeting_minutes);
@@ -156,16 +171,11 @@ export default function EngagementTrackerEditPage() {
 
                     <div className="row">
                         {/* Date */}
-                        <div className="col-md-4 mb-3">
-                            <label className="form-label">Date of Engagement</label>
-                            <input
-                                type="date"
-                                className={`form-control ${errors.engage_date ? "is-invalid" : ""}`}
-                                value={form.engage_date}
-                                onChange={(e) => setForm({ ...form, engage_date: e.target.value })}
-                            />
-                            {errors.engage_date && <div className="invalid-feedback">{errors.engage_date}</div>}
-                        </div>
+                        <EngageDateForm
+                            value={form.engage_date}
+                            error={errors.engage_date}
+                            onChange={(value) => setForm({ ...form, engage_date: value })}
+                        />
 
                         {/* Type */}
                         <div className="col-md-4 mb-3">
@@ -213,45 +223,36 @@ export default function EngagementTrackerEditPage() {
                         </div>
 
                         {/* Hapu multi-select */}
-                        <div className="col-md-4 mb-3">
-                            <label className="form-label">Hapū Engaged</label>
+                        <EngageHapuForm
+                            value={form.hapus}
+                            error={errors.hapus}
+                            hapus={hapus}
+                            addHapu={addHapu}
+                            removeHapu={removeHapu}
+                        />
 
-                            <select
-                                className={`form-control ${errors.hapus ? "is-invalid" : ""}`}
-                                onChange={(e) => addHapu(e.target.value)}
-                            >
-                                <option value="">Select Hapū</option>
-                                {hapus.map((h) => (
-                                    <option key={h._id} value={h._id}>
-                                        {h.name}
-                                    </option>
-                                ))}
-                            </select>
+                        {/* Total Hours */}
+                        <EngageTotalHours
+                            value={form.total_hours}
+                            error={errors.total_hours}
+                            onChange={(value) => setForm({ ...form, total_hours: value })}
+                        />
 
-                            {errors.hapus && <div className="invalid-feedback">{errors.hapus}</div>}
+                        {/* Time Start */}
+                        <EngageTimeSelector
+                            value={form.time_start}
+                            error={errors.time_start}
+                            onChange={(value) => setForm({ ...form, time_start: value })}
+                            label="Time Start"
+                        />
 
-                            {form.hapus.length > 0 && (
-                                <div className="mt-2 d-flex flex-wrap" style={{ gap: 6 }}>
-                                    {form.hapus.map((hid) => {
-                                        const h = hapus.find((x) => x._id === hid);
-                                        if (!h) return null;
-
-                                        return (
-                                            <span key={hid} className="badge bg-primary" style={{ padding: "6px 10px", fontSize: 14 }}>
-                                                {h.name}
-                                                <button
-                                                    className="btn btn-link btn-sm"
-                                                    style={{ color: "#fff", marginLeft: 6, textDecoration: "none" }}
-                                                    onClick={() => removeHapu(hid)}
-                                                >
-                                                    ×
-                                                </button>
-                                            </span>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </div>
+                        {/* Time Finish */}
+                        <EngageTimeSelector
+                            value={form.time_finish}
+                            error={errors.time_finish}
+                            onChange={(value) => setForm({ ...form, time_finish: value })}
+                            label="Time Finish"
+                        />
 
                         {/* Projects */}
                         <div className="col-md-4 mb-3">
@@ -293,6 +294,14 @@ export default function EngagementTrackerEditPage() {
                             />
                             {errors.meeting_minutes && (
                                 <div className="invalid-feedback">{errors.meeting_minutes}</div>
+                            )}
+                            {originalMeetingMinutes && (
+                                <div className="mt-2">
+                                    <small className="text-muted">Current file: </small>
+                                    <span style={{ color: "#667eea", fontWeight: 500 }}>
+                                        {originalMeetingMinutes.split('/').pop() || originalMeetingMinutes}
+                                    </span>
+                                </div>
                             )}
                         </div>
                     </div>

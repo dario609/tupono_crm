@@ -1,0 +1,116 @@
+.table td, .table th {
+    padding: 10px 15px !important;
+    vertical-align: middle !important;
+}
+
+.table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.table-responsive table {
+    min-width: 100%;
+    width: 100%;
+}
+
+.actions-column {
+    white-space: nowrap !important;
+    text-align: center;
+    min-width: 140px !important;
+    width: 140px !important;
+    overflow: visible !important;
+}
+
+.actions-wrapper {
+    display: flex !important;
+    gap: 6px;
+    justify-content: center;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+.actions-wrapper button,
+.actions-wrapper .btn {
+    flex-shrink: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    min-width: 36px !important;
+    height: auto !important;
+    padding: 8px 0px !important;
+}
+
+/* --- Responsive --- */
+@media (max-width: 992px) {
+    .actions-column {
+        min-width: 130px !important;
+        width: 130px !important;
+    }
+
+    .actions-wrapper {
+        gap: 5px;
+    }
+
+    .actions-wrapper button,
+    .actions-wrapper .btn {
+        min-width: 34px !important;
+        padding: 7px 9px !important;
+        font-size: 13px !important;
+    }
+}
+
+@media (max-width: 768px) {
+    .actions-column {
+        min-width: 120px !important;
+        width: 120px !important;
+    }
+
+    .actions-wrapper {
+        flex-wrap: nowrap !important;
+        gap: 4px;
+    }
+
+    .actions-wrapper button,
+    .actions-wrapper .btn {
+        min-width: 32px !important;
+        padding: 6px 8px !important;
+        font-size: 12px !important;
+    }
+}
+
+@media (max-width: 576px) {
+    .actions-column {
+        min-width: 110px !important;
+        width: 110px !important;
+    }
+
+    .actions-wrapper button,
+    .actions-wrapper .btn {
+        min-width: 30px !important;
+        padding: 5px 7px !important;
+        font-size: 11px !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .actions-column {
+        min-width: 100px !important;
+        width: 100px !important;
+    }
+
+    .actions-wrapper {
+        gap: 3px;
+    }
+
+    .actions-wrapper button,
+    .actions-wrapper .btn {
+        min-width: 28px !important;
+        padding: 4px 6px !important;
+        font-size: 10px !important;
+    }
+}

@@ -7,3 +7,5 @@ const validateEngagement = (data) => {
     if (!data.project) errors.project = "Project is required";
     return errors;
 };
+
+export default validateEngagement;
