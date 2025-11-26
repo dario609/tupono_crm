@@ -11,8 +11,8 @@ import "../../styles/engagementTracker.css";
 export default function EngagementTrackerPage() {
 
     const {
-        rows, loading, page, perpage, total, search,
-        setSearch, setPerpage, load, handleDelete, handleEdit, handleReport,
+        rows, loading, page, perpage, total, search, dateFilter,
+        setSearch, setPerpage, setDateFilter, load, handleDelete, handleEdit, handleReport,
         pagesToShow, lastPage, handleView
     } = useEngagementTable();
 
@@ -57,6 +57,8 @@ export default function EngagementTrackerPage() {
                         onSearchKeyDown={onSearchKeyDown}
                         load={load}
                         handlePerpageChange={handlePerpageChange}
+                        dateFilter={dateFilter}
+                        setDateFilter={setDateFilter}
                     />
 
                     <EngagementTable

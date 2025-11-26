@@ -14,16 +14,50 @@ export function useEngagementTable() {
     const [perpage, setPerpage] = useState(10);
     const [page, setPage] = useState(1);
     const [total, setTotal] = useState(0);
+    const [dateFilter, setDateFilter] = useState("");
 
    
     const load = async (opts = {}) => {
         setLoading(true);
         try {
-            const json = await EngagementApi.list({
+            const params = {
                 perpage: opts.perpage ?? perpage,
                 page: opts.page ?? page,
                 search: opts.search ?? search,
-            });
+            };
+
+            // Calculate date range based on filter
+            if (opts.dateFilter !== undefined ? opts.dateFilter : dateFilter) {
+                const today = new Date();
+                let dateFrom, dateTo;
+
+                switch (opts.dateFilter !== undefined ? opts.dateFilter : dateFilter) {
+                    case "lastWeek":
+                        dateFrom = new Date(today);
+                        dateFrom.setDate(today.getDate() - 7);
+                        dateTo = today;
+                        break;
+                    case "lastMonth":
+                        dateFrom = new Date(today);
+                        dateFrom.setMonth(today.getMonth() - 1);
+                        dateTo = today;
+                        break;
+                    case "lastYear":
+                        dateFrom = new Date(today);
+                        dateFrom.setFullYear(today.getFullYear() - 1);
+                        dateTo = today;
+                        break;
+                    default:
+                        break;
+                }
+
+                if (dateFrom && dateTo) {
+                    params.dateFrom = dateFrom.toISOString().split("T")[0];
+                    params.dateTo = dateTo.toISOString().split("T")[0];
+                }
+            }
+
+            const json = await EngagementApi.list(params);
 
             setRows(json?.data || []);
             setTotal(json?.total || 0);
@@ -49,7 +83,7 @@ export function useEngagementTable() {
 
         if (!confirm.isConfirmed) return;
         
-        setLoading(true);
+          setLoading(true);
 
         try {
             const res = await EngagementApi.remove(id);
@@ -73,7 +107,8 @@ export function useEngagementTable() {
     // ----------------------------------------
     const handleReport = (id) => navigate(`/engagement-tracker/${id}/report`);
     const handleEdit = (id) => navigate(`/engagement-tracker/${id}/edit`);
-    const handleView = (id) => navigate(`/engagement-tracker/${id}/view`);  
+    const handleView = (id) => navigate(`/engagement-tracker/${id}/view`);
+
     // ----------------------------------------
     // Pagination UI logic
     // ----------------------------------------
@@ -106,10 +141,10 @@ export function useEngagementTable() {
 
     return {
         // State
-        rows, loading, page, perpage, total, search,
+        rows, loading, page, perpage, total, search, dateFilter,
 
         // Actions
-        setSearch, setPerpage, load,
+        setSearch, setPerpage, setDateFilter, load,
         handleDelete, handleEdit, handleReport, handleView,
 
         // Pagination

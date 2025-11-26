@@ -7,10 +7,18 @@ export default function EngagementControls({
     setSearch,
     onSearchKeyDown,
     load,
-    handlePerpageChange
+    handlePerpageChange,
+    dateFilter,
+    setDateFilter
 }) {
+    const handleDateFilterChange = (e) => {
+        const value = e.target.value;
+        setDateFilter(value);
+        load({ page: 1, dateFilter: value });
+    };
+
     return (
-        <div className="d-flex align-items-center justify-content-between p-2">
+        <div className="d-flex align-items-center justify-content-between p-2 flex-wrap gap-2">
 
             {/* Per Page Selector */}
             <div className="d-flex align-items-center">
@@ -31,6 +39,23 @@ export default function EngagementControls({
                 <span>entries</span>
             </div>
 
+            {/* Date Filter */}
+            <div className="d-flex gap-2">
+            <div className="d-flex align-items-center">
+                <label className="mb-0 me-2">Filter:</label>
+                <select
+                    className="form-control w-auto"
+                    value={dateFilter}
+                    onChange={handleDateFilterChange}
+                    style={{ minWidth: 150 }}
+                >
+                    <option value="">All Dates</option>
+                    <option value="lastWeek">Last Week</option>
+                    <option value="lastMonth">Last Month</option>
+                    <option value="lastYear">Last Year</option>
+                </select>
+            </div>
+
             {/* Search */}
             <div className="input-group" style={{ maxWidth: 360 }}>
                 <input
@@ -44,6 +69,7 @@ export default function EngagementControls({
                 <button className="btn btn-success btn-sm" onClick={() => load({ page: 1 })}>
                     <i className="fa fa-search"></i>
                 </button>
+            </div>
             </div>
 
         </div>
