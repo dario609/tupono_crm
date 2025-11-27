@@ -34,6 +34,24 @@ export function NotificationProvider({ children }) {
     setUnreadCount(prev => Math.max(prev - 1, 0));
   };
 
+  // Remove notification from list
+  const removeNotification = async (id) => {
+    try {
+      await NotificationsApi.delete(id);
+      setNotifications(prev => {
+        const removed = prev.find(n => n._id === id);
+        const newList = prev.filter(n => n._id !== id);
+        // Decrease unread count if notification was unread
+        if (removed && !removed.isRead) {
+          setUnreadCount(prev => Math.max(prev - 1, 0));
+        }
+        return newList;
+      });
+    } catch (err) {
+      console.error("Failed to remove notification", err);
+    }
+  };
+
   // Mark all as read
   const markAllRead = async () => {
     await NotificationsApi.markAllRead();
@@ -55,6 +73,7 @@ export function NotificationProvider({ children }) {
       markOneRead,
       markAllRead,
       pushNotification,
+      removeNotification,
     }}>
       {children}
     </NotificationContext.Provider>

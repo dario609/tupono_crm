@@ -71,7 +71,12 @@ export default function NotificationDropdown() {
 
                 <a
                   className="dropdown-item preview-item py-3 notification-item d-flex align-items-start"
-                  onClick={() => notify?._id && markOneRead(notify._id)}
+                  onClick={() => {
+                    if (notify?._id) {
+                      markOneRead(notify._id);
+                      removeNotification(notify._id);
+                    }
+                  }}
                   style={{ cursor: "pointer" }}
                 >
                   <div className="preview-thumbnail me-3">

@@ -109,7 +109,7 @@ const Header = ({ user, adminUnreadCount = 0 }) => {
                 />
                 <p className="mb-1 mt-3 fw-semibold">
                   {user
-                    ? `${user.first_name} ${user.last_name}`
+                    ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email || user.name || "User"
                     : "Guest User"}
                 </p>
                 <p className="fw-light text-muted mb-0">

@@ -38,9 +38,23 @@ import EngagementTrackerCreatePage from "./pages/Engagement/create";
 import EngagementTrackerEditPage from "./pages/Engagement/Edit";
 import UserReport from "./pages/Users/UserReport";
 import Profile from "./pages/Profile";
+import NotificationsPage from "./pages/Notifications";
 import './App.css';
+import { useEffect } from 'react';
 
 function App() {
+  useEffect(() => {
+    document.title = 'Tupono Consulting LTD';
+    // Update favicon link
+    const link = document.querySelector("link[rel*='icon']") || document.createElement('link');
+    link.type = 'image/png';
+    link.rel = 'icon';
+    link.href = '/favicon.png';
+    if (!document.querySelector("link[rel*='icon']")) {
+      document.getElementsByTagName('head')[0].appendChild(link);
+    }
+  }, []);
+
   return (
     <AuthProvider>
       <NotificationProvider>
@@ -83,6 +97,7 @@ function App() {
                 <Route path="/calendar/:id/edit" element={<CalendarEdit />} />
                 <Route path="/support" element={<SupportChat />} />
                 <Route path="/profile" element={<Profile />} />
+                <Route path="/admin/notifications" element={<NotificationsPage />} />
               </Route>
             </Route>
 
