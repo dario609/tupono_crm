@@ -46,6 +46,95 @@ export default function EngagementTrackerPage() {
         return Object.keys(validateErrors).length === 0;
     };
 
+    // Calculate total hours from time_start and time_finish
+    const calculateTotalHours = (startTime, finishTime) => {
+        if (!startTime || !finishTime || startTime === "00:00" || finishTime === "00:00") {
+            return "";
+        }
+
+        // Parse time strings to get hours and minutes
+        const [startHours, startMinutes] = startTime.split(':').map(Number);
+        const [finishHours, finishMinutes] = finishTime.split(':').map(Number);
+
+        // Convert to total minutes for easier calculation
+        const startTotalMinutes = startHours * 60 + startMinutes;
+        let finishTotalMinutes = finishHours * 60 + finishMinutes;
+
+        // Handle case where finish time is next day (e.g., start 23:00, finish 01:00)
+        if (finishTotalMinutes < startTotalMinutes) {
+            finishTotalMinutes += 24 * 60; // Add 24 hours in minutes
+        }
+
+        // Calculate difference in minutes
+        const diffMinutes = finishTotalMinutes - startTotalMinutes;
+
+        // Convert to hours with proper decimal (60 minutes = 1 hour)
+        const totalHours = diffMinutes / 60;
+
+        // Round to 2 decimal places
+        return Math.round(totalHours * 100) / 100;
+    };
+
+    // Validate that time_finish is later than time_start
+    const validateTimeRange = (startTime, finishTime) => {
+        if (!startTime || !finishTime || startTime === "00:00" || finishTime === "00:00") {
+            return { isValid: true, error: "" };
+        }
+
+        const [startHours, startMinutes] = startTime.split(':').map(Number);
+        const [finishHours, finishMinutes] = finishTime.split(':').map(Number);
+
+        const startTotalMinutes = startHours * 60 + startMinutes;
+        let finishTotalMinutes = finishHours * 60 + finishMinutes;
+
+        // Check if finish is on the same day and later than start
+        if (finishTotalMinutes <= startTotalMinutes) {
+            // Check if it's a next-day scenario (e.g., 23:00 to 01:00)
+            const nextDayFinish = finishTotalMinutes + (24 * 60);
+            if (nextDayFinish <= startTotalMinutes) {
+                return { isValid: false, error: "Time Finish must be later than Time Start" };
+            }
+        }
+
+        return { isValid: true, error: "" };
+    };
+
+    // Auto-calculate total hours when time_start or time_finish changes
+    useEffect(() => {
+        if (form.time_start && form.time_finish && form.time_start !== "00:00" && form.time_finish !== "00:00") {
+            // Validate time range
+            const validation = validateTimeRange(form.time_start, form.time_finish);
+            if (!validation.isValid) {
+                setErrors(prev => ({ ...prev, time_finish: validation.error }));
+                return;
+            } else {
+                // Clear error if validation passes
+                setErrors(prev => {
+                    const newErrors = { ...prev };
+                    delete newErrors.time_finish;
+                    return newErrors;
+                });
+            }
+
+            const calculatedHours = calculateTotalHours(form.time_start, form.time_finish);
+            const currentHours = parseFloat(form.total_hours) || 0;
+            if (calculatedHours !== "" && Math.abs(calculatedHours - currentHours) > 0.01) {
+                setForm(prev => ({ ...prev, total_hours: calculatedHours.toString() }));
+            }
+        } else if ((!form.time_start || form.time_start === "00:00") && (!form.time_finish || form.time_finish === "00:00")) {
+            // Clear total hours if times are reset
+            if (form.total_hours !== "") {
+                setForm(prev => ({ ...prev, total_hours: "" }));
+            }
+            // Clear time_finish error
+            setErrors(prev => {
+                const newErrors = { ...prev };
+                delete newErrors.time_finish;
+                return newErrors;
+            });
+        }
+    }, [form.time_start, form.time_finish]); // eslint-disable-line react-hooks/exhaustive-deps
+
     useEffect(() => {
         setLoading(true);
         Promise.all([

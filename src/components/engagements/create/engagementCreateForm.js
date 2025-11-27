@@ -72,6 +72,7 @@ export default function EngagementCreateForm({ form, errors, setForm, handleSave
                     value={form.total_hours}
                     error={errors.total_hours}
                     onChange={(value) => setForm({ ...form, total_hours: value })}
+                    readOnly={true}
                 />
                 
                 <EngageTimeSelector

@@ -80,8 +80,11 @@ export default function EngagementTrackerEditPage() {
                     hapus: e.hapus.map((h) => h._id) || [],
                     project: e.project?._id || "",
                     meeting_minutes: null, // new upload only
+                    total_hours: e.total_hours || "",
+                    time_start: e.time_start || "00:00",
+                    time_finish: e.time_finish || "00:00",
                 });
-                
+
                 // Store original meeting minutes path
                 if (e.meeting_minutes) {
                     setOriginalMeetingMinutes(e.meeting_minutes);
@@ -109,6 +112,95 @@ export default function EngagementTrackerEditPage() {
         }));
     };
 
+    // Calculate total hours from time_start and time_finish
+    const calculateTotalHours = (startTime, finishTime) => {
+        if (!startTime || !finishTime || startTime === "00:00" || finishTime === "00:00") {
+            return "";
+        }
+
+        // Parse time strings to get hours and minutes
+        const [startHours, startMinutes] = startTime.split(':').map(Number);
+        const [finishHours, finishMinutes] = finishTime.split(':').map(Number);
+
+        // Convert to total minutes for easier calculation
+        const startTotalMinutes = startHours * 60 + startMinutes;
+        let finishTotalMinutes = finishHours * 60 + finishMinutes;
+
+        // Handle case where finish time is next day (e.g., start 23:00, finish 01:00)
+        if (finishTotalMinutes < startTotalMinutes) {
+            finishTotalMinutes += 24 * 60; // Add 24 hours in minutes
+        }
+
+        // Calculate difference in minutes
+        const diffMinutes = finishTotalMinutes - startTotalMinutes;
+
+        // Convert to hours with proper decimal (60 minutes = 1 hour)
+        const totalHours = diffMinutes / 60;
+
+        // Round to 2 decimal places
+        return Math.round(totalHours * 100) / 100;
+    };
+
+    // Validate that time_finish is later than time_start
+    const validateTimeRange = (startTime, finishTime) => {
+        if (!startTime || !finishTime || startTime === "00:00" || finishTime === "00:00") {
+            return { isValid: true, error: "" };
+        }
+
+        const [startHours, startMinutes] = startTime.split(':').map(Number);
+        const [finishHours, finishMinutes] = finishTime.split(':').map(Number);
+
+        const startTotalMinutes = startHours * 60 + startMinutes;
+        let finishTotalMinutes = finishHours * 60 + finishMinutes;
+
+        // Check if finish is on the same day and later than start
+        if (finishTotalMinutes <= startTotalMinutes) {
+            // Check if it's a next-day scenario (e.g., 23:00 to 01:00)
+            const nextDayFinish = finishTotalMinutes + (24 * 60);
+            if (nextDayFinish <= startTotalMinutes) {
+                return { isValid: false, error: "Time Finish must be later than Time Start" };
+            }
+        }
+
+        return { isValid: true, error: "" };
+    };
+
+    // Auto-calculate total hours when time_start or time_finish changes
+    useEffect(() => {
+        if (form.time_start && form.time_finish && form.time_start !== "00:00" && form.time_finish !== "00:00") {
+            // Validate time range
+            const validation = validateTimeRange(form.time_start, form.time_finish);
+            if (!validation.isValid) {
+                setErrors(prev => ({ ...prev, time_finish: validation.error }));
+                return;
+            } else {
+                // Clear error if validation passes
+                setErrors(prev => {
+                    const newErrors = { ...prev };
+                    delete newErrors.time_finish;
+                    return newErrors;
+                });
+            }
+
+            const calculatedHours = calculateTotalHours(form.time_start, form.time_finish);
+            const currentHours = parseFloat(form.total_hours) || 0;
+            if (calculatedHours !== "" && Math.abs(calculatedHours - currentHours) > 0.01) {
+                setForm(prev => ({ ...prev, total_hours: calculatedHours.toString() }));
+            }
+        } else if ((!form.time_start || form.time_start === "00:00") && (!form.time_finish || form.time_finish === "00:00")) {
+            // Clear total hours if times are reset
+            if (form.total_hours !== "") {
+                setForm(prev => ({ ...prev, total_hours: "" }));
+            }
+            // Clear time_finish error
+            setErrors(prev => {
+                const newErrors = { ...prev };
+                delete newErrors.time_finish;
+                return newErrors;
+            });
+        }
+    }, [form.time_start, form.time_finish]); // eslint-disable-line react-hooks/exhaustive-deps
+
     const handleSave = async () => {
         if (!validateForm()) return;
 
@@ -132,7 +224,7 @@ export default function EngagementTrackerEditPage() {
             form.hapus.forEach((h) => fd.append("hapus[]", h));
 
             const res = await EngagementApi.update(id, fd);
-            
+
 
             if (res.success) {
                 setSuccess("Engagement updated successfully");
@@ -140,7 +232,7 @@ export default function EngagementTrackerEditPage() {
                 navigate("/engagement-tracker");
             }
         } catch (err) {
-            console.log('err',err)
+            console.log('err', err)
             Swal.fire("Error", err.response?.data?.message || "Server error", "error");
         } finally {
             setSaving(false);
@@ -212,7 +304,7 @@ export default function EngagementTrackerEditPage() {
 
                         {/* People */}
                         <div className="col-md-4 mb-3">
-                            <label className="form-label">Number of People in Meeting</label>
+                            <label className="form-label">Number of People in Engagement</label>
                             <input
                                 type="number"
                                 className={`form-control ${errors.engage_num ? "is-invalid" : ""}`}
@@ -221,38 +313,6 @@ export default function EngagementTrackerEditPage() {
                             />
                             {errors.engage_num && <div className="invalid-feedback">{errors.engage_num}</div>}
                         </div>
-
-                        {/* Hapu multi-select */}
-                        <EngageHapuForm
-                            value={form.hapus}
-                            error={errors.hapus}
-                            hapus={hapus}
-                            addHapu={addHapu}
-                            removeHapu={removeHapu}
-                        />
-
-                        {/* Total Hours */}
-                        <EngageTotalHours
-                            value={form.total_hours}
-                            error={errors.total_hours}
-                            onChange={(value) => setForm({ ...form, total_hours: value })}
-                        />
-
-                        {/* Time Start */}
-                        <EngageTimeSelector
-                            value={form.time_start}
-                            error={errors.time_start}
-                            onChange={(value) => setForm({ ...form, time_start: value })}
-                            label="Time Start"
-                        />
-
-                        {/* Time Finish */}
-                        <EngageTimeSelector
-                            value={form.time_finish}
-                            error={errors.time_finish}
-                            onChange={(value) => setForm({ ...form, time_finish: value })}
-                            label="Time Finish"
-                        />
 
                         {/* Projects */}
                         <div className="col-md-4 mb-3">
@@ -271,6 +331,40 @@ export default function EngagementTrackerEditPage() {
                             </select>
                             {errors.project && <div className="invalid-feedback">{errors.project}</div>}
                         </div>
+                        {/* Hapu multi-select */}
+                        <EngageHapuForm
+                            value={form.hapus}
+                            error={errors.hapus}
+                            hapus={hapus}
+                            addHapu={addHapu}
+                            removeHapu={removeHapu}
+                        />
+
+                        {/* Total Hours */}
+                        <EngageTotalHours
+                            value={form.total_hours}
+                            error={errors.total_hours}
+                            onChange={(value) => setForm({ ...form, total_hours: value })}
+                            readOnly={true}
+                        />
+
+                        {/* Time Start */}
+                        <EngageTimeSelector
+                            value={form.time_start}
+                            error={errors.time_start}
+                            onChange={(value) => setForm({ ...form, time_start: value })}
+                            label="Time Start"
+                        />
+
+                        {/* Time Finish */}
+                        <EngageTimeSelector
+                            value={form.time_finish}
+                            error={errors.time_finish}
+                            onChange={(value) => setForm({ ...form, time_finish: value })}
+                            label="Time Finish"
+                        />
+
+
 
                         {/* Outcome */}
                         <div className="col-12 mb-3">

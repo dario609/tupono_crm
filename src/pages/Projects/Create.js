@@ -9,6 +9,62 @@ import HapuListsApi from "../../api/hapulistsApi";
 import ProjectsApi from "../../api/projectsApi";
 import TasksApi from "../../api/tasksApi";
 import { tasksTemplates, taskDurationTypes, taskStatuses } from "../../constants/index.js";
+import "../../styles/engagementAdd.css";
+
+// Hapu Select Dropdown Component (similar to EngageHapuForm)
+const HapuSelectDropdown = ({ hapus = [], selectedHapus = [], onAdd, onRemove, disabled = false }) => {
+  const [selectedHapu, setSelectedHapu] = useState("");
+
+  const handleAddHapu = (id) => {
+    if (!id) return;
+    setSelectedHapu("");
+    onAdd(id);
+  };
+
+  // Convert the list of IDs (selectedHapus) into full objects
+  const selectedHapuObjects = selectedHapus
+    .map((id) => hapus.find((h) => h._id === id))
+    .filter(Boolean); // remove undefined
+
+  return (
+    <div>
+      <select
+        className="form-control"
+        value={selectedHapu}
+        onChange={(e) => handleAddHapu(e.target.value)}
+        disabled={disabled}
+      >
+        <option value="">Select Hapū</option>
+        {hapus.length > 0 &&
+          hapus.map((h) => (
+            <option
+              key={h._id}
+              value={h._id}
+              disabled={selectedHapus.includes(h._id)}
+            >
+              {h.name}
+            </option>
+          ))
+        }
+      </select>
+
+      <div className="mt-3 d-flex flex-wrap gap-2">
+        {selectedHapuObjects.map((h) => (
+          <div key={h._id} className="hapu-chip">
+            <span>{h.name}</span>
+            <button
+              type="button"
+              className="remove-btn"
+              onClick={() => onRemove(h._id)}
+            >
+              ×
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
 
 const emptyTask = {
   assignee: null,
@@ -49,7 +105,6 @@ const CreateProject = () => {
   const [hapus, setHapus] = useState([]);
   const [teamMembers, setTeamMembers] = useState([]);
   const [form, setForm] = useState(initialFormData);
-  const [hapuInput, setHapuInput] = useState("");
 
   const [tasks, setTasks] = useState([]);
   const [taskModalOpen, setTaskModalOpen] = useState(false);
@@ -145,17 +200,15 @@ const CreateProject = () => {
     }); 
   };
 
-  const parseHapuIdFromOption = (val) => {
-    const match = hapus.find((x) => (x?.name || "").toLowerCase() === String(val).toLowerCase());
-    return match?._id || null;
+  const addHapu = (id) => {
+    if (!id) return;
+    if (form.hapus.includes(id)) return;
+    setForm((f) => ({ ...f, hapus: [...f.hapus, id] }));
   };
-  const addHapuByLabel = (val) => {
-    const id = parseHapuIdFromOption(val);
-    if (!id) return setHapuInput("");
-    setForm((f) => ({ ...f, hapus: f.hapus.includes(id) ? f.hapus : [...f.hapus, id] }));
-    setHapuInput("");
+
+  const removeHapu = (id) => {
+    setForm((f) => ({ ...f, hapus: f.hapus.filter((x) => x !== id) }));
   };
-  const removeHapuFromList = (id) => setForm((f) => ({ ...f, hapus: f.hapus.filter((x) => x !== id) }));
   // removed Assigned To helpers
 
   const openTaskModal = () => {
@@ -367,35 +420,13 @@ const CreateProject = () => {
                     <div className="col-md-4">
                       <div className="form-group mb-2">
                         <label>Assign Hapū (multiple)</label>
-                        <input
-                          className="form-control"
-                          placeholder="Search and select hapū"
-                          list="hapuOptions"
-                          value={hapuInput}
-                          onChange={(e) => setHapuInput(e.target.value)}
-                          onBlur={(e) => addHapuByLabel(e.target.value)}
-                          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addHapuByLabel(hapuInput); } }}
+                        <HapuSelectDropdown
+                          hapus={hapus}
+                          selectedHapus={form.hapus}
+                          onAdd={addHapu}
+                          onRemove={removeHapu}
                           disabled={!form.rohe}
                         />
-                        <datalist id="hapuOptions">
-                          {hapus.map((h) => (
-                            <option key={`hapu-${h._id}`} value={h.name} />
-                          ))}
-                        </datalist>
-                        {form.hapus?.length > 0 && (
-                          <div className="mt-2" style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                            {form.hapus.map((hid) => {
-                              const h = hapus.find((x) => x._id === hid);
-                              if (!h) return null;
-                              return (
-                                <span key={`tag-hapu-${hid}`} className="badge badge-primary" style={{ padding: '0px 7px' }}>
-                                  {h.name}
-                                  <button type="button" className="btn btn-link btn-sm" onClick={() => removeHapuFromList(hid)} style={{ color: '#fff', textDecoration: 'none', marginLeft: 6, padding: '3px 5px' }}>×</button>
-                                </span>
-                              );
-                            })}
-                          </div>
-                        )}
                       </div>
                     </div>
 
