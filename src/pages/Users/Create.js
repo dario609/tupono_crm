@@ -1,153 +1,43 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import RolesApi from "../../api/rolesApi";
-import UsersApi from "../../api/usersApi";
 import { useNotifications } from "../../context/NotificationProvider";
+import { useCreateUserForm } from "../../hooks/users/useCreateUserForm";
 
-const initialForm = {
-  first_name: "",
-  last_name: "",
-  email: "",
-  password: "",
-  confirm_password: "",
-  phone: "",
-  city: "",
-  country: "",
-  zip_code: "",
-  address: "",
-  role_id: "",
-  hapu: "",
-  iwi: "",
-  marae: "",
-  maunga: "",
-  awa: "",
-};
-
-const onlyLetters = (s) => s.replace(/[^a-zA-Z\s]/g, "");
-const onlyDigits = (s) => s.replace(/\D/g, "");
-const formatPhone = (s) => {
-  const d = onlyDigits(s).slice(0, 10);
-  const a = d.slice(0, 3);
-  const b = d.slice(3, 6);
-  const c = d.slice(6, 10);
-  if (d.length <= 3) return a;
-  if (d.length <= 6) return `(${a}) ${b}`;
-  return `(${a}) ${b}-${c}`;
-};
-const formatZip = (s) => onlyDigits(s).slice(0, 10);
+import { UserBasicFields } from "../../components/users/UserBasicForm";
+import { UserPasswordFields } from "../../components/users/UserPasswordFields";
+import { UserContactFields } from "../../components/users/UserContactFields";
+import { UserProfileImage } from "../../components/users/UserProfileImage";
+import { UserLocationFields } from "../../components/users/UserLocationFields";
+import { UserRoleField } from "../../components/users/UserRoleField";
+import { UserKaupapaFields } from "../../components/users/UserKaupapaFields";
 
 const CreateUser = () => {
   const navigate = useNavigate();
   const { pushNotification } = useNotifications();
+
+  const {
+    form,
+    onChange,
+    onSubmit,
+    canSubmit,
+    loading,
+    error,
+    success,
+    confirmRef,
+    emailUserNow,
+    setEmailUserNow,
+    profileImage,
+    setProfileImage,
+  } = useCreateUserForm({ pushNotification });
+
   const [roles, setRoles] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState(initialForm);
-  const [showPwd, setShowPwd] = useState(false);
-  const [showConfirmPwd, setShowConfirmPwd] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-  const [emailUserNow, setEmailUserNow] = useState(true);
-  const formRef = useRef(null);
-  const confirmRef = useRef(null);
-  const [profileImage, setProfileImage] = useState(null);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const json = await RolesApi.list({ perpage: -1 });
-        setRoles(json?.data || []);
-      } catch { }
-    })();
-  }, []);
-
-  const canSubmit = useMemo(() => {
-    return (
-      form.first_name &&
-      form.last_name &&
-      form.email &&
-      form.password &&
-      form.confirm_password &&
-      form.role_id &&
-      form.password === form.confirm_password
-    );
-  }, [form]);
-
-  const setConfirmValidity = (pwd, confirm) => {
-    if (!confirmRef.current) return;
-    if ((confirm || pwd) && pwd !== confirm) {
-      confirmRef.current.setCustomValidity("Passwords do not match");
-    } else {
-      confirmRef.current.setCustomValidity("");
-    }
-  };
-
-  const onChange = (e) => {
-    const { name, value } = e.target;
-    let next = value;
-    if (name === "first_name" || name === "last_name") next = onlyLetters(value).slice(0, 30);
-    else if (name === "phone") next = formatPhone(value);
-    else if (name === "zip_code") next = formatZip(value);
-    setForm((prev) => {
-      const updated = { ...prev, [name]: next };
-      if (name === "password" || name === "confirm_password") {
-        setConfirmValidity(updated.password, updated.confirm_password);
-      }
-      return updated;
+    RolesApi.list({ perpage: -1 }).then((json) => {
+      setRoles(json?.data || []);
     });
-  };
-
-  const toArray = (s) => String(s || "").split(/[\n,]/g).map((x) => x.trim()).filter(Boolean);
-
-  const onSubmit = async (e) => {
-
-    e.preventDefault();
-    setError("");
-    setSuccess("");
-
-    // Run native HTML5 validation and show messages
-    if (formRef.current && !formRef.current.checkValidity()) {
-      formRef.current.reportValidity();
-      return;
-    }
-
-    // Extra check for password match (native pattern can't compare two fields)
-    if (form.password !== form.confirm_password) {
-      setConfirmValidity(form.password, form.confirm_password);
-      formRef.current?.reportValidity();
-      return;
-    }
-    try {
-      setLoading(true);
-      const fd = new FormData();
-      Object.entries(form).forEach(([k, v]) => fd.append(k, v ?? ""));
-      // Multi-value fields serialized as JSON
-      fd.set("hapu", JSON.stringify(toArray(form.hapu)));
-      fd.set("iwi", JSON.stringify(toArray(form.iwi)));
-      fd.set("marae", JSON.stringify(toArray(form.marae)));
-      fd.set("maunga", JSON.stringify(toArray(form.maunga)));
-      fd.set("awa", JSON.stringify(toArray(form.awa)));
-      fd.set("emailNow", emailUserNow);
-      if (profileImage) fd.append("profile_image", profileImage);
-      const data = await UsersApi.create(fd);
-      if (data?.success === false) {
-        throw new Error(data?.message || "Failed to create user");
-      }
-      pushNotification({// temporary local ID
-        _id: data.data.notifications.creatorNotificationId,
-        title: "New User Created",
-        message: `${form.first_name} ${form.last_name} has been added.`,
-        isRead: false,
-        createdAt: new Date(),
-      });
-      
-      setSuccess("User created successfully");
-      setTimeout(() => navigate("/users"), 900);
-    } catch (err) {
-      setError(err.message || "Server error");
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, []);
 
   return (
     <>
@@ -163,284 +53,49 @@ const CreateUser = () => {
       </div>
 
       <section className="card mt-3">
-        <div className="row card-body">
-          <div className="col-12">
-            <div className="box">
-              <div className="box-body p-15 pt-0">
-                {success && (
-                  <div className="alert alert-success alert-dismissible fade show">
-                    <ul style={{ listStyle: "none", marginBottom: 0 }}>
-                      <li>{success}</li>
-                    </ul>
-                  </div>
-                )}
-                {error && (
-                  <div className="alert alert-danger alert-dismissible fade show">
-                    <ul style={{ listStyle: "none", marginBottom: 0 }}>
-                      <li>{error}</li>
-                    </ul>
-                  </div>
-                )}
+        <div className="card-body">
+          {success && <div className="alert alert-success">{success}</div>}
+          {error && <div className="alert alert-danger">{error}</div>}
 
-                <form ref={formRef} onSubmit={onSubmit} noValidate>
-                  <div className="row">
-                    <div className="col-md-4">
-                      <div className="form-group">
-                        <label>First Name <span className="text-danger">*</span></label>
-                        <input
-                          type="text"
-                          className="form-control"
-                          name="first_name"
-                          value={form.first_name}
-                          onChange={onChange}
-                          placeholder="First Name"
-                          required
-                          maxLength={30}
-                        />
-                      </div>
-                    </div>
-                    <div className="col-md-4">
-                      <div className="form-group">
-                        <label>Last Name <span className="text-danger">*</span></label>
-                        <input
-                          type="text"
-                          className="form-control"
-                          name="last_name"
-                          value={form.last_name}
-                          onChange={onChange}
-                          placeholder="Last Name"
-                          required
-                          maxLength={30}
-                        />
-                      </div>
-                    </div>
-                    <div className="col-md-4">
-                      <div className="form-group">
-                        <label>Email <span className="text-danger">*</span></label>
-                        <input
-                          type="email"
-                          className="form-control"
-                          name="email"
-                          value={form.email}
-                          onChange={onChange}
-                          placeholder="Email"
-                          required
-                          maxLength={50}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="col-md-4">
-                      <div className="form-group position-relative mb-2">
-                        <label>Password <span className="text-danger">*</span></label>
-                        <input
-                          type={showPwd ? "text" : "password"}
-                          className="form-control"
-                          name="password"
-                          value={form.password}
-                          onChange={onChange}
-                          placeholder="Password"
-                          required
-                          maxLength={50}
-                          id="password"
-                        />
-                        <span className="position-absolute end-0 pe-3" style={{ top: "60%" }}>
-                          <i
-                            className={`fa ${showPwd ? "fa-eye-slash" : "fa-eye"}`}
-                            style={{ cursor: "pointer" }}
-                            onClick={() => setShowPwd((s) => !s)}
-                          ></i>
-                        </span>
-                      </div>
-                    </div>
-                    <div className="col-md-4">
-                      <div className="form-group position-relative mb-2">
-                        <label>Confirm Password <span className="text-danger">*</span></label>
-                        <input
-                          type={showConfirmPwd ? "text" : "password"}
-                          className="form-control"
-                          name="confirm_password"
-                          value={form.confirm_password}
-                          onChange={onChange}
-                          placeholder="Confirm Password"
-                          required
-                          maxLength={50}
-                          id="confirm_password"
-                          ref={confirmRef}
-                        />
-                        <span className="position-absolute end-0 pe-3" style={{ top: "60%" }}>
-                          <i
-                            className={`fa ${showConfirmPwd ? "fa-eye-slash" : "fa-eye"}`}
-                            style={{ cursor: "pointer" }}
-                            onClick={() => setShowConfirmPwd((s) => !s)}
-                          ></i>
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="col-md-4">
-                      <div className="form-group">
-                        <label>Phone Number</label>
-                        <input
-                          type="text"
-                          className="form-control"
-                          name="phone"
-                          value={form.phone}
-                          onChange={onChange}
-                          placeholder="Phone Number"
-                          maxLength={20}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="col-md-4">
-                      <div className="form-group mb-2">
-                        <label>Profile Photo</label>
-                        <input type="file" className="form-control" placeholder="Profile Image"
-                          name="profile_image" accept="image/*"
-                          onChange={(e) => setProfileImage(e.target.files?.[0] || null)} />
-                      </div>
-                    </div>
-
-                    <div className="col-md-4">
-                      <div className="form-group mb-2">
-                        <label>City</label>
-                        <input
-                          type="text"
-                          className="form-control"
-                          name="city"
-                          value={form.city}
-                          onChange={onChange}
-                          placeholder="City"
-                          maxLength={50}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="col-md-4">
-                      <div className="form-group mb-2">
-                        <label>Country</label>
-                        <input
-                          type="text"
-                          className="form-control"
-                          name="country"
-                          value={form.country}
-                          onChange={onChange}
-                          placeholder="Country"
-                          maxLength={50}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="col-md-4">
-                      <div className="form-group mb-2">
-                        <label>Postal Code</label>
-                        <input
-                          type="text"
-                          className="form-control"
-                          name="zip_code"
-                          value={form.zip_code}
-                          onChange={onChange}
-                          placeholder="Postal Code"
-                          maxLength={10}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="col-md-4">
-                      <div className="form-group mb-2">
-                        <label>Address</label>
-                        <input
-                          type="text"
-                          className="form-control"
-                          name="address"
-                          value={form.address}
-                          onChange={onChange}
-                          placeholder="Address"
-                          maxLength={150}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="col-md-4" id="assign-div">
-                      <div className="form-group">
-                        <label>Assign Role <span className="text-danger">*</span></label>
-                        <select
-                          className="form-select"
-                          name="role_id"
-                          value={form.role_id}
-                          onChange={onChange}
-                          required
-                        >
-                          <option value="">Select Role</option>
-                          {roles.map((r) => (
-                            <option key={r._id} value={r._id}>{r.role_name}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-
-                    {/* Kaupapa Māori multi fields */}
-                    <div className="col-md-6">
-                      <div className="form-group mb-2">
-                        <label>Hapū (comma or newline separated)</label>
-                        <textarea className="form-control" rows={2} name="hapu" value={form.hapu} onChange={onChange} placeholder="e.g., Ngāti, ..."></textarea>
-                      </div>
-                    </div>
-                    <div className="col-md-6">
-                      <div className="form-group mb-2">
-                        <label>Iwi (comma or newline separated)</label>
-                        <textarea className="form-control" rows={2} name="iwi" value={form.iwi} onChange={onChange} placeholder="e.g., Ngāi Tahu, ..."></textarea>
-                      </div>
-                    </div>
-                    <div className="col-md-4">
-                      <div className="form-group mb-2">
-                        <label>Marae (comma or newline separated)</label>
-                        <textarea className="form-control" rows={2} name="marae" value={form.marae} onChange={onChange}></textarea>
-                      </div>
-                    </div>
-                    <div className="col-md-4">
-                      <div className="form-group mb-2">
-                        <label>Maunga (comma or newline separated)</label>
-                        <textarea className="form-control" rows={2} name="maunga" value={form.maunga} onChange={onChange}></textarea>
-                      </div>
-                    </div>
-                    <div className="col-md-4">
-                      <div className="form-group mb-2">
-                        <label>Awa (comma or newline separated)</label>
-                        <textarea className="form-control" rows={2} name="awa" value={form.awa} onChange={onChange}></textarea>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="col-12 mt-3">
-                    <div className="form-check">
-                      <input
-                        type="checkbox"
-                        className="form-check-input"
-                        name="emailNow"
-                        id="emailUserNow"
-                        checked={emailUserNow}
-                        onChange={(e) => setEmailUserNow(e.target.checked)}
-                        style={{marginLeft: "0px"}}
-                      />
-                      <label 
-                         className="form-check-label" 
-                         htmlFor="emailUserNow" 
-                         style={{ cursor: "pointer",marginLeft: "25px", fontSize: "14px",padding: '5px' }}>
-                        Send email now
-                      </label>
-                    </div>
-                  </div>
-
-
-                  <div className="modal-footer1 text-center mt-2">
-                    <button type="button" className="btn btn-danger btn-rounded btn-fw" onClick={() => navigate("/users")}>Cancel</button>
-                    <button type="submit" disabled={loading || !canSubmit} style={{ marginLeft: '10px' }} className="btn btn-primary btn-rounded btn-fw">{loading ? "Saving..." : "Save"}</button>
-                  </div>
-                </form>
-              </div>
+          <form onSubmit={(e) => onSubmit(e, navigate)} noValidate>
+            <div className="row">
+              <UserBasicFields form={form} onChange={onChange} />
+              <UserPasswordFields form={form} onChange={onChange} confirmRef={confirmRef} />
+              <UserContactFields form={form} onChange={onChange} />
+              <UserProfileImage profileImage={profileImage} setProfileImage={setProfileImage} />
+              <UserLocationFields form={form} onChange={onChange} />
+              <UserRoleField roles={roles} form={form} onChange={onChange} />
+              <UserKaupapaFields form={form} onChange={onChange} />
             </div>
-          </div>
+
+            <div className="form-check mt-3">
+              <input
+                type="checkbox"
+                checked={emailUserNow}
+                className="form-check-input"
+                style={{marginLeft: '4px',marginRight: '4px'}}
+                onChange={(e) => setEmailUserNow(e.target.checked)}
+              />
+              <label className="form-check-label ms-2 ml-5" style={{padding: '6px 5px'}}>Send email now</label>
+            </div>
+
+            <div className="text-center mt-3">
+              <button
+                type="button"
+                className="btn btn-danger me-2"
+                onClick={() => navigate("/users")}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={!canSubmit || loading}
+              >
+                {loading ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </form>
         </div>
       </section>
     </>
@@ -448,5 +103,3 @@ const CreateUser = () => {
 };
 
 export default CreateUser;
-
-

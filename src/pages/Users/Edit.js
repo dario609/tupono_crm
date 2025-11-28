@@ -2,16 +2,8 @@ import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import RolesApi from "../../api/rolesApi";
 import UsersApi from "../../api/usersApi";
+import { formatPhone, onlyLetters, onlyDigits } from "../../utils/formatPhone";
 
-const onlyLetters = (s) => s.replace(/[^a-zA-Z\s]/g, "");
-const onlyDigits = (s) => s.replace(/\D/g, "");
-const formatPhone = (s) => {
-  const d = onlyDigits(s).slice(0, 10);
-  const a = d.slice(0, 3), b = d.slice(3, 6), c = d.slice(6, 10);
-  if (d.length <= 3) return a;
-  if (d.length <= 6) return `(${a}) ${b}`;
-  return `(${a}) ${b}-${c}`;
-};
 const formatZip = (s) => onlyDigits(s).slice(0, 10);
 
 const EditUser = () => {
