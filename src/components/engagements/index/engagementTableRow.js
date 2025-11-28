@@ -31,6 +31,7 @@ export default function EngagementTableRow({ row, sn, handleEdit, handleDelete, 
             <td>{row.engage_type || "-"}</td>
             <td>{row.purpose || "-"}</td>
             <td>{row.engage_num || "-"}</td>
+            <td>{row.total_hours || "-"}</td>
             <td>{row.hapus.map(h => h.name).join(", ") || "-"}</td>
             <td>{row.project?.name || "-"}</td>
             <td style={{ maxWidth: 250 }}>{row.outcome}</td>

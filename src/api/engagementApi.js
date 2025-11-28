@@ -12,6 +12,10 @@ const EngagementApi = {
       headers: { "Content-Type": "multipart/form-data" },
     }),
   remove: (id) => api.delete(`/admin/engagements/${id}`),
+  downloadTemplate: () =>
+    api.get("/admin/engagements/template", {
+      responseType: "blob",
+    }),
 };
 
 export default EngagementApi;

@@ -10,6 +10,8 @@ import validateEngagement from "../../utils/validators/engagements";
 import EngagementCreateForm from "../../components/engagements/create/engagementCreateForm";
 import EngageCreateNotification from "../../components/engagements/create/engageCreateNotification";
 import EngageCreateHeader from "../../components/engagements/create/engageCreateHeader";
+import { calculateTotalHours, validateTimeRange } from "../../utils/time";
+import Swal from "sweetalert2";
 
 
 const initialForm = {
@@ -46,58 +48,6 @@ export default function EngagementTrackerPage() {
         return Object.keys(validateErrors).length === 0;
     };
 
-    // Calculate total hours from time_start and time_finish
-    const calculateTotalHours = (startTime, finishTime) => {
-        if (!startTime || !finishTime || startTime === "00:00" || finishTime === "00:00") {
-            return "";
-        }
-
-        // Parse time strings to get hours and minutes
-        const [startHours, startMinutes] = startTime.split(':').map(Number);
-        const [finishHours, finishMinutes] = finishTime.split(':').map(Number);
-
-        // Convert to total minutes for easier calculation
-        const startTotalMinutes = startHours * 60 + startMinutes;
-        let finishTotalMinutes = finishHours * 60 + finishMinutes;
-
-        // Handle case where finish time is next day (e.g., start 23:00, finish 01:00)
-        if (finishTotalMinutes < startTotalMinutes) {
-            finishTotalMinutes += 24 * 60; // Add 24 hours in minutes
-        }
-
-        // Calculate difference in minutes
-        const diffMinutes = finishTotalMinutes - startTotalMinutes;
-
-        // Convert to hours with proper decimal (60 minutes = 1 hour)
-        const totalHours = diffMinutes / 60;
-
-        // Round to 2 decimal places
-        return Math.round(totalHours * 100) / 100;
-    };
-
-    // Validate that time_finish is later than time_start
-    const validateTimeRange = (startTime, finishTime) => {
-        if (!startTime || !finishTime || startTime === "00:00" || finishTime === "00:00") {
-            return { isValid: true, error: "" };
-        }
-
-        const [startHours, startMinutes] = startTime.split(':').map(Number);
-        const [finishHours, finishMinutes] = finishTime.split(':').map(Number);
-
-        const startTotalMinutes = startHours * 60 + startMinutes;
-        let finishTotalMinutes = finishHours * 60 + finishMinutes;
-
-        // Check if finish is on the same day and later than start
-        if (finishTotalMinutes <= startTotalMinutes) {
-            // Check if it's a next-day scenario (e.g., 23:00 to 01:00)
-            const nextDayFinish = finishTotalMinutes + (24 * 60);
-            if (nextDayFinish <= startTotalMinutes) {
-                return { isValid: false, error: "Time Finish must be later than Time Start" };
-            }
-        }
-
-        return { isValid: true, error: "" };
-    };
 
     // Auto-calculate total hours when time_start or time_finish changes
     useEffect(() => {
@@ -134,6 +84,23 @@ export default function EngagementTrackerPage() {
             });
         }
     }, [form.time_start, form.time_finish]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const handleDownloadTemplate = async () => {
+        try {
+            const response = await EngagementApi.downloadTemplate();
+            const blob = new Blob([response.data]);
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.setAttribute("download", "Meeting_Minutes_Template.dotx");
+            document.body.appendChild(link);
+            link.click();
+            link.parentNode.removeChild(link);
+            window.URL.revokeObjectURL(url);
+        } catch (err) {
+            Swal.fire("Error", "Unable to download template", "error");
+        }
+    };
 
     useEffect(() => {
         setLoading(true);
@@ -240,6 +207,7 @@ export default function EngagementTrackerPage() {
                     handleSave={handleSave}
                     projects={projects}
                     hapus={hapus}
+                    onDownloadTemplate={handleDownloadTemplate}
                 />
             </div>
         </div>

@@ -5,13 +5,13 @@ import EngageNumberForm from "./engageNumber";
 import EngageProjectForm from "./engageProject";
 import EngageHapuForm from "./engageHapu";
 import EngageOutcomeForm from "./engageOutcome";
-import EngageMinutesForm from "./engageMinutes";
+import EngageAttachForm from "../update/EngageAttachForm";
 import EngageAddCalendarForm from "./engageAddCalendar";
 import EngageTotalHours from "./engageTotalHours";
 import EngageTimeSelector from "./engageTimeSelector";
 import "../../../styles/engagementAdd.css";
 
-export default function EngagementCreateForm({ form, errors, setForm, handleSave, projects, hapus, saving }) {
+export default function EngagementCreateForm({ form, errors, setForm, handleSave, projects, hapus, saving, onDownloadTemplate }) {
 
     const addHapu = (id) => {
         if (!id) return;
@@ -95,10 +95,11 @@ export default function EngagementCreateForm({ form, errors, setForm, handleSave
                     onChange={(value) => setForm({ ...form, outcome: value })}
                 />
 
-                <EngageMinutesForm
+                <EngageAttachForm
                     value={form.meeting_minutes}
                     error={errors.meeting_minutes}
                     onChange={(value) => setForm({ ...form, meeting_minutes: value })}
+                    onDownloadTemplate={onDownloadTemplate}
                 />
 
                 <EngageAddCalendarForm

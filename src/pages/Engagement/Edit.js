@@ -1,14 +1,26 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
+import Swal from "sweetalert2";
+
 import EngagementApi from "../../api/engagementApi";
 import HapuListsApi from "../../api/hapulistsApi";
 import ProjectsApi from "../../api/projectsApi";
 import { EditProjectSkeleton } from "../../components/common/SkelentonTableRow";
-import Swal from "sweetalert2";
 import EngageHapuForm from "../../components/engagements/create/engageHapu";
 import EngageTotalHours from "../../components/engagements/create/engageTotalHours";
 import EngageTimeSelector from "../../components/engagements/create/engageTimeSelector";
 import EngageDateForm from "../../components/engagements/create/engageDateForm";
+import UpdateEngageBtn from "../../components/engagements/update/updateEngageBtn";
+import EngageTypeForm from "../../components/engagements/update/EngageTypeForm";
+import EngagePurposeForm from "../../components/engagements/update/EngagePurposeForm";
+import EngagePeopleForm from "../../components/engagements/update/EngagePeopleForm";
+import EngageProjectForm from "../../components/engagements/update/EngageProjectForm";
+import EngageOutcomeForm from "../../components/engagements/update/EngageOutcomeForm";
+import EngageAttachForm from "../../components/engagements/update/EngageAttachForm";
+import validateEngagement from "../../utils/validators/engagements";
+import { calculateTotalHours, validateTimeRange } from "../../utils/time";
+
+
 import "../../styles/engagementAdd.css";
 
 const initialForm = {
@@ -31,7 +43,6 @@ export default function EngagementTrackerEditPage() {
 
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-
     const [form, setForm] = useState(initialForm);
     const [hapus, setHapus] = useState([]);
     const [projects, setProjects] = useState([]);
@@ -40,21 +51,10 @@ export default function EngagementTrackerEditPage() {
     const [originalMeetingMinutes, setOriginalMeetingMinutes] = useState(null);
 
     const validateForm = () => {
-        const e = {};
-
-        if (!form.engage_date) e.engage_date = "Date is required";
-        if (!form.engage_type) e.engage_type = "Engagement Type is required";
-        if (!form.purpose) e.purpose = "Purpose is required";
-        if (!form.engage_num || form.engage_num <= 0)
-            e.engage_num = "Number of people is required";
-        if (!form.hapus || form.hapus.length === 0)
-            e.hapus = "Hapū is required";
-        if (!form.project) e.project = "Project is required";
-
+        const e = validateEngagement(form);
         setErrors(e);
         return Object.keys(e).length === 0;
     };
-
     // Load engagement + lists
     useEffect(() => {
         (async () => {
@@ -85,9 +85,9 @@ export default function EngagementTrackerEditPage() {
                     time_finish: e.time_finish || "00:00",
                 });
 
-                // Store original meeting minutes path
+                // Store original meeting minutes filename (prefer filename over path)
                 if (e.meeting_minutes) {
-                    setOriginalMeetingMinutes(e.meeting_minutes);
+                    setOriginalMeetingMinutes(e.meeting_minutes_filename || e.meeting_minutes);
                 }
             } catch (err) {
                 Swal.fire("Error", "Unable to load engagement", "error");
@@ -110,59 +110,6 @@ export default function EngagementTrackerEditPage() {
             ...f,
             hapus: f.hapus.filter((x) => x !== id),
         }));
-    };
-
-    // Calculate total hours from time_start and time_finish
-    const calculateTotalHours = (startTime, finishTime) => {
-        if (!startTime || !finishTime || startTime === "00:00" || finishTime === "00:00") {
-            return "";
-        }
-
-        // Parse time strings to get hours and minutes
-        const [startHours, startMinutes] = startTime.split(':').map(Number);
-        const [finishHours, finishMinutes] = finishTime.split(':').map(Number);
-
-        // Convert to total minutes for easier calculation
-        const startTotalMinutes = startHours * 60 + startMinutes;
-        let finishTotalMinutes = finishHours * 60 + finishMinutes;
-
-        // Handle case where finish time is next day (e.g., start 23:00, finish 01:00)
-        if (finishTotalMinutes < startTotalMinutes) {
-            finishTotalMinutes += 24 * 60; // Add 24 hours in minutes
-        }
-
-        // Calculate difference in minutes
-        const diffMinutes = finishTotalMinutes - startTotalMinutes;
-
-        // Convert to hours with proper decimal (60 minutes = 1 hour)
-        const totalHours = diffMinutes / 60;
-
-        // Round to 2 decimal places
-        return Math.round(totalHours * 100) / 100;
-    };
-
-    // Validate that time_finish is later than time_start
-    const validateTimeRange = (startTime, finishTime) => {
-        if (!startTime || !finishTime || startTime === "00:00" || finishTime === "00:00") {
-            return { isValid: true, error: "" };
-        }
-
-        const [startHours, startMinutes] = startTime.split(':').map(Number);
-        const [finishHours, finishMinutes] = finishTime.split(':').map(Number);
-
-        const startTotalMinutes = startHours * 60 + startMinutes;
-        let finishTotalMinutes = finishHours * 60 + finishMinutes;
-
-        // Check if finish is on the same day and later than start
-        if (finishTotalMinutes <= startTotalMinutes) {
-            // Check if it's a next-day scenario (e.g., 23:00 to 01:00)
-            const nextDayFinish = finishTotalMinutes + (24 * 60);
-            if (nextDayFinish <= startTotalMinutes) {
-                return { isValid: false, error: "Time Finish must be later than Time Start" };
-            }
-        }
-
-        return { isValid: true, error: "" };
     };
 
     // Auto-calculate total hours when time_start or time_finish changes
@@ -232,10 +179,26 @@ export default function EngagementTrackerEditPage() {
                 navigate("/engagement-tracker");
             }
         } catch (err) {
-            console.log('err', err)
             Swal.fire("Error", err.response?.data?.message || "Server error", "error");
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handleDownloadTemplate = async () => {
+        try {
+            const response = await EngagementApi.downloadTemplate();
+            const blob = new Blob([response.data]);
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.setAttribute("download", "Meeting_Minutes_Template.dotx");
+            document.body.appendChild(link);
+            link.click();
+            link.parentNode.removeChild(link);
+            window.URL.revokeObjectURL(url);
+        } catch (err) {
+            Swal.fire("Error", "Unable to download template", "error");
         }
     };
 
@@ -259,78 +222,40 @@ export default function EngagementTrackerEditPage() {
                 )}
 
                 <div className="card-body pt-0">
-                    <h5 className="fw-semibold mb-3 mt-2">Update Engagement</h5>
+                    <h5 className="fw-semibold mb-3 mt-2" >Update Engagement</h5>
 
                     <div className="row">
-                        {/* Date */}
+
                         <EngageDateForm
                             value={form.engage_date}
                             error={errors.engage_date}
                             onChange={(value) => setForm({ ...form, engage_date: value })}
                         />
 
-                        {/* Type */}
-                        <div className="col-md-4 mb-3">
-                            <label className="form-label">Type of Engagement</label>
-                            <select
-                                className={`form-control ${errors.engage_type ? "is-invalid" : ""}`}
-                                value={form.engage_type}
-                                onChange={(e) => setForm({ ...form, engage_type: e.target.value })}
-                            >
-                                <option value="">Select Engagement Type</option>
-                                <option>In person meeting</option>
-                                <option>Online meeting</option>
-                                <option>Telephone Call</option>
-                            </select>
-                            {errors.engage_type && <div className="invalid-feedback">{errors.engage_type}</div>}
-                        </div>
+                        <EngageTypeForm
+                            value={form.engage_type}
+                            error={errors.engage_type}
+                            onChange={(value) => setForm({ ...form, engage_type: value })}
+                        />
 
-                        {/* Purpose */}
-                        <div className="col-md-4 mb-3">
-                            <label className="form-label">Purpose of Engagement</label>
-                            <select
-                                className={`form-control ${errors.purpose ? "is-invalid" : ""}`}
-                                value={form.purpose}
-                                onChange={(e) => setForm({ ...form, purpose: e.target.value })}
-                            >
-                                <option value="">Select Purpose</option>
-                                <option>Monthly Hapū Hui</option>
-                                <option>Workshop Meeting</option>
-                                <option>Review Meeting</option>
-                                <option>Other</option>
-                            </select>
-                            {errors.purpose && <div className="invalid-feedback">{errors.purpose}</div>}
-                        </div>
+                        <EngagePurposeForm
+                            value={form.purpose}
+                            error={errors.purpose}
+                            onChange={(value) => setForm({ ...form, purpose: value })}
+                        />
 
-                        {/* People */}
-                        <div className="col-md-4 mb-3">
-                            <label className="form-label">Number of People in Engagement</label>
-                            <input
-                                type="number"
-                                className={`form-control ${errors.engage_num ? "is-invalid" : ""}`}
-                                value={form.engage_num}
-                                onChange={(e) => setForm({ ...form, engage_num: e.target.value })}
-                            />
-                            {errors.engage_num && <div className="invalid-feedback">{errors.engage_num}</div>}
-                        </div>
+                        <EngagePeopleForm
+                            value={form.engage_num}
+                            error={errors.engage_num}
+                            onChange={(value) => setForm({ ...form, engage_num: value })}
+                        />
 
-                        {/* Projects */}
-                        <div className="col-md-4 mb-3">
-                            <label className="form-label">Allocated Project</label>
-                            <select
-                                className={`form-control ${errors.project ? "is-invalid" : ""}`}
-                                value={form.project}
-                                onChange={(e) => setForm({ ...form, project: e.target.value })}
-                            >
-                                <option value="">Select Project</option>
-                                {projects.map((p) => (
-                                    <option key={p._id} value={p._id}>
-                                        {p.name}
-                                    </option>
-                                ))}
-                            </select>
-                            {errors.project && <div className="invalid-feedback">{errors.project}</div>}
-                        </div>
+                        <EngageProjectForm
+                            value={form.project}
+                            error={errors.project}
+                            onChange={(value) => setForm({ ...form, project: value })}
+                            projects={projects}
+                        />
                         {/* Hapu multi-select */}
                         <EngageHapuForm
                             value={form.hapus}
@@ -364,49 +289,21 @@ export default function EngagementTrackerEditPage() {
                             label="Time Finish"
                         />
 
-
-
-                        {/* Outcome */}
-                        <div className="col-12 mb-3">
-                            <label className="form-label">Outcome of Meeting / Engagement</label>
-                            <textarea
-                                rows={4}
-                                className={`form-control ${errors.outcome ? "is-invalid" : ""}`}
-                                value={form.outcome}
-                                onChange={(e) => setForm({ ...form, outcome: e.target.value })}
-                            ></textarea>
-                            {errors.outcome && <div className="invalid-feedback">{errors.outcome}</div>}
-                        </div>
-
-                        {/* Attachment */}
-                        <div className="col-12 mb-3">
-                            <label className="form-label">Replace Meeting Minutes</label>
-                            <input
-                                type="file"
-                                className={`form-control ${errors.meeting_minutes ? "is-invalid" : ""}`}
-                                onChange={(e) => setForm({ ...form, meeting_minutes: e.target.files[0] })}
-                            />
-                            {errors.meeting_minutes && (
-                                <div className="invalid-feedback">{errors.meeting_minutes}</div>
-                            )}
-                            {originalMeetingMinutes && (
-                                <div className="mt-2">
-                                    <small className="text-muted">Current file: </small>
-                                    <span style={{ color: "#667eea", fontWeight: 500 }}>
-                                        {originalMeetingMinutes.split('/').pop() || originalMeetingMinutes}
-                                    </span>
-                                </div>
-                            )}
-                        </div>
+                        <EngageOutcomeForm
+                            value={form.outcome}
+                            error={errors.outcome}
+                            onChange={(value) => setForm({ ...form, outcome: value })}
+                        />
+                        <EngageAttachForm
+                            value={form.meeting_minutes}
+                            error={errors.meeting_minutes}
+                            onChange={(value) => setForm({ ...form, meeting_minutes: value })}
+                            onDownloadTemplate={handleDownloadTemplate}
+                            originalFile={originalMeetingMinutes}
+                        />
                     </div>
 
-                    <button
-                        className="btn btn-primary btn-rounded mt-2"
-                        disabled={saving}
-                        onClick={handleSave}
-                    >
-                        {saving ? "Saving..." : "Update Engagement"}
-                    </button>
+                    <UpdateEngageBtn saving={saving} handleSave={handleSave} />
                 </div>
             </div>
         </div>

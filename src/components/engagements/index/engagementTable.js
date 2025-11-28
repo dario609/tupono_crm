@@ -22,6 +22,7 @@ export default function EngagementTable({
                         <th>Type</th>
                         <th>Purpose</th>
                         <th>People</th>
+                        <th>Total Hours</th>
                         <th>Hapū</th>
                         <th>Project</th>
                         <th>Outcome</th>
@@ -33,9 +34,9 @@ export default function EngagementTable({
                     {loading ? (
                         <SkeletonTableRow
                             rows={5}
-                            cols={9}
+                            cols={10}
                             widths={[
-                                "5%", null, null, null, null, null, null, "250px", "140px"
+                                "5%", null, null, null, null, null, null, null,"250px", "140px"
                             ]}
                         />
                     ) : rows.length > 0 ? (
