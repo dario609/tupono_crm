@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-export default function AssignHapu({ hapus = [], selectedHapus = [], onAdd, onRemove, disabled = false }) {
+export default function AssignHapu({ hapus = [], selectedHapus = [], onAdd, onRemove, disabled = false, belongTo='project' }) {
     const [selectedHapu, setSelectedHapu] = useState("");
 
     const handleAddHapu = (id) => {
@@ -14,9 +14,11 @@ export default function AssignHapu({ hapus = [], selectedHapus = [], onAdd, onRe
         .filter(Boolean);
 
     return (
-        <div className="col-md-4">
-            <div className="form-group mb-2">
-                <label>Assign Hapū (multiple)</label>
+        <div className={`col-md-4 mt-2 ${belongTo === 'assessment' ? 'col-md-6 mt-3' : ''}`}>
+                { 
+                  belongTo === 'assessment' 
+                  ? <label className="mb-2">Participants</label> 
+                  : <label className="mb-1">Assign Hapū (multiple)</label>}
                 <select
                     className="form-control"
                     value={selectedHapu}
@@ -52,6 +54,5 @@ export default function AssignHapu({ hapus = [], selectedHapus = [], onAdd, onRe
                     ))}
                 </div>
             </div>
-        </div>
     );
 }

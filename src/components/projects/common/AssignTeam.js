@@ -29,22 +29,19 @@ export default function AssignTeam({ teams = [], teamMembers = [], team_id = "",
 
     if (loading) {
         return (
-            <div className="col-md-4">
-                <div className="form-group mb-2">
+            <div className="col-md-4 mt-2">
                     <label>Assign Team</label>
                     <div className="skeleton skeleton-line" style={{ height: '38px', borderRadius: '4px' }} />
                     <div className="mt-3 d-flex flex-wrap gap-2">
                         <div className="skeleton skeleton-line" style={{ width: '120px', height: '32px', borderRadius: '20px' }} />
                     </div>
-                </div>
             </div>
         );
     }
 
     return (
-        <div className="col-md-4">
-            <div className="form-group mb-2">
-                <label>Assign Team</label>
+        <div className="col-md-4 mt-2">
+                <label className="mb-1">Assign Team</label>
                 <select
                     className="form-control form-select"
                     value={selectedTeam}
@@ -83,11 +80,10 @@ export default function AssignTeam({ teams = [], teamMembers = [], team_id = "",
                 {teamMembers.length > 0 && (
                     <div className="mt-2" style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         {teamMembers.map((m) => (
-                            <span key={`tm-${m._id}`} className="badge badge-primary" style={{ padding: '3px 10px' }}>{m.name}</span>
+                            <span key={`tm-${m._id}`} className="badge badge-primary badge-pill" style={{ padding: '4px 10px' }}>{m.name}</span>
                         ))}
                     </div>
                 )}
             </div>
-        </div>
     )
 }

@@ -1,12 +1,19 @@
 import { TaskStatusBadge } from "../../../utils/tasks/taskFormatters";
+import ActionButton from "../../common/ActionButton";
+import DeleteIcon from "../../common/icons/DeleteIcon"; 
+import EditIcon from "../../common/icons/EditIcon";
+
 
 const ProjectTasks = ({ tasks, editTask, deleteTask, taskStatusCounts, openTaskModal, getUserName }) => {
   return (
     <div className="col-md-12 mt-4">
       <div className="d-flex justify-content-between">
-        <h5>Tasks ({tasks.length})</h5>
-
-        <button className="btn btn-primary btn-sm" onClick={openTaskModal}>+ Add Task</button>
+        <h5>Tasks ({tasks.length}) </h5>
+        <button 
+         type="button" 
+         className="btn btn-primary btn-sm" 
+         onClick={openTaskModal}
+        > + Add Task </button>
       </div>
 
       <table className="table table-bordered mt-3">
@@ -14,10 +21,10 @@ const ProjectTasks = ({ tasks, editTask, deleteTask, taskStatusCounts, openTaskM
           <tr>
             <th>SN</th>
             <th>Assignee</th>
-            <th>Duration</th>
+            <th>Hours</th>
             <th>Status</th>
-            <th>Start</th>
-            <th>End</th>
+            <th>Start Date</th>
+            <th>End Date</th>
             <th>Content</th>
             <th>Description</th>
             <th>Actions</th>
@@ -42,8 +49,20 @@ const ProjectTasks = ({ tasks, editTask, deleteTask, taskStatusCounts, openTaskM
               <td>{t.content || "-"}</td>
               <td>{t.description || "-"}</td>
               <td>
-                <button className="btn btn-success btn-sm me-1" onClick={() => editTask(i)}>Edit</button>
-                <button className="btn btn-danger btn-sm" onClick={() => deleteTask(i)}>Delete</button>
+                <div className="d-flex justify-content-center gap-2">
+                  <ActionButton
+                    icon={<EditIcon />}
+                    variant="success"
+                    title="Edit"
+                    onClick={() => editTask(i)}
+                  />
+                  <ActionButton
+                    icon={<DeleteIcon />}
+                    variant="danger"
+                    title="Delete"
+                    onClick={() => deleteTask(i)}
+                  />
+                </div>
               </td>
             </tr>
           ))}

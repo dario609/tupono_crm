@@ -84,6 +84,7 @@ function App() {
                 <Route path="/projects/:id/edit" element={<EditProject />} />
                 <Route path="/assessment" element={<AssessmentList />} />
                 <Route path="/assessment/add" element={<AddAssessment />} />
+                <Route path="/assessment/:id/edit" element={<AddAssessment />} />
                 <Route path="/teams" element={<TeamsPage />} />
                 <Route path="/teams/create" element={<CreateTeam />} />
                 <Route path="/teams/:id/edit" element={<EditTeam />} />

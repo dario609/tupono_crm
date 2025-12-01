@@ -1,4 +1,3 @@
-
 export const Pagination = ({
     page,
     lastPage,
@@ -9,14 +8,12 @@ export const Pagination = ({
       <nav aria-label="Pagination">
         <ul className="pagination justify-content-end">
   
-          {/* Prev Button */}
           <li className={`page-item ${page <= 1 ? "disabled" : ""}`}>
             <button className="page-link" onClick={() => page > 1 && onPageChange(page - 1)}>
               <i className="fa fa-angle-left"></i>
             </button>
           </li>
   
-          {/* Number Buttons */}
           {pages.map((p, i) => (
             <li
               key={i}
@@ -28,7 +25,6 @@ export const Pagination = ({
             </li>
           ))}
   
-          {/* Next Button */}
           <li className={`page-item ${page >= lastPage ? "disabled" : ""}`}>
             <button className="page-link" onClick={() => page < lastPage && onPageChange(page + 1)}>
               <i className="fa fa-angle-right"></i>

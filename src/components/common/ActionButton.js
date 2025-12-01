@@ -9,11 +9,15 @@ export default function ActionButton({
 }) {
     return (
         <button
+            type="button"
             className={`btn btn-sm btn-rounded btn-icon badge-${variant} ${className}`}
             title={title}
             onClick={onClick}
+            style={{ minWidth: "32px", minHeight: "32px", display: "flex", alignItems: "center", justifyContent: "center" }}
         >
-            {icon}
+            <span style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%" }}>
+                {icon}
+            </span>
         </button>
     );
 }

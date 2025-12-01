@@ -140,13 +140,34 @@ const Sidebar = ({ user, permissions, supportBadge }) => {
           </li>
         )}
 
-        {/* Assessment Feedback - separate entry */}
+        {/* Assessment Feedback */}
         {canView(permissionsInputLabel.assessment_management) && (
           <li className="nav-item">
-            <NavLink to="/assessment" className="nav-link">
+            <a
+              href="#!"
+              className="nav-link"
+              onClick={() => toggleMenu("assessment")}
+            >
               <i className="mdi mdi-clipboard-text-search-outline text-warning menu-icon"></i>
               <span className="menu-title">Assessment Management</span>
-            </NavLink>
+              <i className="menu-arrow"></i>
+            </a>
+            <div className={`collapse ${openMenu === "assessment" ? "show" : ""}`}>
+              <ul className="nav flex-column sub-menu">
+                {canAdd(permissionsInputLabel.assessment_management) && (
+                  <li className="nav-item">
+                    <NavLink to="/assessment/add" className="nav-link">
+                      <i className="bi bi-chevron-double-right"></i> Create Assessment
+                    </NavLink>
+                  </li>
+                )}
+                <li className="nav-item">
+                  <NavLink to="/assessment" className="nav-link">
+                    <i className="bi bi-chevron-double-right"></i> All Assessments
+                  </NavLink>
+                </li>
+              </ul>
+            </div>
           </li>
         )}
 

@@ -152,62 +152,58 @@ const ProjectsPage = () => {
 
   return (
     <div className="card mt-3">
-      <div className="card-header">
-        <div className="d-flex flex-wrap align-items-center justify-content-between gap-2"> 
-          <div className="d-flex align-items-center gap-3 flex-wrap">
-            <h6 className="fw-semibold mb-0">All Projects ({totalAllProjects} Projects)</h6>
+      <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-24 p-3"> 
+        <div className="d-flex align-items-center gap-3 flex-wrap">
+          <h6 className="fw-semibold mb-0">All Projects ({totalAllProjects} Projects)</h6>
+          
             
-              
-            <div className="d-flex align-items-center gap-2" style={{ fontSize: "0.875rem", color: "#6c757d" }}>
-              <span>
-                <span className="badge bg-success me-1" style={{ padding: "2px 6px" }}></span>
-                Active: {statusCounts.active}
-              </span>
-              <span>
-                <span className="badge bg-secondary me-1" style={{ padding: "2px 6px" }}></span>
-                Inactive: {statusCounts.inactive}
-              </span>
-              <span>
-                <span className="badge bg-info me-1" style={{ padding: "2px 6px" }}></span>
-                Complete: {statusCounts.complete}
-              </span>
-            </div>
+          <div className="d-flex align-items-center gap-2" style={{ fontSize: "0.875rem", color: "#6c757d" }}>
+            <span>
+              <span className="badge bg-success me-1" style={{ padding: "2px 6px" }}></span>
+              Active: {statusCounts.active}
+            </span>
+            <span>
+              <span className="badge bg-secondary me-1" style={{ padding: "2px 6px" }}></span>
+              Inactive: {statusCounts.inactive}
+            </span>
+            <span>
+              <span className="badge bg-info me-1" style={{ padding: "2px 6px" }}></span>
+              Complete: {statusCounts.complete}
+            </span>
           </div>
-          <div>
-            <NavLink to="/projects/create" className="btn btn-primary btn-rounded btn-fw" style={{ fontSize: '15px' }}>
-              <i className="menu-icon mdi mdi-account-plus-outline"></i> Add Project
-            </NavLink>
-          </div>
+        </div>
+        <div>
+          <NavLink to="/projects/create" className="btn btn-primary btn-rounded btn-fw" style={{ fontSize: '15px' }}>
+            <i className="menu-icon mdi mdi-account-plus-outline"></i> Add Project
+          </NavLink>
         </div>
       </div>
 
-      <div className="card-body">
-        <div className="row">
-          <div className="col-12 p-0">
-            <ProjectsControl
-              perpage={perpage}
-              setPerpage={setPerpage}
-              search={search}
-              setSearch={setSearch}
-              onSearchKeyDown={onSearchKeyDown}
-              load={load}
-            />
+      <div className="row card-body pt-0">
+        <div className="col-12 p-0">
+          <ProjectsControl
+            perpage={perpage}
+            setPerpage={setPerpage}
+            search={search}
+            setSearch={setSearch}
+            onSearchKeyDown={onSearchKeyDown}
+            load={load}
+          />
 
-            <ProjectsTable
-              loading={loading}
-              rows={rows}
-              page={page}
-              perpage={perpage}
-              handleDelete={handleDelete}
-              navigate={navigate} />
+          <ProjectsTable
+            loading={loading}
+            rows={rows}
+            page={page}
+            perpage={perpage}
+            handleDelete={handleDelete}
+            navigate={navigate} />
 
-            <Pagination
-              page={page}
-              lastPage={lastPage}
-              pages={pagesToShow}
-              onPageChange={handlePageChange}
-            />
-          </div>
+          <Pagination
+            page={page}
+            lastPage={lastPage}
+            pages={pagesToShow}
+            onPageChange={handlePageChange}
+          />
         </div>
       </div>
     </div>
