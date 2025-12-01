@@ -1,14 +1,75 @@
-import React, { useState } from "react";
-import { NavLink } from "react-router-dom";
+import React, { useState, useEffect, useRef } from "react";
+import { NavLink, useNavigate } from "react-router-dom";
 import { rolesLabel } from "../constants";
 import { permissionsInputLabel } from "../constants";
+import { AuthApi } from "../api/authApi";
 
 const Sidebar = ({ user, permissions, supportBadge }) => {
+  const navigate = useNavigate();
   const [openMenu, setOpenMenu] = useState(null);
+  const sidebarRef = useRef(null);
 
   const toggleMenu = (menuId) => {
     setOpenMenu(openMenu === menuId ? null : menuId);
   };
+
+  const handleLogout = async () => {
+    try {
+      const res = await AuthApi.logout();
+      sessionStorage.setItem("logoutMessage", res.msg);
+      // Close sidebar on mobile
+      const sidebar = document.querySelector('.sidebar-offcanvas');
+      if(sidebar) {
+        sidebar.classList.remove('active');
+      }
+      navigate("/");
+    } catch(err) {
+      console.log("Logout Failed", err);
+    }
+  };
+
+  // Close sidebar when clicking outside (mobile view)
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      const sidebar = document.querySelector('.sidebar-offcanvas');
+      if (sidebar && sidebar.classList.contains('active')) {
+        // Check if click is outside sidebar and not on the toggle button
+        const isClickInsideSidebar = sidebarRef.current?.contains(event.target);
+        const isToggleButton = event.target.closest('.navbar-toggler-right') || 
+                               event.target.closest('.navbar-toggler');
+        
+        if (!isClickInsideSidebar && !isToggleButton) {
+          sidebar.classList.remove('active');
+        }
+      }
+    };
+
+    // Close sidebar when clicking on a nav link (mobile only)
+    const handleNavLinkClick = (event) => {
+      const sidebar = document.querySelector('.sidebar-offcanvas');
+      // Only close on mobile (screen width < 992px)
+      if (sidebar && window.innerWidth < 992) {
+        const target = event.target.closest('a.nav-link');
+        // Don't close if it's a dropdown toggle
+        if (target && !target.getAttribute('href')?.startsWith('#!')) {
+          sidebar.classList.remove('active');
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    const navLinks = document.querySelectorAll('.sidebar .nav-link[href]:not([href="#!"])');
+    navLinks.forEach(link => {
+      link.addEventListener('click', handleNavLinkClick);
+    });
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      navLinks.forEach(link => {
+        link.removeEventListener('click', handleNavLinkClick);
+      });
+    };
+  }, []);
 
   const isSuperAdmin = (user?.role_id?.role_name === rolesLabel.superAdmin);
   const canView = (key) => (isSuperAdmin || permissions?.[key]?.is_view === 1);
@@ -16,7 +77,7 @@ const Sidebar = ({ user, permissions, supportBadge }) => {
   const canSeeProjects = isSuperAdmin || permissions?.["task_management"]?.is_view === 1 || !!user;
 
   return (
-    <nav className="sidebar sidebar-offcanvas" id="sidebar">
+    <nav className="sidebar sidebar-offcanvas" id="sidebar" ref={sidebarRef}>
       <ul className="nav">
         <li className="nav-item">
           <NavLink to="/admin/dashboard" className="nav-link">
@@ -305,6 +366,17 @@ const Sidebar = ({ user, permissions, supportBadge }) => {
           </div>
         </li>
 
+        {/* Mobile Sign Out - Only visible on mobile */}
+        <li className="nav-item d-lg-none">
+          <a
+            href="#!"
+            className="nav-link"
+            onClick={handleLogout}
+          >
+            <i className="menu-icon mdi mdi-power text-danger"></i>
+            <span className="menu-title">Sign Out</span>
+          </a>
+        </li>
 
       </ul>
     </nav>

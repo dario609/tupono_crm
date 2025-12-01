@@ -2,6 +2,7 @@ import React from "react";
 import { useAssessmentList } from "../../hooks/assessments/useAssessmentList";
 import AssessmentTable from "../../components/assessments/AssessmentTable";
 import { Pagination } from "../../components/common/Pagination";
+import { NavLink } from "react-router-dom";
 
 const AssessmentList = () => {
   const {
@@ -50,13 +51,13 @@ const AssessmentList = () => {
             ))}
           </select>
 
-          <a href="/assessment/add" className="btn btn-primary btn-rounded px-4">
+          <NavLink to="/assessment/add" className="btn btn-primary btn-rounded px-4">
             Create
-          </a>
+          </NavLink>
         </div>
       </div>
 
-      <div className="card-body p-3">
+      <div className="card-body" style={{ padding: '0px' }}>
         <div className="table-responsive">
           <AssessmentTable
             loading={loading}

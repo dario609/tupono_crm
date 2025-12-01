@@ -7,6 +7,7 @@ import NotificationDropdown from "./NotificationDropdown";
 import { AuthApi } from "../api/authApi";
 import { useNavigate } from "react-router";
 import { useNotifications } from "../context/NotificationProvider";
+import { NavLink } from "react-router-dom";
 
 const Header = ({ user, adminUnreadCount = 0 }) => {
   const navigate = useNavigate();
@@ -50,16 +51,16 @@ const Header = ({ user, adminUnreadCount = 0 }) => {
           </button>
         </div>
         <div>
-          <a className="navbar-brand brand-logo" href="/dashboard">
+          <NavLink className="navbar-brand brand-logo" to="/admin/dashboard">
             <img src={logo} alt="logo" />
-          </a>
-          <a className="navbar-brand brand-logo-mini" href="/dashboard">
+          </NavLink>
+          <NavLink className="navbar-brand brand-logo-mini" to="/admin/dashboard">
             <img
               src={favicon}
               style={{ height: "45px", width: "40px" }}
               alt="logo-mini"
             />
-          </a>
+          </NavLink>
         </div>
       </div>
 
