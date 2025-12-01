@@ -1,0 +1,57 @@
+import { useState } from "react";
+
+export default function AssignHapu({ hapus = [], selectedHapus = [], onAdd, onRemove, disabled = false }) {
+    const [selectedHapu, setSelectedHapu] = useState("");
+
+    const handleAddHapu = (id) => {
+        if (!id) return;
+        setSelectedHapu("");
+        onAdd(id);
+    };
+
+    const selectedHapuObjects = selectedHapus
+        .map((id) => hapus.find((h) => h._id === id))
+        .filter(Boolean);
+
+    return (
+        <div className="col-md-4">
+            <div className="form-group mb-2">
+                <label>Assign Hapū (multiple)</label>
+                <select
+                    className="form-control"
+                    value={selectedHapu}
+                    onChange={(e) => handleAddHapu(e.target.value)}
+                    disabled={disabled}
+                >
+                    <option value="">Select Hapū</option>
+                    {hapus.length > 0 &&
+                        hapus.map((h) => (
+                            <option
+                                key={h._id}
+                                value={h._id}
+                                disabled={selectedHapus.includes(h._id)}
+                            >
+                                {h.name}
+                            </option>
+                        ))
+                    }
+                </select>
+
+                <div className="mt-3 d-flex flex-wrap gap-2">
+                    {selectedHapuObjects.map((h) => (
+                        <div key={h._id} className="hapu-chip">
+                            <span>{h.name}</span>
+                            <button
+                                type="button"
+                                className="remove-btn"
+                                onClick={() => onRemove(h._id)}
+                            >
+                                ×
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+}

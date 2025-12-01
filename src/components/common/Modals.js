@@ -1,5 +1,5 @@
 import Swal from "sweetalert2"
-export default  deleteEngagementModal = async (id) => {
+export const  deleteEngagementModal = async (id) => {
     return await Swal.fire({
         title: "Delete Engagement?",
         text: "This action cannot be undone.",

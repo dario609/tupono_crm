@@ -586,10 +586,20 @@ const split = () => {
                     <button className="btn btn-warning btn-sm" onClick={onSaveTemplate} disabled={saving} title="Save as Template">
                       <span className="label">Save as new Template</span>
                     </button>
-                    <button className="btn btn-success btn-sm" onClick={onUpdateCurrentTemplate} style={{ color: 'white', backgroundColor: 'darkgreen', border: 'none' }} disabled={tplBusy || !selectedTemplate} title="Update Template">
+                    <button 
+                       className="btn btn-success btn-sm" 
+                       onClick={onUpdateCurrentTemplate} 
+                       style={{ color: 'white', backgroundColor: 'darkgreen', border: 'none', visibility: selectedTemplate ? 'visible' : 'hidden' }} 
+                       disabled={tplBusy} 
+                       title="Update Template">
                       <span className="label">Update Template</span>
                     </button>
-                    <button className="btn btn-danger btn-sm text-white" style={{ backgroundColor: 'red', border: 'none' }} onClick={onDeleteTemplate} disabled={delBusy || !selectedTemplate} title="Delete Template">
+                    <button 
+                       className="btn btn-danger btn-sm text-white" 
+                       style={{ backgroundColor: 'red', border: 'none', visibility: selectedTemplate ? 'visible' : 'hidden' }} 
+                       onClick={onDeleteTemplate} 
+                       disabled={delBusy || !selectedTemplate} 
+                       title="Delete Template">
                       <span className="label">Delete Template</span>
                     </button>
                   </div>

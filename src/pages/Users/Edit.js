@@ -2,33 +2,34 @@ import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import RolesApi from "../../api/rolesApi";
 import UsersApi from "../../api/usersApi";
-import { formatPhone, onlyLetters, onlyDigits } from "../../utils/formatPhone";
+import { formatPhone, onlyLetters, formatZip } from "../../utils/formatPhone";
 
-const formatZip = (s) => onlyDigits(s).slice(0, 10);
+
+const initialForm = {
+  first_name: "",
+  last_name: "",
+  email: "",
+  password: "",
+  confirm_password: "",
+  phone: "",
+  city: "",
+  country: "",
+  zip_code: "",
+  address: "",
+  role_id: "",
+  hapu: "",
+  iwi: "",
+  marae: "",
+  maunga: "",
+  awa: "",
+};  
 
 const EditUser = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({
-    first_name: "",
-    last_name: "",
-    email: "",
-    password: "",
-    confirm_password: "",
-    phone: "",
-    city: "",
-    country: "",
-    zip_code: "",
-    address: "",
-    role_id: "",
-    hapu: "",
-    iwi: "",
-    marae: "",
-    maunga: "",
-    awa: "",
-  });
+  const [form, setForm] = useState(initialForm);
   const [showPwd, setShowPwd] = useState(false);
   const [showConfirmPwd, setShowConfirmPwd] = useState(false);
   const [error, setError] = useState("");
@@ -313,7 +314,9 @@ const EditUser = () => {
 
                   <div className="modal-footer1 text-center mt-2">
                     <button type="button" className="btn btn-danger btn-rounded btn-fw" onClick={() => navigate("/users")}>Cancel</button>
-                    <button type="submit" disabled={loading} className="btn btn-primary btn-rounded btn-fw">{loading ? "Saving..." : "Save"}</button>
+                    <button type="submit" disabled={loading} className="btn btn-primary btn-rounded btn-fw ml-2" style={{ marginLeft: "5px" }}
+                    >{loading ? "Saving..." : "Save"}
+                    </button>
                   </div>
                 </form>
               </div>

@@ -4,6 +4,40 @@ import "./gantt.css";
 const GanttChartTable = ({ tasks, onEditTask }) => {
     if (!tasks || tasks.length === 0) return <div>No data</div>;
 
+    // Helper function to get status color
+    const getStatusColor = (status) => {
+        const statusValue = (status || "").toString();
+        switch (statusValue) {
+            case "Just starting":
+                return "#6c757d"; // gray (secondary)
+            case "Working":
+                return "#0dcaf0"; // cyan (info)
+            case "Nearly Complete":
+                return "#ffc107"; // yellow (warning)
+            case "Complete":
+                return "#198754"; // green (success)
+            default:
+                return "#6c757d"; // default gray
+        }
+    };
+
+    // Helper function to get status label
+    const getStatusLabel = (status) => {
+        const statusValue = (status || "").toString();
+        switch (statusValue) {
+            case "Just starting":
+                return "Just Starting";
+            case "Working":
+                return "Working";
+            case "Nearly Complete":
+                return "Nearly Complete";
+            case "Complete":
+                return "Complete";
+            default:
+                return statusValue || "Unknown";
+        }
+    };
+
     // Determine start → end range
     const minStart = new Date(Math.min(...tasks.map(t => new Date(t.start_date))));
     const maxEnd = new Date(Math.max(...tasks.map(t => new Date(t.end_date))));
@@ -74,9 +108,22 @@ const GanttChartTable = ({ tasks, onEditTask }) => {
                                         left: `${getLeftPercent(t.start_date)}%`,
                                         width: `${getWidthPercent(t.start_date, t.end_date)}%`,
                                         cursor: "pointer",
+                                        background: getStatusColor(t.status),
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        color: "white",
+                                        fontWeight: 600,
+                                        fontSize: "0.75rem",
+                                        textAlign: "center",
+                                        whiteSpace: "nowrap",
+                                        overflow: "hidden",
+                                        textOverflow: "ellipsis",
                                     }}
-                                    title="Click to edit task"
-                                />
+                                    title={`${t.content} - ${getStatusLabel(t.status)} (Click to edit)`}
+                                >
+                                    {getStatusLabel(t.status)}
+                                </div>
 
                             </td>
                         </tr>

@@ -66,10 +66,10 @@
     position: absolute;
     top: 6px;
     height: 22px;
-    background: #2ea3f2;
     border-radius: 6px;
     box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-    transition: width 0.2s ease;
+    transition: width 0.2s ease, background 0.2s ease;
+    min-width: 60px; /* Ensure minimum width for text visibility */
   }
   
   /* Prevent mobile breakage: lock cells */

@@ -9,7 +9,11 @@ import HapuListsApi from "../../api/hapulistsApi";
 import ProjectsApi from "../../api/projectsApi";
 import TasksApi from "../../api/tasksApi";
 import GanttChartTable from "../../components/projects/GanttChart.js";
-import { tasksTemplates, taskDurationTypes, taskStatuses } from "../../constants/index.js";
+import { taskStatuses } from "../../constants/index.js";
+import AssignHapu from "../../components/projects/common/AssignHapu.js";
+import AssignTeam from "../../components/projects/common/AssignTeam.js";
+import ToggleButton from "../../components/common/ToggleButton.js";
+import { TaskStatusBadge } from "../../utils/tasks/taskFormatters.js";  
 
 const initialForm = {
   name: "",
@@ -25,13 +29,12 @@ const initialForm = {
 
 const emptyTask = {
   assignee: null,
-  assigned_by: null,
   duration: 0,
-  duration_type: "Daily",
   status: taskStatuses[0],
   start_date: new Date(),
   end_date: new Date(),
   content: "",
+  description: "",
 };
 
 const EditProject = () => {
@@ -39,7 +42,6 @@ const EditProject = () => {
   const [taskErrors, setTaskErrors] = useState({});
   const navigate = useNavigate();
   const formRef = useRef(null);
-  const [importing, setImporting] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
@@ -54,22 +56,22 @@ const EditProject = () => {
 
   const [form, setForm] = useState(initialForm);
   const [projectTasks, setProjectTasks] = useState([]);
-  const [hapuInput, setHapuInput] = useState("");
+  const [taskStatusCounts, setTaskStatusCounts] = useState({
+    just_starting: 0,
+    working: 0,
+    nearly_complete: 0,
+    complete: 0,
+  });
 
   const [taskModalOpen, setTaskModalOpen] = useState(false);
   const [task, setTask] = useState(emptyTask);
   const [editTaskId, setEditTaskId] = useState(null);
-  const [taskEditIndex, setTaskEditIndex] = useState(null);
   const [ganttView, setGanttView] = useState(false);
   const [ganttChartLink, setGanttChartLink] = useState("");
   const [ganttChartModalOpen, setGanttChartModalOpen] = useState(false);
 
 
   const userLabel = (u) => `${u.first_name ?? ''} ${u.last_name ?? ''}`.trim() || u.email || 'User';
-  const parseHapuIdFromOption = (val) => {
-    const match = hapus.find((x) => (x?.name || "").toLowerCase() === String(val).toLowerCase());
-    return match?._id || null;
-  };
 
   const getUserName = (id) => {
     if (!id) return "-";
@@ -87,14 +89,15 @@ const EditProject = () => {
     }
   };
 
-
-  const addHapuByLabel = (val) => {
-    const idParsed = parseHapuIdFromOption(val);
-    if (!idParsed) return setHapuInput("");
-    setForm((f) => ({ ...f, hapus: f.hapus.includes(idParsed) ? f.hapus : [...f.hapus, idParsed] }));
-    setHapuInput("");
+  const addHapu = (id) => {
+    if (!id) return;
+    if (form.hapus.includes(id)) return;
+    setForm((f) => ({ ...f, hapus: [...f.hapus, id] }));
   };
-  const removeHapuFromList = (idVal) => setForm((f) => ({ ...f, hapus: f.hapus.filter((x) => x !== idVal) }));
+
+  const removeHapu = (id) => {
+    setForm((f) => ({ ...f, hapus: f.hapus.filter((x) => x !== id) }));
+  };
 
   useEffect(() => {
     (async () => {
@@ -133,12 +136,33 @@ const EditProject = () => {
               p.status === "1" ||
               p.status === 1
               ? "1"
+              : p.status === "complete" ||
+              p.status === "2" ||
+              p.status === 2
+              ? "2"
               : "0",
           description: p.description || "",
         });
 
         // Load tasks
-        setProjectTasks(p.tasks || []);
+        const tasks = p.tasks || [];
+        setProjectTasks(tasks);
+        
+        // Calculate task status counts
+        const counts = {
+          just_starting: 0,
+          working: 0,
+          nearly_complete: 0,
+          complete: 0,
+        };
+        tasks.forEach((t) => {
+          const status = (t.status || "").toString();
+          if (status === "Just starting") counts.just_starting++;
+          else if (status === "Working") counts.working++;
+          else if (status === "Nearly Complete") counts.nearly_complete++;
+          else if (status === "Complete") counts.complete++;
+        });
+        setTaskStatusCounts(counts);
         
         // Load Gantt Chart link
         setGanttChartLink(p.gantt_chart_link || "");
@@ -267,7 +291,24 @@ const EditProject = () => {
       timer: 900,
       showConfirmButton: false,
     });
-    setProjectTasks((prev) => prev.filter((t) => t._id !== taskId));
+    const updatedTasks = projectTasks.filter((t) => t._id !== taskId);
+    setProjectTasks(updatedTasks);
+    
+    // Update task status counts
+    const counts = {
+      just_starting: 0,
+      working: 0,
+      nearly_complete: 0,
+      complete: 0,
+    };
+    updatedTasks.forEach((t) => {
+      const status = (t.status || "").toString();
+      if (status === "Just starting") counts.just_starting++;
+      else if (status === "Working") counts.working++;
+      else if (status === "Nearly Complete") counts.nearly_complete++;
+      else if (status === "Complete") counts.complete++;
+    });
+    setTaskStatusCounts(counts);
   };
   // ---------------------- Save Task (Add or Edit) ----------------------
   const saveTask = async () => {
@@ -289,6 +330,7 @@ const EditProject = () => {
       ...task,
       start_date: s,
       end_date: e,
+      description: task.description || "",
     };
 
     try {
@@ -304,6 +346,25 @@ const EditProject = () => {
         setProjectTasks((prev) => [...prev, saved.data]);
       }
 
+      // Update task status counts
+      const updatedTasks = editTaskId
+        ? projectTasks.map((t) => (t._id === editTaskId ? saved.data : t))
+        : [...projectTasks, saved.data];
+      const counts = {
+        just_starting: 0,
+        working: 0,
+        nearly_complete: 0,
+        complete: 0,
+      };
+      updatedTasks.forEach((t) => {
+        const status = (t.status || "").toString();
+        if (status === "Just starting") counts.just_starting++;
+        else if (status === "Working") counts.working++;
+        else if (status === "Nearly Complete") counts.nearly_complete++;
+        else if (status === "Complete") counts.complete++;
+      });
+      setTaskStatusCounts(counts);
+
       setTaskModalOpen(false);
       setTaskErrors({});
     } catch (err) {
@@ -312,39 +373,6 @@ const EditProject = () => {
   };
 
 
-  const handleImportTasks = async () => {
-    setImporting(true);
-    setTaskErrors({});
-
-    try {
-      const newTasks = await Promise.all(tasksTemplates.tasks.map(async (t) => {
-        const task = await TasksApi.create({
-          project_id: id,
-          duration: 0,
-          duration_type: taskDurationTypes[1],
-          content: t.content,
-          status: taskStatuses[0],
-          assignee: null,
-          assigned_by: null,
-          start_date: new Date(),
-          end_date: new Date(),
-        });
-        return task.data;
-      }));
-      setProjectTasks([...projectTasks, ...newTasks]);
-      setTaskModalOpen(false);
-
-      Swal.fire({
-        title: 'Tasks imported successfully',
-        text: 'Tasks have been imported successfully',
-        icon: 'success',
-      });
-    } catch (err) {
-      setTaskErrors({ global: err.message || "Failed to import tasks. Please try again." });
-    } finally {
-      setImporting(false);
-    }
-  };
 
 
   return (
@@ -383,7 +411,7 @@ const EditProject = () => {
                       </div>
                     )}
 
-                    <form ref={formRef} onSubmit={onSubmit} noValidate>
+                    <form ref={formRef} onSubmit={onSubmit} className="mt-2" noValidate>
                       <div className="row p-1">
                         <div className="col-md-4">
                           <div className="form-group">
@@ -420,24 +448,13 @@ const EditProject = () => {
 
                         {/* Assigned To removed */}
 
-                        <div className="col-md-4">
-                          <div className="form-group mb-2">
-                            <label>Assign Team</label>
-                            <select className="form-control form-select" name="team_id" value={form.team_id} onChange={onChange}>
-                              <option value="">Select Team</option>
-                              {teams.map((t) => (
-                                <option key={t._id} value={t._id}>{t.title}</option>
-                              ))}
-                            </select>
-                            {teamMembers.length > 0 && (
-                              <div className="mt-2" style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                                {teamMembers.map((m) => (
-                                  <span key={`tm-${m._id}`} className="badge badge-primary" style={{ padding: '3px 10px' }}>{m.name}</span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </div>
+                        <AssignTeam 
+                          teams={teams} 
+                          teamMembers={teamMembers} 
+                          team_id={form.team_id} 
+                          onChange={onChange}
+                          loading={pageLoading}
+                        />
 
                         <div className="col-md-4">
                           <div className="form-group mb-2">
@@ -451,40 +468,13 @@ const EditProject = () => {
                           </div>
                         </div>
 
-                        <div className="col-md-4">
-                          <div className="form-group mb-2">
-                            <label>Assign Hapū (multiple)</label>
-                            <input
-                              className="form-control"
-                              placeholder="Search and select hapū"
-                              list="hapuOptions"
-                              value={hapuInput}
-                              onChange={(e) => setHapuInput(e.target.value)}
-                              onBlur={(e) => addHapuByLabel(e.target.value)}
-                              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addHapuByLabel(hapuInput); } }}
-                              disabled={!form.rohe}
-                            />
-                            <datalist id="hapuOptions">
-                              {hapus.map((h) => (
-                                <option key={`hapu-${h._id}`} value={h.name} />
-                              ))}
-                            </datalist>
-                            {form.hapus?.length > 0 && (
-                              <div className="mt-2" style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                                {form.hapus.map((hid) => {
-                                  const h = hapus.find((x) => x._id === hid);
-                                  if (!h) return null;
-                                  return (
-                                    <span key={`tag-hapu-${hid}`} className="badge badge-primary" style={{ padding: '0px 7px' }}>
-                                      {h.name}
-                                      <button type="button" className="btn btn-link btn-sm" onClick={() => removeHapuFromList(hid)} style={{ color: '#fff', textDecoration: 'none', marginLeft: 6, padding: '3px 5px' }}>×</button>
-                                    </span>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        </div>
+                        <AssignHapu 
+                          hapus={hapus} 
+                          selectedHapus={form.hapus} 
+                          onAdd={addHapu} 
+                          onRemove={removeHapu} 
+                          disabled={!form.rohe} 
+                        />
 
                         <div className="col-md-4">
                           <div className="form-group mb-2">
@@ -492,6 +482,7 @@ const EditProject = () => {
                             <select className="form-control form-select" name="status" value={form.status} onChange={onChange} required>
                               <option value="0">Active</option>
                               <option value="1">Inactive</option>
+                              <option value="2">Complete</option>
                             </select>
                           </div>
                         </div>
@@ -502,64 +493,36 @@ const EditProject = () => {
                             <textarea className="form-control" maxLength={500} id="description" name="description" value={form.description} onChange={onChange} placeholder="Description" rows={3}></textarea>
                           </div>
                         </div>
-                        <h5 className="mt-4 mb-2">Tasks</h5>
-                        <div className="d-flex align-items-center gap-2 mb-2" style={{ marginLeft: "10px" }}>
-                          <div className="dropdown">
-                            <button
-                              className="btn btn-primary btn-sm dropdown-toggle"
-                              style={{ borderRadius: 20, width: "120px" }}
-                              type="button"
-                              data-bs-toggle="dropdown"
-                              aria-expanded="false"
-                            >
-                              + Add
-                            </button>
-
-                          <ul className="dropdown-menu">
-                            <li>
-                              <a
-                                className="dropdown-item"
-                                href="#"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  openAddTask();
-                                }}
-                              >
-                                Add Single Task
-                              </a>
-                            </li>
-                            <li>
-                              <a 
-                                className="dropdown-item" 
-                                href="#"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  handleImportTasks();
-                                }}
-                              >
-                                {importing ? (
-                                  <span>
-                                    <i className="fa fa-spinner fa-spin me-2"></i> Importing...
-                                  </span>
-                                ) : (
-                                  "Add From Template"
-                                )}
-                              </a>
-                            </li>
-                            <li>
-                              <a 
-                                className="dropdown-item" 
-                                href="#"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  setGanttChartModalOpen(true);
-                                }}
-                              >
-                                Import Gantt Chart
-                              </a>
-                            </li>
-                          </ul>
+                        <div className="d-flex align-items-center justify-content-between mb-2 mt-4">
+                          <h5 className="mb-0">Tasks ({projectTasks.length} Tasks)</h5>
+                          <div className="d-flex align-items-center gap-2" style={{ fontSize: "0.875rem", color: "#6c757d" }}>
+                            <span>
+                              <span className="badge bg-secondary me-1" style={{ padding: "2px 6px" }}></span>
+                              Just Starting: {taskStatusCounts.just_starting}
+                            </span>
+                            <span>
+                              <span className="badge bg-info me-1" style={{ padding: "2px 6px" }}></span>
+                              Working: {taskStatusCounts.working}
+                            </span>
+                            <span>
+                              <span className="badge bg-warning me-1" style={{ padding: "2px 6px" }}></span>
+                              Nearly Complete: {taskStatusCounts.nearly_complete}
+                            </span>
+                            <span>
+                              <span className="badge bg-success me-1" style={{ padding: "2px 6px" }}></span>
+                              Complete: {taskStatusCounts.complete}
+                            </span>
+                          </div>
                         </div>
+                        <div className="d-flex align-items-center gap-2 mb-2" style={{ marginLeft: "10px" }}>
+                          <button
+                            className="btn btn-primary btn-sm"
+                            style={{ borderRadius: 20 }}
+                            type="button"
+                            onClick={openAddTask}
+                          >
+                            + Add Task
+                          </button>
                         {ganttChartLink && (
                           <button
                             className="btn btn-success btn-sm"
@@ -572,26 +535,15 @@ const EditProject = () => {
                         )}
                         </div>
 
-                        <div className="text-end mb-2 gantt-switch">
-                          <label className="switch-option">
-                            <input
-                              type="radio"
-                              name="viewMode"
-                              checked={!ganttView}
-                              onChange={() => setGanttView(false)}
-                            />
-                            <span>Table</span>
-                          </label>
-
-                          <label className="switch-option">
-                            <input
-                              type="radio"
-                              name="viewMode"
-                              checked={ganttView}
-                              onChange={() => setGanttView(true)}
-                            />
-                            <span>Gantt</span>
-                          </label>
+                        <div className="text-end mb-2">
+                          <ToggleButton
+                            value={ganttView}
+                            onChange={setGanttView}
+                            leftLabel="Table"
+                            rightLabel="Gantt"
+                            leftValue={false}
+                            rightValue={true}
+                          />
                         </div>
 
                         {
@@ -600,15 +552,14 @@ const EditProject = () => {
                               <table className="table table-bordered">
                                 <thead className="bg-primary text-white">
                                   <tr>
-                                    <th>#</th>
+                                    <th>SN</th>
                                     <th>Assignee</th>
-                                    <th>Assigned By</th>
                                     <th>Duration (h)</th>
-                                    <th>Duration Type</th>
                                     <th>Status</th>
                                     <th>Start Date</th>
                                     <th>End Date</th>
                                     <th>Content</th>
+                                    <th>Description</th>
                                     <th style={{ width: "110px" }}>Actions</th>
                                   </tr>
                                 </thead>
@@ -616,7 +567,7 @@ const EditProject = () => {
                                 <tbody>
                                   {projectTasks.length === 0 && (
                                     <tr>
-                                      <td colSpan="9" className="text-center">No tasks found.</td>
+                                      <td colSpan="7" className="text-center">No tasks found.</td>
                                     </tr>
                                   )}
 
@@ -624,28 +575,14 @@ const EditProject = () => {
                                     <tr key={t._id}>
                                       <td>{i + 1}</td>
                                       <td>{getUserName(t.assignee)}</td>
-                                      <td>{getUserName(t.assigned_by)}</td>
                                       <td>{t.duration || "-"}</td>
-                                      <td>{t.duration_type || "-"}</td>
                                       <td>
-                                        {t.status === taskStatuses[0] && (
-                                          <span className="badge bg-secondary">Just Starting</span>
-                                        )}
-                                        {t.status === taskStatuses[1] && (
-                                          <span className="badge bg-info text-dark">Working On</span>
-                                        )}
-                                        {t.status === taskStatuses[2] && (
-                                          <span className="badge bg-warning text-dark">Nearly Complete</span>
-                                        )}
-                                        {t.status === taskStatuses[3] && (
-                                          <span className="badge bg-success">Complete</span>
-                                        )}
+                                        <TaskStatusBadge status={t.status} />
                                       </td>
-
                                       <td>{t.start_date ? t.start_date.slice(0, 10) : new Date().toISOString().split('T')[0]}</td>
                                       <td>{t.end_date ? t.end_date.slice(0, 10) : new Date().toISOString().split('T')[0]}</td>
                                       <td>{t.content || "-"}</td>
-
+                                      <td>{t.description || "-"}</td>
                                       <td className="text-center">
                                         <div style={{ display: 'flex', gap: 6, justifyContent: 'center', alignItems: 'center', flexWrap: 'nowrap' }}>
                                           <a
@@ -716,23 +653,6 @@ const EditProject = () => {
                 </div>
 
                 <div className="col-md-6 mt-2">
-                  <label>Assigned By</label>
-                  <select
-                    className="form-control"
-                    value={task.assigned_by}
-                    onChange={(e) => setTask({ ...task, assigned_by: e.target.value })}
-                  >
-                    <option value="">Select</option>
-                    {users.map((u) => (
-                      <option key={u._id} value={u._id}>{getUserName(u._id)}</option>
-                    ))}
-                  </select>
-                  {taskErrors.assigned_by && (
-                    <div className="text-danger mt-1">{taskErrors.assigned_by}</div>
-                  )}
-                </div>
-
-                <div className="col-md-4 mt-2">
                   <label>Duration (h)</label>
                   <input type="number"
                     className="form-control"
@@ -741,22 +661,7 @@ const EditProject = () => {
                   />
                 </div>
 
-                <div className="col-md-4 mt-2">
-                  <label>Duration Type</label>
-                  <select
-                    className="form-control"
-                    value={task.duration_type}
-                    onChange={(e) =>
-                      setTask({ ...task, duration_type: e.target.value })
-                    }
-                  >
-                    <option value="Daily">Daily</option>
-                    <option value="Weekly">Weekly</option>
-                    <option value="Monthly">Monthly</option>
-                  </select>
-                </div>
-
-                <div className="col-md-4 mt-2">
+                <div className="col-md-6 mt-2">
                   <label>Status</label>
                   <select
                     className="form-control"
@@ -795,6 +700,17 @@ const EditProject = () => {
                   {taskErrors.end_date && (
                     <div className="invalid-feedback">{taskErrors.end_date}</div>
                   )}
+                </div>
+
+                <div className="col-md-12 mt-2">
+                  <label>Description</label>
+                  <textarea
+                    className="form-control"
+                    rows="3"
+                    value={task.description || ""}
+                    onChange={(e) => setTask({ ...task, description: e.target.value })}
+                    placeholder="Task description..."
+                  />
                 </div>
 
 
