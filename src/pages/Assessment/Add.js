@@ -7,8 +7,14 @@ import { useNavigate, useSearchParams, useParams } from "react-router-dom";
 import WriteFeedbackInline from "./WriteFeedbackInline";
 import AssessmentFormSkeleton from "../../components/assessments/AssessmentFormSkeleton";
 import AssignHapu from "../../components/projects/common/AssignHapu";
+import { useAuth } from "../../context/AuthProvider";
 
 const AddAssessment = () => {
+  const { user } = useAuth();
+  const userRoleName = user?.role_id?.role_name || "";
+  const isHapuRole = userRoleName === "Hapu" || userRoleName === "Hapū";
+  const userHapuName = Array.isArray(user?.hapu) && user.hapu.length > 0 ? user.hapu[0] : (user?.hapu || "");
+  
   const [projects, setProjects] = useState([]);
   const [hapu, setHapu] = useState([]);
   const [form, setForm] = useState({
@@ -36,17 +42,35 @@ const AddAssessment = () => {
         const p = await ProjectsApi.list({ perpage: -1 }).catch(() => ({ data: [] }));
         setProjects(p?.data || []);
         const hl = await axios.get("/admin/hapulists", { params: { perpage: -1 } }).catch(() => ({ data: [] }));
-        setHapu(hl?.data?.data || hl?.data || []);
+        const allHapus = hl?.data?.data || hl?.data || [];
+        setHapu(allHapus);
+        
         if (editId) {
           const doc = await AssessmentApi.getById(editId).catch(() => null);
           if (doc?.data) {
             const d = doc.data;
+            let participants = (d.participants || []).map(p => String(p?._id || p));
+            
+            // If hapu role, filter to only their hapu
+            if (isHapuRole && userHapuName) {
+              const userHapuObj = allHapus.find(h => (h.hapu_name || h.name || "") === userHapuName);
+              if (userHapuObj) {
+                const userHapuId = String(userHapuObj._id);
+                // Only include their hapu if it exists in participants
+                participants = participants.filter(p => p === userHapuId);
+                // If not in participants, add it
+                if (!participants.includes(userHapuId)) {
+                  participants = [userHapuId];
+                }
+              }
+            }
+            
             setForm({
               project_id: d.project_id?._id || d.project_id || "",
               design_stage: d.design_stage || "Concept",
               title: d.title || "",
               review_date: d.review_date ? d.review_date.substring(0, 10) : "",
-              participants: (d.participants || []).map(p => String(p?._id || p)),
+              participants: participants,
               facilitating_agent: d.facilitating_agent || "",
               review_state: d.review_state || "incomplete",
               feedbackSheets: (d.feedbacks || []).map(f => ({
@@ -55,22 +79,49 @@ const AddAssessment = () => {
                 sheet: f.content_id?.sheet || null
               })),
             });
+            
+            // Auto-expand feedback form only for the hapu matching user's hapu name
+            if (isHapuRole && participants.length > 0 && userHapuName) {
+              const userHapuObj = allHapus.find(h => (h.hapu_name || h.name || "") === userHapuName);
+              if (userHapuObj) {
+                const userHapuId = String(userHapuObj._id);
+                // Only expand if this hapu is in participants
+                if (participants.includes(userHapuId)) {
+                  setExpandedHapus(new Set([userHapuId]));
+                }
+              }
+            }
+          }
+        } else if (isHapuRole && userHapuName) {
+          // For new assessment, auto-add user's hapu
+          const userHapuObj = allHapus.find(h => (h.hapu_name || h.name || "") === userHapuName);
+          if (userHapuObj) {
+            const userHapuId = String(userHapuObj._id);
+            setForm(prev => ({
+              ...prev,
+              participants: [userHapuId]
+            }));
+            // Auto-expand feedback form only for matching hapu
+            setTimeout(() => {
+              setExpandedHapus(new Set([userHapuId]));
+            }, 100);
           }
         }
       } finally {
         setInitialLoading(false);
       }
     })();
-  }, [editId]);
+  }, [editId, isHapuRole, userHapuName]);
 
   const addHapu = (id) => {
-    if (!id) return;
+    if (!id || isHapuRole) return; // Hapu role users cannot add hapus
     const idStr = String(id);
     if (form.participants.includes(idStr)) return;
     setForm((f) => ({ ...f, participants: [...f.participants, idStr] }));
   };
 
   const removeHapu = (id) => {
+    if (isHapuRole) return; // Hapu role users cannot remove hapus
     const idStr = String(id);
     setForm((f) => ({ ...f, participants: f.participants.filter((pid) => String(pid) !== idStr) }));
   };
@@ -125,14 +176,14 @@ const AddAssessment = () => {
             <div className="row g-3">
               <div className="col-md-6">
                 <label className="form-label">Project</label>
-                <select className="form-select" value={form.project_id} onChange={(e) => setForm(f => ({ ...f, project_id: e.target.value }))} required>
+                <select className="form-select" value={form.project_id} onChange={(e) => setForm(f => ({ ...f, project_id: e.target.value }))} required disabled={isHapuRole}>
                   <option value="">Select Project</option>
                   {projects.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
                 </select>
               </div>
               <div className="col-md-6">
                 <label className="form-label">Design Stage</label>
-                <select className="form-select" value={form.design_stage} onChange={(e) => setForm(f => ({ ...f, design_stage: e.target.value }))}>
+                <select className="form-select" value={form.design_stage} onChange={(e) => setForm(f => ({ ...f, design_stage: e.target.value }))} disabled={isHapuRole}>
                   <option>Concept</option>
                   <option>Preliminary</option>
                   <option>Detailed</option>
@@ -141,7 +192,7 @@ const AddAssessment = () => {
               </div>
               <div className="col-md-6">
                 <label className="form-label">Title</label>
-                <input type="text" className="form-control" value={form.title} onChange={(e) => setForm(f => ({ ...f, title: e.target.value }))} required />
+                <input type="text" className="form-control" value={form.title} onChange={(e) => setForm(f => ({ ...f, title: e.target.value }))} required disabled={isHapuRole} />
               </div>
               <div className="col-md-6">
                 <label className="form-label">Review Date</label>
@@ -149,9 +200,10 @@ const AddAssessment = () => {
                   ref={dateRef}
                   type="date"
                   className="form-control"
-                  style={{ cursor: "pointer" }}
+                  style={{ cursor: isHapuRole ? "not-allowed" : "pointer" }}
                   value={form.review_date}
                   onClick={() => {
+                    if (isHapuRole) return;
                     if (dateRef.current?.showPicker) {
                       try {
                         dateRef.current.showPicker();
@@ -160,22 +212,25 @@ const AddAssessment = () => {
                       }
                     }
                   }}
-                  onChange={(e) => setForm(f => ({ ...f, review_date: e.target.value }))} />
+                  onChange={(e) => setForm(f => ({ ...f, review_date: e.target.value }))}
+                  disabled={isHapuRole}
+                />
               </div>
               <AssignHapu
-                hapus={hapu}
+                hapus={isHapuRole ? hapu.filter(h => (h.hapu_name || h.name || "") === userHapuName) : hapu}
                 selectedHapus={form.participants}
                 onAdd={addHapu}
                 onRemove={removeHapu}
                 belongTo='assessment'
+                disabled={isHapuRole}
               />
               <div className="col-md-6">
                 <label className="form-label">Facilitating Agent</label>
-                <input type="text" className="form-control" value={form.facilitating_agent} onChange={(e) => setForm(f => ({ ...f, facilitating_agent: e.target.value }))} />
+                <input type="text" className="form-control" value={form.facilitating_agent} onChange={(e) => setForm(f => ({ ...f, facilitating_agent: e.target.value }))} disabled={isHapuRole} />
               </div>
               <div className="col-md-6">
                 <label className="form-label">Review Progress</label>
-                <select className="form-select" value={form.review_state} onChange={(e) => setForm(f => ({ ...f, review_state: e.target.value }))}>
+                <select className="form-select" value={form.review_state} onChange={(e) => setForm(f => ({ ...f, review_state: e.target.value }))} disabled={isHapuRole}>
                   <option value="complete">Complete</option>
                   <option value="incomplete">Incomplete</option>
                 </select>
@@ -191,14 +246,17 @@ const AddAssessment = () => {
                     const name = h?.hapu_name || h?.name || "Hapū";
                     const existing = form.feedbackSheets?.find(f => String(f.hapuId) === String(id));
                     const isExpanded = expandedHapus.has(id);
+                    // For hapu role users, only allow expanding their own hapu
+                    const canExpand = !isHapuRole || (isHapuRole && name === userHapuName);
                     
                     return (
                       <div className="col-12" key={id}>
                         <div className="card">
                           <div 
                             className="card-header d-flex justify-content-between align-items-center"
-                            style={{ cursor: "pointer", backgroundColor: "#f8f9fa" }}
+                            style={{ cursor: canExpand ? "pointer" : "not-allowed", backgroundColor: "#f8f9fa", opacity: canExpand ? 1 : 0.6 }}
                             onClick={() => {
+                              if (!canExpand) return;
                               setExpandedHapus(prev => {
                                 const next = new Set(prev);
                                 if (next.has(id)) {
@@ -211,12 +269,14 @@ const AddAssessment = () => {
                             }}
                           >
                             <h6 className="mb-0 fw-semibold">Feedback for: {name}</h6>
-                            <i 
-                              className={`mdi ${isExpanded ? 'mdi-chevron-up' : 'mdi-chevron-down'}`}
-                              style={{ fontSize: '20px', color: '#6c757d' }}
-                            />
+                            {canExpand && (
+                              <i 
+                                className={`mdi ${isExpanded ? 'mdi-chevron-up' : 'mdi-chevron-down'}`}
+                                style={{ fontSize: '20px', color: '#6c757d' }}
+                              />
+                            )}
                           </div>
-                          {isExpanded && (
+                          {isExpanded && canExpand && (
                             <div className="card-body">
                               <WriteFeedbackInline hapuId={id} hapuName={name} initialSheet={existing?.sheet || null} />
                             </div>

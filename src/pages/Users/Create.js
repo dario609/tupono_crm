@@ -8,9 +8,9 @@ import { UserBasicFields } from "../../components/users/UserBasicForm";
 import { UserPasswordFields } from "../../components/users/UserPasswordFields";
 import { UserContactFields } from "../../components/users/UserContactFields";
 import { UserProfileImage } from "../../components/users/UserProfileImage";
-import { UserLocationFields } from "../../components/users/UserLocationFields";
 import { UserRoleField } from "../../components/users/UserRoleField";
 import { UserKaupapaFields } from "../../components/users/UserKaupapaFields";
+import HapuListsApi from "../../api/hapulistsApi";
 
 const CreateUser = () => {
   const navigate = useNavigate();
@@ -32,10 +32,16 @@ const CreateUser = () => {
   } = useCreateUserForm({ pushNotification });
 
   const [roles, setRoles] = useState([]);
+  const [hapus, setHapus] = useState([]);
 
   useEffect(() => {
     RolesApi.list({ perpage: -1 }).then((json) => {
       setRoles(json?.data || []);
+    });
+    HapuListsApi.list({ perpage: -1 }).then((json) => {
+      setHapus(json?.data || []);
+    }).catch(() => {
+      setHapus([]);
     });
   }, []);
 
@@ -63,9 +69,8 @@ const CreateUser = () => {
               <UserPasswordFields form={form} onChange={onChange} confirmRef={confirmRef} />
               <UserContactFields form={form} onChange={onChange} />
               <UserProfileImage profileImage={profileImage} setProfileImage={setProfileImage} />
-              <UserLocationFields form={form} onChange={onChange} />
               <UserRoleField roles={roles} form={form} onChange={onChange} />
-              <UserKaupapaFields form={form} onChange={onChange} />
+              <UserKaupapaFields form={form} onChange={onChange} hapus={hapus} />
             </div>
 
             <div className="form-check mt-3">

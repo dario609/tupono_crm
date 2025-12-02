@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import RolesApi from "../../api/rolesApi";
 import UsersApi from "../../api/usersApi";
+import HapuListsApi from "../../api/hapulistsApi";
 import { formatPhone, onlyLetters, formatZip } from "../../utils/formatPhone";
 
 
@@ -28,6 +29,7 @@ const EditUser = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [roles, setRoles] = useState([]);
+  const [hapus, setHapus] = useState([]);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState(initialForm);
   const [showPwd, setShowPwd] = useState(false);
@@ -42,13 +44,28 @@ const EditUser = () => {
   useEffect(() => {
     (async () => {
       try {
-        const [rolesJson, userJson] = await Promise.all([
+        const [rolesJson, userJson, hapusJson] = await Promise.all([
           RolesApi.list({ perpage: -1 }),
           UsersApi.getById(id),
+          HapuListsApi.list({ perpage: -1 }).catch(() => ({ data: [] })),
         ]);
         setRoles(rolesJson?.data || []);
+        setHapus(hapusJson?.data || []);
         if (userJson?.success && userJson?.data) {
           const u = userJson.data;
+          // Find hapu name from hapu list if user has hapu
+          let hapuValue = "";
+          if (Array.isArray(u.hapu) && u.hapu.length > 0 && hapusJson?.data) {
+            // Find the hapu object that matches the user's hapu name
+            const userHapuName = u.hapu[0]; // Get first hapu name
+            const matchingHapu = hapusJson.data.find(h => (h.hapu_name || h.name || "") === userHapuName);
+            if (matchingHapu) {
+              hapuValue = matchingHapu.hapu_name || matchingHapu.name || "";
+            } else {
+              hapuValue = userHapuName; // Fallback to the name itself
+            }
+          }
+          
           setForm({
             first_name: u.first_name || "",
             last_name: u.last_name || "",
@@ -61,7 +78,7 @@ const EditUser = () => {
             zip_code: u.zip_code || "",
             address: u.address || "",
             role_id: u.role_id?._id || u.role_id || "",
-            hapu: Array.isArray(u.hapu) ? u.hapu.join(", ") : "",
+            hapu: hapuValue,
             iwi: Array.isArray(u.iwi) ? u.iwi.join(", ") : "",
             marae: Array.isArray(u.marae) ? u.marae.join(", ") : "",
             maunga: Array.isArray(u.maunga) ? u.maunga.join(", ") : "",
@@ -75,8 +92,8 @@ const EditUser = () => {
 
   const setConfirmValidity = (pwd, confirm) => {
     if (!confirmRef.current) return;
-    if ((confirm || pwd) && pwd !== confirm) confirmRef.current.setCustomValidity("Passwords do not match");
-    else confirmRef.current.setCustomValidity("");
+    // No password validation - passwords are optional
+    confirmRef.current.setCustomValidity("");
   };
 
   const onChange = (e) => {
@@ -87,9 +104,7 @@ const EditUser = () => {
     else if (name === "zip_code") next = formatZip(value);
     setForm((prev) => {
       const updated = { ...prev, [name]: next };
-      if (name === "password" || name === "confirm_password") {
-        setConfirmValidity(updated.password, updated.confirm_password);
-      }
+      // No password validation needed
       return updated;
     });
   };
@@ -104,16 +119,13 @@ const EditUser = () => {
       formRef.current.reportValidity();
       return;
     }
-    if (form.password !== form.confirm_password) {
-      setConfirmValidity(form.password, form.confirm_password);
-      formRef.current?.reportValidity();
-      return;
-    }
+    // No password validation - passwords are optional
     try {
       setLoading(true);
       const fd = new FormData();
       Object.entries(form).forEach(([k, v]) => fd.append(k, v ?? ""));
-      fd.set("hapu", JSON.stringify(toArray(form.hapu)));
+      // Save hapu as array with single selected hapu name
+      fd.set("hapu", JSON.stringify(form.hapu ? [form.hapu] : []));
       fd.set("iwi", JSON.stringify(toArray(form.iwi)));
       fd.set("marae", JSON.stringify(toArray(form.marae)));
       fd.set("maunga", JSON.stringify(toArray(form.maunga)));
@@ -274,8 +286,15 @@ const EditUser = () => {
                     {/* Kaupapa Māori multi fields */}
                     <div className="col-md-6">
                       <div className="form-group mb-2">
-                        <label>Hapū (comma or newline separated)</label>
-                        <textarea className="form-control" rows={2} name="hapu" value={form.hapu} onChange={onChange}></textarea>
+                        <label>Hapū</label>
+                        <select className="form-control" name="hapu" value={form.hapu} onChange={onChange}>
+                          <option value="">Select Hapū</option>
+                          {hapus.map((h) => (
+                            <option key={h._id} value={h.hapu_name || h.name || ""}>
+                              {h.hapu_name || h.name || ""}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                     </div>
                     <div className="col-md-6">

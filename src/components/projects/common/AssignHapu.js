@@ -33,7 +33,7 @@ export default function AssignHapu({ hapus = [], selectedHapus = [], onAdd, onRe
                                 value={h._id}
                                 disabled={selectedHapus.includes(h._id)}
                             >
-                                {h.name}
+                                {h.hapu_name || h.name || ""}
                             </option>
                         ))
                     }
@@ -42,14 +42,16 @@ export default function AssignHapu({ hapus = [], selectedHapus = [], onAdd, onRe
                 <div className="mt-3 d-flex flex-wrap gap-2">
                     {selectedHapuObjects.map((h) => (
                         <div key={h._id} className="hapu-chip">
-                            <span>{h.name}</span>
-                            <button
-                                type="button"
-                                className="remove-btn"
-                                onClick={() => onRemove(h._id)}
-                            >
-                                ×
-                            </button>
+                            <span>{h.hapu_name || h.name || ""}</span>
+                            {!disabled && (
+                                <button
+                                    type="button"
+                                    className="remove-btn"
+                                    onClick={() => onRemove(h._id)}
+                                >
+                                    ×
+                                </button>
+                            )}
                         </div>
                     ))}
                 </div>

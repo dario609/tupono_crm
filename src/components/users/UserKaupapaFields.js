@@ -1,14 +1,20 @@
-export const UserKaupapaFields = ({ form, onChange }) => (
+export const UserKaupapaFields = ({ form, onChange, hapus = [] }) => (
     <>
       <div className="col-md-6 mb-2">
         <label>Hapū</label>
-        <textarea
-          rows={2}
+        <select
           className="form-control mt-1"
           name="hapu"
           value={form.hapu}
           onChange={onChange}
-        />
+        >
+          <option value="">Select Hapū</option>
+          {hapus.map((h) => (
+            <option key={h._id} value={h.hapu_name || h.name || ""}>
+              {h.hapu_name || h.name || ""}
+            </option>
+          ))}
+        </select>
       </div>
   
       <div className="col-md-6 mb-2">
