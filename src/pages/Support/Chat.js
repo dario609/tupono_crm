@@ -2,11 +2,16 @@ import React, { useMemo, useRef, useState, useEffect } from "react";
 import { useAuth } from "../../context/AuthProvider";
 import ChatApi from "../../api/chatApi";
 import { getSocket } from "../../utils/socket";
+import { useNotifications } from "../../context/NotificationProvider";
 
 const Chat = () => {
   const { user, loading } = useAuth();
+  const { pushNotification } = useNotifications();
   const myId = user?._id ? String(user._id) : null;
-  const isSuper = user?.role_id?.role_name === "Super Admin";
+  const userRoleName = user?.role_id?.role_name || "";
+  const isSuperAdmin = userRoleName === "Super Admin";
+  const isAdmin = userRoleName === "Admin";
+  const isAdminOrSuper = isSuperAdmin || isAdmin;
 
   const [users, setUsers] = useState([]);
   const [query, setQuery] = useState("");
@@ -42,9 +47,10 @@ const Chat = () => {
     return () => clearTimeout(id);
   }, [query]);
 
-  // Super Admin → fetch user list when query changes (only after auth ready)
+  // Admin/Super Admin → fetch user list when query changes (only after auth ready)
+  // Regular users → fetch Admin/Super Admin list
   useEffect(() => {
-    if (loading || !user || !isSuper) return;
+    if (loading || !user) return;
     (async () => {
       const list = await ChatApi.users(debouncedQuery).catch(() => []);
       const filtered = (list || []).filter((u) => String(u._id) !== myId);
@@ -56,7 +62,7 @@ const Chat = () => {
         return next;
       });
     })();
-  }, [loading, user, isSuper, debouncedQuery, myId]);
+  }, [loading, user, debouncedQuery, myId]);
 
   // Close search on outside click → reset to history list
   useEffect(() => {
@@ -74,8 +80,9 @@ const Chat = () => {
   }, [searching]);
 
   // End-user → open personal thread automatically (once after auth ready)
+  // For regular users, open thread with first Admin/Super Admin if available
   useEffect(() => {
-    if (loading || !user || isSuper) return;
+    if (loading || !user || isAdminOrSuper) return;
     let cancelled = false;
     (async () => {
       const th = await ChatApi.myThread().catch(() => null);
@@ -90,7 +97,7 @@ const Chat = () => {
       setTimeout(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), 30);
     })();
     return () => { cancelled = true; };
-  }, [loading, user, isSuper, myId]);
+  }, [loading, user, isAdminOrSuper, myId]);
 
   // identify socket
   useEffect(() => {
@@ -118,7 +125,7 @@ const Chat = () => {
     };
   }, [myId, activeThread]);
 
-  // realtime
+  // realtime message handler
   useEffect(() => {
     if (!activeThread || !myId) return;
     const s = getSocket();
@@ -164,6 +171,30 @@ const Chat = () => {
     return () => s.off("chat:new-message", handler);
   }, [activeThread, myId, activeUserId]);
 
+  // Listen for real-time notifications
+  useEffect(() => {
+    if (!myId) return;
+    const s = getSocket();
+    const notificationHandler = (notification) => {
+      if (notification.type === "CHAT_MESSAGE") {
+        pushNotification({
+          _id: Date.now().toString(),
+          type: notification.type,
+          title: notification.title,
+          body: notification.body,
+          isRead: false,
+          createdAt: new Date(),
+          data: notification.data || {},
+        });
+        // Refresh unread counts
+        refreshUnread();
+        try { window.dispatchEvent(new CustomEvent("supportBadge:refresh")); } catch {}
+      }
+    };
+    s.on("notification:new", notificationHandler);
+    return () => s.off("notification:new", notificationHandler);
+  }, [myId, pushNotification]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return users;
@@ -180,7 +211,23 @@ const Chat = () => {
   }, [messagesByThread, activeThread]);
 
   const openUser = async (u) => {
-    if (!isSuper) return;
+    if (!isAdminOrSuper) {
+      // For regular users, open thread with the selected admin/super admin
+      const th = await ChatApi.threadByUser(u._id).catch(() => null);
+      if (!th) return;
+      setActiveUser(u);
+      setActiveThread(th);
+      setUnreadByUser((m) => ({ ...m, [u._id]: 0 }));
+      const msgs = await ChatApi.messages(th._id).catch(() => []);
+      setMessagesByThread((map) => ({ ...map, [th._id]: msgs || [] }));
+      const s = getSocket();
+      s.emit("chat:join", { threadId: th._id });
+      ChatApi.markRead(th._id).catch(() => {});
+      try { window.dispatchEvent(new CustomEvent("supportBadge:refresh")); } catch {}
+      setTimeout(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), 30);
+      return;
+    }
+    // For Admin/Super Admin: open thread with selected user
     const th = await ChatApi.threadByUser(u._id).catch(() => null);
     if (!th) return;
     setActiveUser(u);
@@ -212,8 +259,8 @@ const Chat = () => {
         <h6 className="fw-semibold mb-0">Support Management</h6>
       </div>
       <div className="row card-body pt-0" style={{ minHeight: 560 }}>
-        {/* Left panel (Super Admin only) */}
-        {isSuper && (
+        {/* Left panel (Admin/Super Admin see all users, others see Admin/Super Admin) */}
+        {users.length > 0 && (
           <div ref={leftPanelRef} className="col-md-4 mb-3 mb-md-0" style={{ borderRight: "1px solid #eef2f7" }}>
             <div className="position-relative mb-2">
               <input
@@ -280,7 +327,7 @@ const Chat = () => {
         )}
 
         {/* Right panel */}
-        <div className={isSuper ? "col-md-8 d-flex flex-column" : "col-12 d-flex flex-column"}>
+        <div className={isAdminOrSuper && users.length > 0 ? "col-md-8 d-flex flex-column" : "col-12 d-flex flex-column"}>
           <div
             className="flex-grow-1 p-3"
             style={{
@@ -294,7 +341,7 @@ const Chat = () => {
           >
             {!activeThread && (
               <div className="h-100 w-100 d-flex align-items-center justify-content-center text-muted">
-                Select a user to start chatting
+                {isAdminOrSuper ? "Select a user to start chatting" : users.length > 0 ? "Select an admin to start chatting" : "No admins available"}
               </div>
             )}
             {activeThread && currentMessages.map((m, idx) => {

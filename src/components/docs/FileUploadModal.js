@@ -102,7 +102,10 @@ const FileUploadModal = ({
           <div
             onDrop={handleDrop}
             onDragOver={(e) => e.preventDefault()}
-            onClick={() => fileInputRef.current?.click()}
+            onClick={(e) => {
+              e.stopPropagation();
+              fileInputRef.current?.click();
+            }}
             style={{
               border: "2px dashed #e2e8f0",
               borderRadius: 14,

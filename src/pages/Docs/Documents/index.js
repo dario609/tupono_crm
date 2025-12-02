@@ -18,7 +18,6 @@ const DocumentsPage = () => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [clipboard, setClipboard] = useState(null);
   const [newName, setNewName] = useState('');
   const [uploading, setUploading] = useState(false);
   const [selected, setSelected] = useState(null); // path
@@ -82,6 +81,23 @@ const DocumentsPage = () => {
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
+
+  // Close context menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (contextMenu && !e.target.closest('[data-context-menu]')) {
+        setContextMenu(null);
+      }
+    };
+
+    if (contextMenu) {
+      // Use mousedown instead of click to close before other click handlers fire
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [contextMenu]);
 
   const parts = useMemo(() => cwd.split('/').filter(Boolean), [cwd]);
   const goUp = () => { if (cwd === '/') return; const p = '/' + parts.slice(0, -1).join('/'); load(p || '/'); };
@@ -313,41 +329,6 @@ const DocumentsPage = () => {
       });
     }
   };
-  const onCut = (p) => setClipboard({ type: 'cut', path: p });
-  const onCopy = (p) => setClipboard({ type: 'copy', path: p });
-  const pasteInto = async (targetFolderPath) => {
-    if (!clipboard) return;
-    const name = clipboard.path.split('/').pop();
-    const toPath = (targetFolderPath === '/' ? '' : targetFolderPath) + '/' + name;
-    try {
-      if (clipboard.type === 'cut') {
-        await DocsApi.move(clipboard.path, toPath);
-        setClipboard(null);
-        setToasts((t) => {
-          const id = Date.now();
-          setTimeout(() => setToasts((tt) => tt.filter(x => x.id !== id)), 2200);
-          return [...t, { id, text: `Moved to ${targetFolderPath}` }];
-        });
-      } else {
-        await DocsApi.copy(clipboard.path, toPath);
-        setClipboard(null);
-        setToasts((t) => {
-          const id = Date.now();
-          setTimeout(() => setToasts((tt) => tt.filter(x => x.id !== id)), 2200);
-          return [...t, { id, text: `Copied here` }];
-        });
-      }
-      await load(targetFolderPath);
-    } catch (err) {
-      setToasts((t) => {
-        const id = Date.now();
-        setTimeout(() => setToasts((tt) => tt.filter(x => x.id !== id)), 3000);
-        return [...t, { id, text: `Paste failed: ${err?.response?.data?.message || err.message || 'Server error'}` }];
-      });
-    }
-  };
-
-  const onPaste = async () => pasteInto(cwd);
 
   const onCreateWebLink = async () => {
     if (!webLinkModal?.name?.trim() || !webLinkModal?.url?.trim()) {
@@ -681,54 +662,6 @@ const DocumentsPage = () => {
             <button
               className="btn btn-sm"
               style={{
-                ...btnOutline(colors.primary, `${colors.primary}15`),
-                opacity: selectedItem ? 1 : 0.4,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6
-              }}
-              disabled={!selectedItem}
-              onClick={() => { if (!selectedItem) return; onCopy(selectedItem.path); const id = Date.now(); setToasts((t) => [...t, { id, text: `Copied ${selectedItem.name}` }]); setTimeout(() => setToasts(tt => tt.filter(x => x.id !== id)), 2200); }}
-              onMouseEnter={(e) => { if (selectedItem) { e.currentTarget.style.background = `${colors.primary}15`; e.currentTarget.style.transform = 'translateY(-1px)'; } }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.transform = 'translateY(0)'; }}
-            >
-              <i className="mdi mdi-content-copy"></i> Copy
-            </button>
-            <button
-              className="btn btn-sm"
-              style={{
-                ...btnOutline(colors.primary, `${colors.primary}15`),
-                opacity: clipboard ? 1 : 0.4,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6
-              }}
-              disabled={!clipboard}
-              onClick={onPaste}
-              onMouseEnter={(e) => { if (clipboard) { e.currentTarget.style.background = `${colors.primary}15`; e.currentTarget.style.transform = 'translateY(-1px)'; } }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.transform = 'translateY(0)'; }}
-            >
-              <i className="mdi mdi-content-paste"></i> Paste
-            </button>
-            <button
-              className="btn btn-sm"
-              style={{
-                ...btnOutline(colors.primary, `${colors.primary}15`),
-                opacity: selectedItem ? 1 : 0.4,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6
-              }}
-              disabled={!selectedItem}
-              onClick={() => { if (!selectedItem) return; onCut(selectedItem.path); }}
-              onMouseEnter={(e) => { if (selectedItem) { e.currentTarget.style.background = `${colors.primary}15`; e.currentTarget.style.transform = 'translateY(-1px)'; } }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.transform = 'translateY(0)'; }}
-            >
-              <i className="mdi mdi-content-cut"></i> Cut
-            </button>
-            <button
-              className="btn btn-sm"
-              style={{
                 ...btnOutline(colors.danger, `${colors.danger}15`),
                 opacity: (selectedItem && !deleting) ? 1 : 0.4,
                 display: 'flex',
@@ -760,22 +693,6 @@ const DocumentsPage = () => {
               >
                 <i className="mdi mdi-download"></i> Download
               </a>
-            )}
-            {selectedItem && selectedItem.type === 'weblink' && (
-              <button
-                className="btn btn-sm"
-                style={{
-                  ...btnOutline(colors.primary, `${colors.primary}15`),
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6
-                }}
-                onClick={() => setViewWebLinkModal({ name: selectedItem.name, url: selectedItem.webLink })}
-                onMouseEnter={(e) => { e.currentTarget.style.background = `${colors.primary}15`; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.transform = 'translateY(0)'; }}
-              >
-                <i className="mdi mdi-open-in-new"></i> Open Link
-              </button>
             )}
           </div>
         </div>
@@ -844,17 +761,12 @@ const DocumentsPage = () => {
                       e.stopPropagation();
                       setSelected(it.path);
                       setContextMenu(null);
-                      if (it.type === 'weblink') {
-                        setViewWebLinkModal({ name: it.name, url: it.webLink });
-                      }
                     }}
                     onContextMenu={(e) => { e.preventDefault(); setSelected(it.path); setContextMenu({ x: e.clientX, y: e.clientY, item: it }); }}
                     onDoubleClick={() => {
                       if (it.type === 'folder') {
                         goInto(it.name);
-                      } else if (it.type === 'weblink') {
-                        setViewWebLinkModal({ name: it.name, url: it.webLink });
-                      } else {
+                      } else if (it.type !== 'weblink') {
                         window.open(DocsApi.downloadUrl(it.path), '_blank');
                       }
                     }}
@@ -945,19 +857,49 @@ const DocumentsPage = () => {
               </div>
               {/* Modern Context Menu */}
               {contextMenu && (
-                <div style={{
-                  position: 'fixed',
-                  top: contextMenu.y,
-                  left: contextMenu.x,
-                  background: '#fff',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: 12,
-                  boxShadow: '0 10px 25px rgba(0,0,0,0.15), 0 4px 10px rgba(0,0,0,0.1)',
-                  zIndex: 1100,
-                  overflow: 'hidden',
-                  minWidth: 200,
-                  padding: '4px'
-                }} onClick={(e) => e.stopPropagation()}>
+                <div 
+                  data-context-menu
+                  style={{
+                    position: 'fixed',
+                    top: contextMenu.y,
+                    left: contextMenu.x,
+                    background: '#fff',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: 12,
+                    boxShadow: '0 10px 25px rgba(0,0,0,0.15), 0 4px 10px rgba(0,0,0,0.1)',
+                    zIndex: 1100,
+                    overflow: 'hidden',
+                    minWidth: 200,
+                    padding: '4px'
+                  }} 
+                  onClick={(e) => e.stopPropagation()}
+                  onContextMenu={(e) => e.preventDefault()}
+                >
+                  {contextMenu.item.type === 'weblink' && (
+                    <button
+                      className="dropdown-item"
+                      style={{
+                        padding: '10px 16px',
+                        width: '100%',
+                        textAlign: 'left',
+                        border: 'none',
+                        background: 'transparent',
+                        borderRadius: 8,
+                        fontSize: 14,
+                        fontWeight: 500,
+                        color: '#334155',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                        transition: 'all 0.15s ease'
+                      }}
+                      onClick={() => { setViewWebLinkModal({ name: contextMenu.item.name, url: contextMenu.item.webLink }); setContextMenu(null); }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = '#f1f5f9'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                    >
+                      <i className="mdi mdi-open-in-new" style={{ color: '#6366f1' }}></i> Open Link
+                    </button>
+                  )}
                   <button
                     className="dropdown-item"
                     style={{
@@ -981,78 +923,6 @@ const DocumentsPage = () => {
                   >
                     <i className="mdi mdi-rename-box" style={{ color: '#6366f1' }}></i> Rename
                   </button>
-                  <button
-                    className="dropdown-item"
-                    style={{
-                      padding: '10px 16px',
-                      width: '100%',
-                      textAlign: 'left',
-                      border: 'none',
-                      background: 'transparent',
-                      borderRadius: 8,
-                      fontSize: 14,
-                      fontWeight: 500,
-                      color: '#334155',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 10,
-                      transition: 'all 0.15s ease'
-                    }}
-                    onClick={() => { onCopy(contextMenu.item.path); const id = Date.now(); setToasts((t) => [...t, { id, text: `Copied ${contextMenu.item.name}` }]); setTimeout(() => setToasts(tt => tt.filter(x => x.id !== id)), 2200); setContextMenu(null); }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = '#f1f5f9'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-                  >
-                    <i className="mdi mdi-content-copy" style={{ color: '#6366f1' }}></i> Copy
-                  </button>
-                  <button
-                    className="dropdown-item"
-                    style={{
-                      padding: '10px 16px',
-                      width: '100%',
-                      textAlign: 'left',
-                      border: 'none',
-                      background: 'transparent',
-                      borderRadius: 8,
-                      fontSize: 14,
-                      fontWeight: 500,
-                      color: '#334155',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 10,
-                      transition: 'all 0.15s ease',
-                      opacity: (!clipboard || contextMenu.item.type !== 'folder') ? 0.4 : 1
-                    }}
-                    disabled={!clipboard || contextMenu.item.type !== 'folder'}
-                    onClick={() => { pasteInto(contextMenu.item.path); setContextMenu(null); }}
-                    onMouseEnter={(e) => { if (clipboard && contextMenu.item.type === 'folder') { e.currentTarget.style.background = '#f1f5f9'; } }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-                  >
-                    <i className="mdi mdi-content-paste" style={{ color: '#6366f1' }}></i> Paste
-                  </button>
-                  <button
-                    className="dropdown-item"
-                    style={{
-                      padding: '10px 16px',
-                      width: '100%',
-                      textAlign: 'left',
-                      border: 'none',
-                      background: 'transparent',
-                      borderRadius: 8,
-                      fontSize: 14,
-                      fontWeight: 500,
-                      color: '#334155',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 10,
-                      transition: 'all 0.15s ease'
-                    }}
-                    onClick={() => { onCut(contextMenu.item.path); setContextMenu(null); }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = '#f1f5f9'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-                  >
-                    <i className="mdi mdi-content-cut" style={{ color: '#6366f1' }}></i> Cut
-                  </button>
-                  <div style={{ height: 1, background: '#e2e8f0', margin: '4px 0' }}></div>
                   <button
                     className="dropdown-item"
                     style={{
