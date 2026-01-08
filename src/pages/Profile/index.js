@@ -1,30 +1,26 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
     Card,
     Row,
     Col,
     Form,
     Button,
-    Breadcrumb,
     Alert,
 } from "react-bootstrap";
-import { useNavigate } from "react-router-dom";
+import SelectWithAdd from "../../components/common/SelectWithAdd";
+import HapuListsApi from "../../api/hapulistsApi";
 import UsersApi from "../../api/usersApi";
 import { AuthApi } from "../../api/authApi";
 import defaultProfileImage from "../../assets/images/user.jpg";
 import { ProfileSkeleton } from "../../components/common/SkelentonTableRow";
 import safeString from "../../utils/safe";
 const ProfilePage = () => {
-    const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState("profile"); // "profile" or "password"
     const [user, setUser] = useState({
         first_name: "",
         last_name: "",
         email: "",
         phone: "",
-        city: "",
-        country: "",
-        zip_code: "",
         profile_image: "",
     });
     const [passwordData, setPasswordData] = useState({
@@ -40,30 +36,43 @@ const ProfilePage = () => {
     const [errors, setErrors] = useState([]);
     const [success, setSuccess] = useState("");
     const [profileImagePreview, setProfileImagePreview] = useState(null);
-    const [userId, setUserId] = useState(null);
+    const [hapuList, setHapuList] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [updating, setUpdating] = useState(false);
+
+    const loadUser = useCallback(async () => {
+        setLoading(true);
+        try {
+            const authUser = (await AuthApi.check()).user;
+            const res = await UsersApi.getById(authUser.id);
+            const profileImageUrl = res.data.profile_image
+                ? `${process.env.REACT_APP_TUPONO_API_URL.replace('/api', '')}${res.data.profile_image}`
+                : defaultProfileImage;
+            setUser(res.data);
+            setProfileImagePreview(profileImageUrl);
+            // load hapu options
+            try {
+                const hl = await HapuListsApi.list({ perpage: -1 });
+                setHapuList(hl?.data || []);
+            } catch (err) {
+                setHapuList([]);
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
     useEffect(() => {
         loadUser();
-    }, []);
-
-    const loadUser = async () => {
-        try {
-            const authUser = (await AuthApi.check()).user;
-            setUserId(authUser.id);
-            const res = await UsersApi.getById(authUser.id);
-            const profileImageUrl = `${process.env.REACT_APP_TUPONO_API_URL.replace('/api', '')}${res.data.profile_image}`;
-            setUser(res.data); 
-            setProfileImagePreview( res.data.profile_image ? profileImageUrl : defaultProfileImage);
-        } catch (e) {
-            console.error(e);
-        }
-    };
+    }, [loadUser]);
 
 
-    const handleChange = (e) => {
+    const handleChange = useCallback((e) => {
         const { name, value } = e.target;
-        setUser({ ...user, [name]: value });
-    };
+        setUser((prev) => ({ ...prev, [name]: value }));
+    }, []);
 
     const handleKeyPress = (e) => {
         // Only allow letters and spaces for name fields
@@ -73,54 +82,117 @@ const ProfilePage = () => {
         }
     };
 
-    const handleImageChange = (e) => {
-        const file = e.target.files[0];
-        setUser({ ...user, profile_image: file });
+    const handleImageChange = useCallback((e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        setUser((prev) => ({ ...prev, profile_image: file }));
+        setProfileImagePreview(URL.createObjectURL(file));
+    }, []);
 
-        if (file) {
-            setProfileImagePreview(URL.createObjectURL(file));
+    const handleAddHapu = useCallback(async (name) => {
+        if (!name) return;
+        // attempt to create hapu in hapu DB if we can determine a rohe_id
+        try {
+            const possibleRohe = (user && (user.rohe || user.rohe_id)) || (hapuList && hapuList[0] && hapuList[0].rohe_id);
+            const roheId = typeof possibleRohe === "string" ? possibleRohe : (possibleRohe?._id || possibleRohe);
+            if (roheId) {
+                await HapuListsApi.create({ name, rohe_id: roheId });
+                // reload hapu list
+                const hl = await HapuListsApi.list({ perpage: -1 });
+                setHapuList(hl?.data || []);
+            } else {
+                // no rohe available — still update user locally
+                console.warn("No rohe_id available; skipping hapu DB create");
+            }
+        } catch (err) {
+            console.error("Failed to create hapu:", err);
         }
-    };
 
-    const handleSubmit = async (e) => {
+        // set selected hapu on user (store as single string to match UserKaupapaFields)
+        setUser((prev) => ({ ...prev, hapu: String(name) }));
+    }, [hapuList, user]);
+
+    const handleSubmit = useCallback(async (e) => {
         e.preventDefault();
         setErrors([]);
         setSuccess("");
 
         const formData = new FormData();
-        Object.keys(user).forEach((key) => {
-            formData.append(key, user[key]);
-        });
+        setUpdating(true);
+        setLoading(true);
+
+        // Required basic fields
+        formData.append("first_name", String(user.first_name || "").trim());
+        formData.append("last_name", String(user.last_name || "").trim());
+        formData.append("email", String(user.email || "").trim());
+
+        // role_id: prefer id if object
+        let roleId = user.role_id;
+        if (roleId && typeof roleId === "object") roleId = roleId._id || roleId;
+        if (roleId) formData.append("role_id", String(roleId));
+
+        // Optional profile fields
+        if (user.phone) formData.append("phone", String(user.phone));
+        if (user.city) formData.append("city", String(user.city));
+        if (user.country) formData.append("country", String(user.country));
+        if (user.zip_code) formData.append("zip_code", String(user.zip_code));
+        if (user.address) formData.append("address", String(user.address));
+
+        // Kaupapa fields — send as string or JSON array
+        if (user.hapu) {
+            if (Array.isArray(user.hapu)) formData.append("hapu", JSON.stringify(user.hapu));
+            else formData.append("hapu", String(user.hapu));
+        }
+        if (user.iwi) {
+            if (Array.isArray(user.iwi)) formData.append("iwi", JSON.stringify(user.iwi));
+            else formData.append("iwi", String(user.iwi));
+        }
+        if (user.marae) {
+            if (Array.isArray(user.marae)) formData.append("marae", JSON.stringify(user.marae));
+            else formData.append("marae", String(user.marae));
+        }
+        if (user.maunga) {
+            if (Array.isArray(user.maunga)) formData.append("maunga", JSON.stringify(user.maunga));
+            else formData.append("maunga", String(user.maunga));
+        }
+        if (user.awa) {
+            if (Array.isArray(user.awa)) formData.append("awa", JSON.stringify(user.awa));
+            else formData.append("awa", String(user.awa));
+        }
+
+        // Profile image file
+        if (user.profile_image instanceof File) {
+            formData.append("profile_image", user.profile_image);
+        }
 
         try {
-            await UsersApi.updateProfile(user._id, formData);
+            await UsersApi.update(user._id, formData);
             setSuccess("Profile updated successfully.");
-            // Reload user data after successful update
-            setTimeout(() => {
-                loadUser();
-            }, 1000);
+            await loadUser();
         } catch (e) {
             if (e.response?.data?.errors) {
                 setErrors(Object.values(e.response.data.errors).flat());
+            } else if (e.response?.data?.message) {
+                setErrors([e.response.data.message]);
             } else {
                 setErrors(["Something went wrong."]);
             }
+        } finally {
+            setUpdating(false);
+            setLoading(false);
         }
-    };
+    }, [user, loadUser]);
 
-    const handlePasswordChange = (e) => {
+    const handlePasswordChange = useCallback((e) => {
         const { name, value } = e.target;
-        setPasswordData({ ...passwordData, [name]: value });
-    };
+        setPasswordData((prev) => ({ ...prev, [name]: value }));
+    }, []);
 
-    const togglePasswordVisibility = (field) => {
-        setShowPasswords({
-            ...showPasswords,
-            [field]: !showPasswords[field],
-        });
-    };
+    const togglePasswordVisibility = useCallback((field) => {
+        setShowPasswords((prev) => ({ ...prev, [field]: !prev[field] }));
+    }, []);
 
-    const handlePasswordSubmit = async (e) => {
+    const handlePasswordSubmit = useCallback(async (e) => {
         e.preventDefault();
         setErrors([]);
         setSuccess("");
@@ -142,7 +214,7 @@ const ProfilePage = () => {
         }
 
         try {
-            await UsersApi.changePassword(userId, {
+            await UsersApi.changePassword(user._id, {
                 old_password: passwordData.old_password,
                 new_password: passwordData.new_password,
                 confirm_password: passwordData.confirm_password,
@@ -165,7 +237,7 @@ const ProfilePage = () => {
                 setErrors(["Something went wrong. Please try again."]);
             }
         }
-    };
+    }, [passwordData, user]);
 
 
 
@@ -193,8 +265,8 @@ const ProfilePage = () => {
 
 
             <section className="card mt-3 h-100 w-100">
-                {!user && <ProfileSkeleton />}
-                {user && (
+                {(loading || updating) && <ProfileSkeleton />}
+                {!(loading || updating) && user && (
                     <div className="row card-body">
                         {/* Navigation Pills */}
                         <ul
@@ -262,33 +334,10 @@ const ProfilePage = () => {
 
                                             {/* Profile Details */}
                                             <div className="text-start mt-3">
-                                                <p className="mb-2">
-                                                    <strong>Phone Number :</strong>
-                                                    {safeString(user.phone)}
-                                                </p>
-                                                <p className="mb-2">
+
+                                                <p className="mb-2 text-center fong-semibold">
                                                     <strong>Email :</strong>{" "}
                                                     {safeString(user.email)}
-                                                </p>
-                                                <p className="mb-2">
-                                                    <strong>Address :</strong>{" "}
-                                                    {safeString(user.address)}
-                                                </p>
-                                                <p className="mb-2">
-                                                    <strong>City :</strong>{" "}
-                                                    {safeString(user.city)}
-                                                </p>
-                                                <p className="mb-2">
-                                                    <strong>State :</strong>{" "}
-                                                    {safeString(user.state)}
-                                                </p>
-                                                <p className="mb-2">
-                                                    <strong>County :</strong>{" "}
-                                                    {safeString(user.country)}
-                                                </p>
-                                                <p className="mb-2">
-                                                    <strong>Zip Code :</strong>{" "}
-                                                    {safeString(user.zip_code)}
                                                 </p>
                                             </div>
                                         </Card.Body>
@@ -301,250 +350,149 @@ const ProfilePage = () => {
                                         <Card.Body>
                                             <div className="tab-content" style={{ borderTop: "1px solid #dee2e6" }}>
                                                 <div className="tab-pane show active" id="settings">
-                                                {/* Success alert */}
-                                                {success && (
-                                                    <Alert
-                                                        variant="success"
-                                                        onClose={() => setSuccess("")}
-                                                        dismissible
-                                                    >
-                                                        <ul style={{ listStyle: "none", marginBottom: "0px" }}>
-                                                            <li>{success}</li>
-                                                        </ul>
-                                                    </Alert>
-                                                )}
-
-                                                {/* Error alert */}
-                                                {errors.length > 0 && (
-                                                    <Alert
-                                                        variant="danger"
-                                                        onClose={() => setErrors([])}
-                                                        dismissible
-                                                    >
-                                                        <ul style={{ listStyle: "none", marginBottom: "0px" }}>
-                                                            {errors.map((err, i) => (
-                                                                <li key={i}>{err}</li>
-                                                            ))}
-                                                        </ul>
-                                                    </Alert>
-                                                )}
-
-                                                {/* Section Header */}
-                                                <h5 className="mb-4 display-5">
-                                                    <i className="mdi mdi-account-circle me-1"></i> Personal Info
-                                                </h5>
-
-                                                <Form onSubmit={handleSubmit}>
-                                                    <Row>
-                                                        <Col md={6}>
-                                                            <Form.Group className="mb-3">
-                                                                <Form.Label htmlFor="first_name">
-                                                                    First Name 
-                                                                </Form.Label>
-                                                                <Form.Control
-                                                                    id="first_name"
-                                                                    name="first_name"
-                                                                    type="text"
-                                                                    maxLength={50}
-                                                                    value={safeString(user.first_name)}
-                                                                    onChange={handleChange}
-                                                                    onKeyPress={handleKeyPress}
-                                                                    placeholder="Enter First Name"
-                                                                />
-                                                            </Form.Group>
-                                                        </Col>
-
-                                                        <Col md={6}>
-                                                            <Form.Group className="mb-3">
-                                                                <Form.Label htmlFor="last_name">
-                                                                    Last Name
-                                                                </Form.Label>
-                                                                <Form.Control
-                                                                    id="last_name"
-                                                                    name="last_name"
-                                                                    type="text"
-                                                                    maxLength={50}
-                                                                    value={safeString(user.last_name)}
-                                                                    onChange={handleChange}
-                                                                    onKeyPress={handleKeyPress}
-                                                                    placeholder="Enter Last Name"
-                                                                />
-                                                            </Form.Group>
-                                                        </Col>
-                                                    </Row>
-
-                                                    <Row>
-                                                        <Col md={12}>
-                                                            <Form.Group className="mb-3">
-                                                                <Form.Label htmlFor="address">
-                                                                    Address 
-                                                                </Form.Label>
-                                                                <Form.Control
-                                                                    id="address"
-                                                                    name="address"
-                                                                    as="textarea"
-                                                                    rows={2}
-                                                                    maxLength={250}
-                                                                    value={safeString(user.address)}
-                                                                    onChange={handleChange}
-                                                                    placeholder="Enter Address"
-                                                                    style={{
-                                                                        resize: "none",
-                                                                        height: "55px !important",
-                                                                    }}
-                                                                />
-                                                            </Form.Group>
-                                                        </Col>
-                                                    </Row>
-
-                                                    <Row>
-                                                        <Col md={6}>
-                                                            <Form.Group className="mb-3">
-                                                                <Form.Label htmlFor="city">
-                                                                    City 
-                                                                </Form.Label>
-                                                                <Form.Control
-                                                                    id="city"
-                                                                    name="city"
-                                                                    type="text"
-                                                                    maxLength={50}
-                                                                    value={safeString(user.city)}
-                                                                    onChange={handleChange}
-                                                                    onKeyPress={handleKeyPress}
-                                                                    placeholder="Enter City"
-                                                                />
-                                                            </Form.Group>
-                                                        </Col>
-
-                                                        <Col md={6}>
-                                                            <Form.Group className="mb-3">
-                                                                <Form.Label htmlFor="state">
-                                                                    State
-                                                                </Form.Label>
-                                                                <Form.Control
-                                                                    id="state"
-                                                                    name="state"
-                                                                    type="text"
-                                                                    maxLength={50}
-                                                                    value={safeString(user.state)}
-                                                                    onChange={handleChange}
-                                                                    onKeyPress={handleKeyPress}
-                                                                    placeholder="Enter State"
-                                                                />
-                                                            </Form.Group>
-                                                        </Col>
-                                                    </Row>
-
-                                                    <Row>
-                                                        <Col md={6}>
-                                                            <Form.Group className="mb-3">
-                                                                <Form.Label htmlFor="country">
-                                                                    County 
-                                                                </Form.Label>
-                                                                <Form.Control
-                                                                    id="country"
-                                                                    name="country"
-                                                                    type="text"
-                                                                    maxLength={100}
-                                                                    value={safeString(user.country)}
-                                                                    onChange={handleChange}
-                                                                    onKeyPress={handleKeyPress}
-                                                                    placeholder="Enter Country"
-                                                                />
-                                                            </Form.Group>
-                                                        </Col>
-
-                                                        <Col md={6}>
-                                                            <Form.Group className="mb-3">
-                                                                <Form.Label htmlFor="zip_code">
-                                                                    Zip Code 
-                                                                </Form.Label>
-                                                                <input
-                                                                    type="text"
-                                                                    className="form-control"
-                                                                    name="zip_code"
-                                                                    id="zip_code"
-                                                                    value={safeString(user.zip_code)}
-                                                                    placeholder="Enter Zip Code"
-                                                                    maxLength={6}
-                                                                    onChange={(e) => {
-                                                                        // keep only digits
-                                                                        let raw = e.target.value.replace(/\D/g, "");
-
-                                                                        // limit to 6 digits
-                                                                        if (raw.length > 6) raw = raw.slice(0, 6);
-
-                                                                        setUser({ ...user, zip_code: raw });
-                                                                    }}
-                                                                />
-
-                                                            </Form.Group>
-                                                        </Col>
-                                                    </Row>
-
-                                                    <Row>
-                                                        <Col md={6}>
-                                                            <Form.Group className="mb-3">
-                                                                <Form.Label htmlFor="phone">
-                                                                    Phone Number
-                                                                </Form.Label>
-                                                                <input
-                                                                    type="text"
-                                                                    className="form-control"
-                                                                    id="phone"
-                                                                    name="phone"
-                                                                    placeholder="Enter Phone"
-                                                                    maxLength={14}
-                                                                    value={safeString(user.phone)}
-                                                                    onChange={(e) => {
-                                                                        let raw = e.target.value.replace(/\D/g, ""); // digits only
-
-                                                                        if (raw.length > 10) raw = raw.slice(0, 10);
-
-                                                                        let formatted = raw;
-
-                                                                        if (raw.length > 6) {
-                                                                            formatted = `(${raw.slice(0, 3)}) ${raw.slice(3, 6)}-${raw.slice(6)}`;
-                                                                        } else if (raw.length > 3) {
-                                                                            formatted = `(${raw.slice(0, 3)}) ${raw.slice(3)}`;
-                                                                        } else if (raw.length > 0) {
-                                                                            formatted = `(${raw}`;
-                                                                        }
-
-                                                                        setUser({ ...user, phone: formatted });
-                                                                    }}
-                                                                />
-
-                                                            </Form.Group>
-                                                        </Col>
-
-                                                        <Col md={6}>
-                                                            <Form.Group className="mb-3">
-                                                                <Form.Label htmlFor="profile_image">
-                                                                    Profile Image
-                                                                </Form.Label>
-                                                                <Form.Control
-                                                                    id="profile_image"
-                                                                    name="profile_image"
-                                                                    type="file"
-                                                                    accept="image/*"
-                                                                    onChange={handleImageChange}
-                                                                />
-                                                            </Form.Group>
-                                                        </Col>
-                                                    </Row>
-
-                                                    {/* Save Button */}
-                                                    <div className="text-center">
-                                                        <Button
-                                                            type="submit"
-                                                            variant="primary"
-                                                            className="btn-rounded btn-fw"
+                                                    {/* Success alert */}
+                                                    {success && (
+                                                        <Alert
+                                                            variant="success"
+                                                            onClose={() => setSuccess("")}
+                                                            dismissible
                                                         >
-                                                            Save
-                                                        </Button>
-                                                    </div>
-                                                </Form>
+                                                            <ul style={{ listStyle: "none", marginBottom: "0px" }}>
+                                                                <li>{success}</li>
+                                                            </ul>
+                                                        </Alert>
+                                                    )}
+
+                                                    {/* Error alert */}
+                                                    {errors.length > 0 && (
+                                                        <Alert
+                                                            variant="danger"
+                                                            onClose={() => setErrors([])}
+                                                            dismissible
+                                                        >
+                                                            <ul style={{ listStyle: "none", marginBottom: "0px" }}>
+                                                                {errors.map((err, i) => (
+                                                                    <li key={i}>{err}</li>
+                                                                ))}
+                                                            </ul>
+                                                        </Alert>
+                                                    )}
+
+                                                    {/* Section Header */}
+                                                    <h5 className="mb-4 display-5">
+                                                        <i className="mdi mdi-account-circle me-1"></i> Personal Info
+                                                    </h5>
+
+                                                    <Form onSubmit={handleSubmit}>
+                                                        <Row>
+                                                            <Col md={6}>
+                                                                <Form.Group className="mb-3">
+                                                                    <Form.Label htmlFor="first_name">
+                                                                        First Name
+                                                                    </Form.Label>
+                                                                    <Form.Control
+                                                                        id="first_name"
+                                                                        name="first_name"
+                                                                        type="text"
+                                                                        maxLength={50}
+                                                                        value={safeString(user.first_name)}
+                                                                        onChange={handleChange}
+                                                                        onKeyPress={handleKeyPress}
+                                                                        placeholder="Enter First Name"
+                                                                    />
+                                                                </Form.Group>
+                                                            </Col>
+
+                                                            <Col md={6}>
+                                                                <Form.Group className="mb-3">
+                                                                    <Form.Label htmlFor="last_name">
+                                                                        Last Name
+                                                                    </Form.Label>
+                                                                    <Form.Control
+                                                                        id="last_name"
+                                                                        name="last_name"
+                                                                        type="text"
+                                                                        maxLength={50}
+                                                                        value={safeString(user.last_name)}
+                                                                        onChange={handleChange}
+                                                                        onKeyPress={handleKeyPress}
+                                                                        placeholder="Enter Last Name"
+                                                                    />
+                                                                </Form.Group>
+                                                            </Col>
+                                                        </Row>
+                                                        <Row>
+                                                            <Col md={6}>
+                                                                <Form.Group className="mb-3">
+                                                                    <Form.Label htmlFor="phone">
+                                                                        Phone Number
+                                                                    </Form.Label>
+                                                                    <input
+                                                                        type="text"
+                                                                        className="form-control"
+                                                                        id="phone"
+                                                                        name="phone"
+                                                                        placeholder="Enter Phone"
+                                                                        maxLength={14}
+                                                                        value={safeString(user.phone)}
+                                                                        onChange={(e) => {
+                                                                            let raw = e.target.value.replace(/\D/g, "");
+                                                                            if (raw.length > 10) raw = raw.slice(0, 10);
+                                                                            let formatted = raw;
+                                                                            if (raw.length > 6) formatted = `(${raw.slice(0,3)}) ${raw.slice(3,6)}-${raw.slice(6)}`;
+                                                                            else if (raw.length > 3) formatted = `(${raw.slice(0,3)}) ${raw.slice(3)}`;
+                                                                            else if (raw.length > 0) formatted = `(${raw}`;
+                                                                            setUser((prev) => ({ ...prev, phone: formatted }));
+                                                                        }}
+                                                                    />
+
+                                                                </Form.Group>
+                                                            </Col>
+
+                                                            <Col md={6}>
+                                                                <Form.Group className="mb-3">
+                                                                    <Form.Label htmlFor="profile_image">
+                                                                        Profile Image
+                                                                    </Form.Label>
+                                                                    <Form.Control
+                                                                        id="profile_image"
+                                                                        name="profile_image"
+                                                                        type="file"
+                                                                        accept="image/*"
+                                                                        onChange={handleImageChange}
+                                                                    />
+                                                                </Form.Group>
+                                                            </Col>
+                                                        </Row>
+
+                                                        <Row>
+                                                            <Col md={6}>
+                                                                <Form.Group className="mb-3">
+                                                                    <Form.Label>Hapū</Form.Label>
+                                                                    <SelectWithAdd
+                                                                        name="hapu"
+                                                                        value={Array.isArray(user.hapu) ? (user.hapu[0] || "") : (user.hapu || "")}
+                                                                        options={hapuList.map((h) => ({ value: h.name || h.hapu_name || h.name, label: h.name || h.hapu_name || h.name }))}
+                                                                        placeholder="Select Hapū"
+                                                                        onChange={handleChange}
+                                                                        onAdd={handleAddHapu}
+                                                                    />
+                                                                </Form.Group>
+                                                            </Col>
+                                                        </Row>
+
+                                                        {/* Save Button */}
+                                                        <div className="text-center">
+                                                            <Button
+                                                                type="submit"
+                                                                variant="primary"
+                                                                className="btn-rounded btn-fw"
+                                                                disabled={updating}
+                                                            >
+                                                                {updating ? "Saving..." : "Save"}
+                                                            </Button>
+                                                        </div>
+                                                    </Form>
                                                 </div>
                                             </div>
                                         </Card.Body>

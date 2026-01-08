@@ -72,29 +72,52 @@ const ProfileSkeleton = () => {
           <div className="box">
             <div className="box-body p-15 pt-0">
               <div className="row p-1">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="col-md-4 mb-3">
-                    <div className="skeleton skeleton-line" style={{ height: 38 }} />
+                {/* Left column: avatar card */}
+                <div className="col-xl-4 col-lg-5 mb-3">
+                  <div className="card text-center">
+                    <div className="card-body">
+                      <div className="skeleton" style={{ width: 200, height: 200, borderRadius: '50%', margin: '0 auto' }} />
+                      <div style={{ height: 12 }} />
+                      <div className="skeleton skeleton-line" style={{ width: 160, height: 18, margin: '10px auto' }} />
+                      <div className="skeleton skeleton-line" style={{ width: 120, height: 14, margin: '6px auto' }} />
+                    </div>
                   </div>
-                ))}
-              </div>
-              <div className="col-md-12 mb-3">
-                <div className="skeleton skeleton-line" style={{ height: 90 }} />
-              </div>
-              <div className="col-md-12 mb-2 mt-2">
-                <div className="skeleton skeleton-line" style={{ width: 140, height: 24 }} />
-              </div>
-              <div className="col-md-12 mb-2">
-                <div className="skeleton skeleton-line" style={{ width: 100, height: 32, borderRadius: 20 }} />
-              </div>
-              <div className="col-md-12">
-                <div className="skeleton skeleton-line mb-2" style={{ height: 40 }} />
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="skeleton skeleton-line mb-2" style={{ height: 38 }} />
-                ))}
-              </div>
-              <div className="col-md-12 mt-3 d-flex justify-content-end gap-2">
-                <div className="skeleton skeleton-line" style={{ width: 100, height: 38 }} />
+                </div>
+
+                {/* Right column: form skeleton */}
+                <div className="col-xl-8 col-lg-7">
+                  <div className="card">
+                    <div className="card-body">
+                      <div className="skeleton skeleton-line" style={{ width: 220, height: 22, marginBottom: 16 }} />
+
+                      <div className="row">
+                        <div className="col-md-6 mb-3">
+                          <div className="skeleton skeleton-line" style={{ height: 38 }} />
+                        </div>
+                        <div className="col-md-6 mb-3">
+                          <div className="skeleton skeleton-line" style={{ height: 38 }} />
+                        </div>
+
+                        <div className="col-md-6 mb-3">
+                          <div className="skeleton skeleton-line" style={{ height: 38 }} />
+                        </div>
+                        <div className="col-md-6 mb-3">
+                          <div className="skeleton skeleton-line" style={{ height: 38 }} />
+                        </div>
+
+                        <div className="col-md-6 mb-3">
+                          <div className="skeleton skeleton-line" style={{ height: 38 }} />
+                        </div>
+
+                        <div className="col-md-12 mt-3 d-flex justify-content-center">
+                          <div className="skeleton skeleton-line" style={{ width: 120, height: 38, borderRadius: 20 }} />
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
+                </div>
+
               </div>
             </div>
           </div>

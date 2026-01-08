@@ -118,20 +118,16 @@ const Header = ({ user, adminUnreadCount = 0 }) => {
                 </p>
               </div>
 
-              <a href="/profile" className="dropdown-item">
+              <NavLink href="/profile" className="dropdown-item bg-white text-black">
                 <i className="dropdown-item-icon mdi mdi-account-outline text-primary me-2"></i>
                 My Profile
-              </a>
+              </NavLink>
 
-              <a href="/support" className="dropdown-item">
+              <NavLink href="/support" className="dropdown-item bg-white text-black">
                 <i className="dropdown-item-icon mdi mdi-message-text-outline text-primary me-2"></i>
                 Support Management
-              </a>
+              </NavLink>
 
-              <a href="/change-password" className="dropdown-item">
-                <i className="dropdown-item-icon mdi mdi-lock-check text-primary me-2"></i>
-                Change Password
-              </a>
 
               <a className="dropdown-item" onClick={handleLogout}>
                 <i className="dropdown-item-icon mdi mdi-power text-primary me-2"></i>
