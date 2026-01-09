@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { AuthApi } from "../../../api/authApi";
 import logo from "../../../assets/images/logo.png";
 import "bootstrap/dist/css/bootstrap.min.css";
 
 const Login = () => {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);
@@ -23,12 +25,22 @@ const Login = () => {
     setMessage({ type: "", text: "" });
 
     try {
-      await AuthApi.login({email, password, rememberme: remember})
-      setMessage({ type: "success", text: "Login successful!" });
-      setTimeout(() => (window.location.href = "/admin/dashboard"), 300);
+      const res = await AuthApi.login({email, password, rememberme: remember})
+      
+      // Check if response has user object (indicates successful login)
+      if (res && res.user) {
+        setMessage({ type: "success", text: "Login successful!" });
+        setTimeout(() => navigate("/admin/dashboard"), 300);
+      } else {
+        // Backend returned error response (no user object)
+        const errorMsg = res?.msg || "Invalid credentials";
+        setMessage({ type: "error", text: errorMsg });
+      }
     } 
     catch (err) {
-      setMessage({ type: "error", text: err.message });
+      // Network or axios error
+      const errorMsg = err.message || "Invalid credentials";
+      setMessage({ type: "error", text: errorMsg });
     }
   };
 

@@ -2,9 +2,11 @@
 import React, { useEffect, useState } from "react";
 import { AuthApi } from "../../api/authApi";
 import logo from "../../assets/images/logo.png";
+import { useNavigate } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 
 const Login = () => {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);
@@ -24,11 +26,12 @@ const Login = () => {
     setMessage({ type: "", text: "" });
 
     try {
-      await AuthApi.login({email, password, rememberme: remember})
+      const res = await AuthApi.login({email, password, rememberme: remember})
       setMessage({ type: "success", text: "Login successful!" });
-      setTimeout(() => (window.location.href = "/admin/dashboard"), 300);
+      setTimeout(() => navigate("/admin/dashboard"), 300);
     } 
     catch (err) {
+      console.log('err', err)
       setMessage({ type: "error", text: err.message });
     }
   };

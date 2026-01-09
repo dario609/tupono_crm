@@ -473,7 +473,7 @@ const ProfilePage = () => {
                                                                         name="hapu"
                                                                         value={Array.isArray(user.hapu) ? (user.hapu[0] || "") : (user.hapu || "")}
                                                                         options={hapuList.map((h) => ({ value: h.name || h.hapu_name || h.name, label: h.name || h.hapu_name || h.name }))}
-                                                                        placeholder="Select Hapū"
+                                                                        placeholder="Hapū"
                                                                         onChange={handleChange}
                                                                         onAdd={handleAddHapu}
                                                                     />

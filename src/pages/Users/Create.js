@@ -45,6 +45,20 @@ const CreateUser = () => {
     });
   }, []);
 
+  const handleAddHapu = async (name) => {
+    if (!name) return;
+    try {
+      await HapuListsApi.create({ name });
+      const json = await HapuListsApi.list({ perpage: -1 });
+      setHapus(json?.data || []);
+    } catch (err) {
+      console.error("Failed to create hapu:", err);
+    }
+
+    // set selected hapu on form
+    onChange({ target: { name: "hapu", value: String(name) } });
+  };
+
   return (
     <>
       <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-24">
@@ -70,7 +84,7 @@ const CreateUser = () => {
               <UserContactFields form={form} onChange={onChange} />
               <UserProfileImage profileImage={profileImage} setProfileImage={setProfileImage} />
               <UserRoleField roles={roles} form={form} onChange={onChange} />
-              <UserKaupapaFields form={form} onChange={onChange} hapus={hapus} />
+              <UserKaupapaFields form={form} onChange={onChange} hapus={hapus} onAdd={handleAddHapu} />
             </div>
 
             <div className="form-check mt-3">

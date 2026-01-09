@@ -131,7 +131,7 @@ export default function SelectWithAdd({
             <input
               value={newItem}
               onChange={(e) => setNewItem(e.target.value)}
-              placeholder={`Enter ${placeholder} name...`}
+              placeholder={`Add a new ${placeholder} name...`}
               className="form-control"
             />
             <button type="button" onClick={handleAdd} className="btn btn-success">

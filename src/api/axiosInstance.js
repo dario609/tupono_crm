@@ -68,8 +68,9 @@ api.interceptors.response.use(
   (response) => response.data,
   (error) => {
     const status = error?.response?.status;
+    // Backend uses 'msg' field, fallback to 'message'
     const msg =
-      error?.response?.data?.message || "An unexpected server error occurred.";
+      error?.response?.data?.msg || error?.response?.data?.message || "An unexpected server error occurred.";
     // Handle unauthorized globally → redirect to login
     if (status === 401 && typeof window !== "undefined") {
       try {
