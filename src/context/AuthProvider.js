@@ -6,14 +6,13 @@ const AuthContext = createContext({
   user: null,
   permissions: {},
   loading: true,
-  refresh: async () => {},
+  refresh: async () => { },
 });
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [permissions, setPermissions] = useState({});
   const [loading, setLoading] = useState(true);
-
   const load = async () => {
     try {
       setLoading(true);
@@ -21,11 +20,14 @@ export const AuthProvider = ({ children }) => {
       if (me?.authenticated) setUser(me.user);
       const perms = await PermissionsApi.me();
       setPermissions(perms?.data || {});
-    } finally {
+    }
+    catch (err) {
+      console.log("AuthProvider - error loading auth state:", err);
+    }
+    finally {
       setLoading(false);
     }
   };
-
   useEffect(() => {
     load();
   }, []);
@@ -34,7 +36,6 @@ export const AuthProvider = ({ children }) => {
     user,
     permissions,
     loading,
-    refresh: load,
   }), [user, permissions, loading]);
 
   return (

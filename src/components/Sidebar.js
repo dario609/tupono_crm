@@ -1,17 +1,21 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { rolesLabel } from "../constants";
 import { permissionsInputLabel } from "../constants";
 import { AuthApi } from "../api/authApi";
+import UsersApi from "../api/usersApi";
 
-const Sidebar = ({ user, permissions, supportBadge }) => {
+const Sidebar = ({ permissions, supportBadge }) => {
   const navigate = useNavigate();
   const [openMenu, setOpenMenu] = useState(null);
   const sidebarRef = useRef(null);
+  const [user, setUser] = useState(null);
 
   const toggleMenu = (menuId) => {
     setOpenMenu(openMenu === menuId ? null : menuId);
   };
+
+
 
   const handleLogout = async () => {
     try {
@@ -19,57 +23,81 @@ const Sidebar = ({ user, permissions, supportBadge }) => {
       sessionStorage.setItem("logoutMessage", res.msg);
       // Close sidebar on mobile
       const sidebar = document.querySelector('.sidebar-offcanvas');
-      if(sidebar) {
+      if (sidebar) {
         sidebar.classList.remove('active');
       }
       navigate("/");
-    } catch(err) {
+    } catch (err) {
       console.log("Logout Failed", err);
     }
   };
-
-  // Close sidebar when clicking outside (mobile view)
   useEffect(() => {
+    let isMounted = true;
+
+    const sidebar = document.querySelector(".sidebar-offcanvas");
+
     const handleClickOutside = (event) => {
-      const sidebar = document.querySelector('.sidebar-offcanvas');
-      if (sidebar && sidebar.classList.contains('active')) {
-        // Check if click is outside sidebar and not on the toggle button
+      if (sidebar && sidebar.classList.contains("active")) {
         const isClickInsideSidebar = sidebarRef.current?.contains(event.target);
-        const isToggleButton = event.target.closest('.navbar-toggler-right') || 
-                               event.target.closest('.navbar-toggler');
-        
+
+        const isToggleButton =
+          event.target.closest(".navbar-toggler-right") ||
+          event.target.closest(".navbar-toggler");
+
         if (!isClickInsideSidebar && !isToggleButton) {
-          sidebar.classList.remove('active');
+          sidebar.classList.remove("active");
         }
       }
     };
 
-    // Close sidebar when clicking on a nav link (mobile only)
     const handleNavLinkClick = (event) => {
-      const sidebar = document.querySelector('.sidebar-offcanvas');
       // Only close on mobile (screen width < 992px)
       if (sidebar && window.innerWidth < 992) {
-        const target = event.target.closest('a.nav-link');
+        const target = event.target.closest("a.nav-link");
         // Don't close if it's a dropdown toggle
-        if (target && !target.getAttribute('href')?.startsWith('#!')) {
-          sidebar.classList.remove('active');
+        if (target && !target.getAttribute("href")?.startsWith("#!")) {
+          sidebar.classList.remove("active");
         }
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    const navLinks = document.querySelectorAll('.sidebar .nav-link[href]:not([href="#!"])');
-    navLinks.forEach(link => {
-      link.addEventListener('click', handleNavLinkClick);
-    });
+    const navLinks = document.querySelectorAll(
+      '.sidebar .nav-link[href]:not([href="#!"])'
+    );
 
+    // attach listeners immediately (synchronous)
+    document.addEventListener("mousedown", handleClickOutside);
+    navLinks.forEach((link) => link.addEventListener("click", handleNavLinkClick));
+
+    // async fetch in separate function
+    const loadUser = async () => {
+      try {
+        const authRes = await AuthApi.check();
+        const authUser = authRes?.user;
+        if (!authUser?.id) return;
+
+        const res = await UsersApi.getById(authUser.id);
+
+        if (isMounted) {
+          setUser(res.data);
+        }
+      } catch (err) {
+        console.error("Failed loading user:", err);
+      }
+    };
+
+    loadUser();
+
+    // ✅ cleanup must be returned directly from useEffect callback
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      navLinks.forEach(link => {
-        link.removeEventListener('click', handleNavLinkClick);
-      });
+      isMounted = false;
+      document.removeEventListener("mousedown", handleClickOutside);
+      navLinks.forEach((link) =>
+        link.removeEventListener("click", handleNavLinkClick)
+      );
     };
   }, []);
+
 
   const isSuperAdmin = (user?.role_id?.role_name === rolesLabel.superAdmin);
   const canView = (key) => (isSuperAdmin || permissions?.[key]?.is_view === 1);
@@ -86,28 +114,26 @@ const Sidebar = ({ user, permissions, supportBadge }) => {
           </NavLink>
         </li>
 
-        {canView("roles_permissions") && (
-          <li className="nav-item">
-            <a
-              href="#!"
-              className="nav-link"
-              onClick={() => toggleMenu("roles")}
-            >
-              <i className="menu-icon text-success mdi mdi-account-key"></i>
-              <span className="menu-title">Roles & Permission</span>
-              <i className="menu-arrow"></i>
-            </a>
-            <div className={`collapse ${openMenu === "roles" ? "show" : ""}`}>
-              <ul className="nav flex-column sub-menu">
-                <li className="nav-item">
-                  <NavLink to="/admin/roles-permissions" className="nav-link">
-                    <i className="bi bi-chevron-double-right"></i> Roles
-                  </NavLink>
-                </li>
-              </ul>
-            </div>
-          </li>
-        )}
+        <li className="nav-item">
+          <a
+            href="#!"
+            className="nav-link"
+            onClick={() => toggleMenu("roles")}
+          >
+            <i className="menu-icon text-success mdi mdi-account-key"></i>
+            <span className="menu-title">Roles & Permission</span>
+            <i className="menu-arrow"></i>
+          </a>
+          <div className={`collapse ${openMenu === "roles" ? "show" : ""}`}>
+            <ul className="nav flex-column sub-menu">
+              <li className="nav-item">
+                <NavLink to="/admin/roles-permissions" className="nav-link">
+                  <i className="bi bi-chevron-double-right"></i> Roles
+                </NavLink>
+              </li>
+            </ul>
+          </div>
+        </li>
 
         {canView(permissionsInputLabel.user_management) && (
           <li className="nav-item">
@@ -139,7 +165,6 @@ const Sidebar = ({ user, permissions, supportBadge }) => {
           </li>
         )}
 
-        {/* Report Management */}
         {canView(permissionsInputLabel.report_management) && (
           <li className="nav-item">
             <a
@@ -167,10 +192,8 @@ const Sidebar = ({ user, permissions, supportBadge }) => {
                 </li>
               </ul>
             </div>
-          </li>
-        )}
+          </li>)}
 
-        {/* Project Management */}
         {canView(permissionsInputLabel.project_management) && (
           <li className="nav-item">
             <a
@@ -192,7 +215,7 @@ const Sidebar = ({ user, permissions, supportBadge }) => {
                   </li>
                 )}
                 <li className="nav-item">
-                  <NavLink to="/projects" className="nav-link">
+                  <NavLink to="/projects" className="nav-link"> 
                     <i className="bi bi-chevron-double-right"></i> All Projects
                   </NavLink>
                 </li>
@@ -203,145 +226,145 @@ const Sidebar = ({ user, permissions, supportBadge }) => {
 
         {/* Assessment Feedback */}
         {canView(permissionsInputLabel.assessment_management) && (
-          <li className="nav-item">
-            <a
-              href="#!"
-              className="nav-link"
-              onClick={() => toggleMenu("assessment")}
-            >
-              <i className="mdi mdi-clipboard-text-search-outline text-warning menu-icon"></i>
-              <span className="menu-title">Assessment Management</span>
-              <i className="menu-arrow"></i>
-            </a>
-            <div className={`collapse ${openMenu === "assessment" ? "show" : ""}`}>
-              <ul className="nav flex-column sub-menu">
-                {canAdd(permissionsInputLabel.assessment_management) && (
-                  <li className="nav-item">
-                    <NavLink to="/assessment/add" className="nav-link">
-                      <i className="bi bi-chevron-double-right"></i> Create Assessment
-                    </NavLink>
-                  </li>
-                )}
+        <li className="nav-item">
+          <a
+            href="#!"
+            className="nav-link"
+            onClick={() => toggleMenu("assessment")}
+          >
+            <i className="mdi mdi-clipboard-text-search-outline text-warning menu-icon"></i>
+            <span className="menu-title">Assessment Management</span>
+            <i className="menu-arrow"></i>
+          </a>
+          <div className={`collapse ${openMenu === "assessment" ? "show" : ""}`}>
+            <ul className="nav flex-column sub-menu">
+              {canAdd(permissionsInputLabel.assessment_management) && (
                 <li className="nav-item">
-                  <NavLink to="/assessment" className="nav-link">
-                    <i className="bi bi-chevron-double-right"></i> All Assessments
+                  <NavLink to="/assessment/add" className="nav-link">
+                    <i className="bi bi-chevron-double-right"></i> Create Assessment
                   </NavLink>
                 </li>
-              </ul>
-            </div>
-          </li>
-        )}
+              )}
+              <li className="nav-item">
+                <NavLink to="/assessment" className="nav-link">
+                  <i className="bi bi-chevron-double-right"></i> All Assessments
+                </NavLink>
+              </li>
+            </ul>
+          </div>
+        </li>
+        )} 
 
         {/* Calendar */}
         {canView(permissionsInputLabel.calendar_management) && (
-          <li className="nav-item">
-            <a href="#!" className="nav-link" onClick={() => toggleMenu("calendar")}>
-              <i className="mdi mdi-calendar-check-outline text-info menu-icon"></i>
-              <span className="menu-title">My Calendar</span>
-              <i className="menu-arrow"></i>
-            </a>
-            <div className={`collapse ${openMenu === "calendar" ? "show" : ""}`}>
-              <ul className="nav flex-column sub-menu">
-                {canAdd(permissionsInputLabel.calendar_management) && (
-                  <li className="nav-item">
-                    <NavLink to="/calendar/create" className="nav-link">
-                      <i className="bi bi-chevron-double-right"></i> Create Meeting
-                    </NavLink>
-                  </li>
-                )}
+        <li className="nav-item">
+          <a href="#!" className="nav-link" onClick={() => toggleMenu("calendar")}>
+            <i className="mdi mdi-calendar-check-outline text-info menu-icon"></i>
+            <span className="menu-title">My Calendar</span>
+            <i className="menu-arrow"></i>
+          </a>
+          <div className={`collapse ${openMenu === "calendar" ? "show" : ""}`}>
+            <ul className="nav flex-column sub-menu">
+              {canAdd(permissionsInputLabel.calendar_management) && (
                 <li className="nav-item">
-                  <NavLink to="/calendar" className="nav-link">
-                    <i className="bi bi-chevron-double-right"></i> My Calendar
+                  <NavLink to="/calendar/create" className="nav-link">
+                    <i className="bi bi-chevron-double-right"></i> Create Meeting
                   </NavLink>
                 </li>
-              </ul>
-            </div>
-          </li>
+              )}
+              <li className="nav-item">
+                <NavLink to="/calendar" className="nav-link">
+                  <i className="bi bi-chevron-double-right"></i> My Calendar
+                </NavLink>
+              </li>
+            </ul>
+          </div>
+        </li>
         )}
 
         {/* Document Management */}
         {canView(permissionsInputLabel.document_file_management) && (
-          <li className="nav-item">
-            <a
-              href="#!"
-              className="nav-link"
-              onClick={() => toggleMenu("documents")}
-            >
-              <i className="menu-icon text-info mdi mdi-file-document-multiple"></i>
-              <span className="menu-title">Ngā Mahi</span>
-              <i className="menu-arrow"></i>
-            </a>
-            <div
-              className={`collapse ${openMenu === "documents" ? "show" : ""}`}
-            >
-              <ul className="nav flex-column sub-menu">
-                {canAdd(permissionsInputLabel.document_file_management) && (
-                  <li className="nav-item">
-                    <NavLink to="/teams/create" className="nav-link">
-                      <i className="bi bi-chevron-double-right"></i> Rōpu Hou
-                    </NavLink>
-                  </li>
-                )}
+        <li className="nav-item">
+          <a
+            href="#!"
+            className="nav-link"
+            onClick={() => toggleMenu("documents")}
+          >
+            <i className="menu-icon text-info mdi mdi-file-document-multiple"></i>
+            <span className="menu-title">Ngā Mahi</span>
+            <i className="menu-arrow"></i>
+          </a>
+          <div
+            className={`collapse ${openMenu === "documents" ? "show" : ""}`}
+          >
+            <ul className="nav flex-column sub-menu">
+              {canAdd(permissionsInputLabel.document_file_management) && (
                 <li className="nav-item">
-                  <NavLink to="/teams" className="nav-link">
-                    <i className="bi bi-chevron-double-right"></i> Ngā Ropu
+                  <NavLink to="/teams/create" className="nav-link">
+                    <i className="bi bi-chevron-double-right"></i> Rōpu Hou
                   </NavLink>
                 </li>
-                <li className="nav-item">
-                  <NavLink to="/docs/rohe-hapu" className="nav-link">
-                    <i className="bi bi-chevron-double-right"></i> Rohe & Hapū
-                  </NavLink>
-                </li>
-                <li className="nav-item">
-                  <NavLink to="/documents" className="nav-link">
-                    <i className="bi bi-chevron-double-right"></i> Ngā Kopaki
-                  </NavLink>
-                </li>
-              </ul>
-            </div>
-          </li>
+              )}
+              <li className="nav-item">
+                <NavLink to="/teams" className="nav-link">
+                  <i className="bi bi-chevron-double-right"></i> Ngā Ropu
+                </NavLink>
+              </li>
+              <li className="nav-item">
+                <NavLink to="/docs/rohe-hapu" className="nav-link">
+                  <i className="bi bi-chevron-double-right"></i> Rohe & Hapū
+                </NavLink>
+              </li>
+              <li className="nav-item">
+                <NavLink to="/documents" className="nav-link">
+                  <i className="bi bi-chevron-double-right"></i> Ngā Kopaki
+                </NavLink>
+              </li>
+            </ul>
+          </div>
+        </li>
         )}
         {canView(permissionsInputLabel.engagement_tracker) && (
-          <li className="nav-item">
-            <a
-              href="#!"
-              className="nav-link"
-              onClick={() => toggleMenu("engagement")}
-            >
-              <i className="menu-icon text-info mdi mdi-camera-iris"></i>
-              <span className="menu-title">Engagement Tracker</span>
-              <i className="menu-arrow"></i>
-            </a>
-            <div
-              className={`collapse ${openMenu === "engagement" ? "show" : ""}`}
-            >
-              <ul className="nav flex-column sub-menu">
-                <li className="nav-item">
-                  <NavLink to="/engagement-tracker/create" className="nav-link">
-                    <span className="menu-title">Create Engagement</span>
-                  </NavLink>
-                </li>
-                <li className="nav-item">
-                  <NavLink to="/engagement-tracker" className="nav-link">
-                    <span className="menu-title">Engagements</span>
-                  </NavLink>
-                </li>
-              </ul>
-            </div>
-          </li>)}
+        <li className="nav-item">
+          <a
+            href="#!"
+            className="nav-link"
+            onClick={() => toggleMenu("engagement")}
+          >
+            <i className="menu-icon text-info mdi mdi-camera-iris"></i>
+            <span className="menu-title">Engagement Tracker</span>
+            <i className="menu-arrow"></i>
+          </a>
+          <div
+            className={`collapse ${openMenu === "engagement" ? "show" : ""}`}
+          >
+            <ul className="nav flex-column sub-menu">
+              <li className="nav-item">
+                <NavLink to="/engagement-tracker/create" className="nav-link">
+                  <span className="menu-title">Create Engagement</span>
+                </NavLink>
+              </li>
+              <li className="nav-item">
+                <NavLink to="/engagement-tracker" className="nav-link">
+                  <span className="menu-title">Engagements</span>
+                </NavLink>
+              </li>
+            </ul>
+          </div>
+        </li>)}
 
         {/* Support Management */}
         {canView(permissionsInputLabel.message_support_management) && (
-          <li className="nav-item">
-            <NavLink to="/support" className="nav-link">
-              <i className="mdi mdi-message-reply-text-outline text-info menu-icon"></i>
-              <span className="menu-title">Support Management</span>
-              {supportBadge > 0 && (
-                <span className="badge bg-primary ms-2" style={{ borderRadius: 10 }}>{supportBadge}</span>
-              )}
-            </NavLink>
-          </li>
-        )}
+        <li className="nav-item">
+          <NavLink to="/support" className="nav-link">
+            <i className="mdi mdi-message-reply-text-outline text-info menu-icon"></i>
+            <span className="menu-title">Support Management</span>
+            {supportBadge > 0 && (
+              <span className="badge bg-primary ms-2" style={{ borderRadius: 10 }}>{supportBadge}</span>
+            )}
+          </NavLink>
+        </li>
+        )} 
 
 
         {/* My Account */}
