@@ -67,6 +67,12 @@ const DocumentsPage = () => {
     if (Number.isNaN(dt.getTime())) return '-';
     return dt.toLocaleString();
   };
+  const formatDateOnly = (d) => {
+    if (!d) return '-';
+    const dt = new Date(d);
+    if (Number.isNaN(dt.getTime())) return '-';
+    return dt.toLocaleDateString();
+  };
   const getAclDisplay = (it) => {
     if (!it?.acl) return 'Public';
     const parts = [];
@@ -1019,7 +1025,7 @@ const DocumentsPage = () => {
                         )}
                       </div>
                       <div style={tileStyles.name} title={it.name}>{it.name}</div>
-                      <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 8, textAlign: 'center' }}>{formatDate(it.createdAt)}</div>
+                      <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 8, textAlign: 'center' }}>{formatDateOnly(it.createdAt)}</div>
                     </div>
                   ))}
                   {filteredItems.length === 0 && (
@@ -1062,7 +1068,7 @@ const DocumentsPage = () => {
                           <td>{it.size ? formatBytes(it.size) : (it.type === 'folder' ? '-' : '-')}</td>
                           <td style={{ maxWidth: 240, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{getAclDisplay(it)}</td>
                           <td>{(() => { const o = it.owner || it.ownerId || null; if (!o) return '-'; const u = users.find(us => String(us._id) === String(o)); return u ? `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email : String(o); })()}</td>
-                          <td>{formatDate(it.createdAt)}</td>
+                          <td>{formatDateOnly(it.createdAt)}</td>
                         </tr>
                       ))}
                       {filteredItems.length === 0 && (
