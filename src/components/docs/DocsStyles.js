@@ -1,7 +1,7 @@
 const tileStyles = {
     tile: (selected) => ({
       width: 120,
-      height: 110,
+      height: 140,
       borderRadius: 12,
       border: selected ? '2px solid #6366f1' : '2px solid transparent',
       background: selected ? 'rgba(99, 102, 241, 0.08)' : '#fff',
