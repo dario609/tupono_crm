@@ -21,12 +21,20 @@ const DocsApi = {
     if (acl && (acl.readUsers?.length > 0 || acl.readTeams?.length > 0 || acl.writeUsers?.length > 0 || acl.writeTeams?.length > 0)) {
       fd.append('acl', JSON.stringify(acl));
     }
+
+    // Create an explicit array of relative paths to preserve folder structure
+    const filePaths = [];
     for (const f of files) {
       // Use webkitRelativePath if available (for folder uploads), otherwise just the filename
       const relPath = f.webkitRelativePath || f.name;
+      filePaths.push(relPath);
       // Append file with relative path as the filename so server can reconstruct directory structure
       fd.append('files', f, relPath);
     }
+
+    // Send the file paths as a JSON array so backend can reliably reconstruct the folder structure
+    fd.append('filePaths', JSON.stringify(filePaths));
+
     return api.post('/admin/docs/upload-folder', fd, { 
       headers: { 'Content-Type': 'multipart/form-data' },
       timeout: 60000 // 60 second timeout for large folders

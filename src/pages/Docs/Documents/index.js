@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import DocsApi from '../../../api/docsApi';
 import UsersApi from '../../../api/usersApi';
 import TeamsApi from '../../../api/teamsApi';
@@ -42,6 +42,16 @@ const DocumentsPage = () => {
   const [uploadingFolder, setUploadingFolder] = useState(false); // Loading state for folder upload
   const [uploadingFile, setUploadingFile] = useState(false); // Loading state for file upload
   const [webLinkNameError, setWebLinkNameError] = useState(''); // Error message for duplicate web link name
+  const [createActionsDropdown, setCreateActionsDropdown] = useState(false); // Dropdown menu visibility
+  const fileInputRef = useRef(null);
+  const folderInputRef = useRef(null);
+  const dropdownRef = useRef(null);
+  const [searchText, setSearchText] = useState(''); // Search query for files/folders
+  const filteredItems = useMemo(() => {
+    const q = (searchText || '').trim().toLowerCase();
+    if (!q) return items;
+    return items.filter(i => (i?.name || '').toLowerCase().includes(q));
+  }, [items, searchText]);
 
   const load = async (path = cwd) => {
     setLoading(true);
@@ -98,6 +108,22 @@ const DocumentsPage = () => {
       };
     }
   }, [contextMenu]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setCreateActionsDropdown(false);
+      }
+    };
+
+    if (createActionsDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [createActionsDropdown]);
 
   const parts = useMemo(() => cwd.split('/').filter(Boolean), [cwd]);
   const goUp = () => { if (cwd === '/') return; const p = '/' + parts.slice(0, -1).join('/'); load(p || '/'); };
@@ -555,84 +581,211 @@ const DocumentsPage = () => {
             <i className="mdi mdi-arrow-up-bold"></i>
           </button>
 
-          <div className="d-none d-md-flex align-items-center gap-2" style={{ background: '#f8fafc', padding: '4px', borderRadius: 12 }}>
-            <input
-              className="form-control form-control-sm"
-              style={{
-                width: 'min(240px, 60vw)',
-                borderRadius: 8,
-                border: '1px solid #e2e8f0',
-                padding: '8px 12px',
-                fontSize: 14
-              }}
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder="New folder name"
-            />
+          {/* Create Actions Dropdown */}
+          <div 
+            ref={dropdownRef}
+            style={{ position: 'relative', display: 'inline-block' }}
+          >
             <button
               className="btn btn-sm"
               style={{
                 ...btnFilled(colors.indigo, colors.primaryLight),
-                opacity: !newName ? 0.5 : 1,
-                cursor: !newName ? 'not-allowed' : 'pointer'
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6
               }}
-              onClick={onMkdir}
-              disabled={!newName}
-              onMouseEnter={(e) => { if (newName) { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 8px rgba(99, 102, 241, 0.3)'; } }}
+              onClick={() => setCreateActionsDropdown(!createActionsDropdown)}
+              onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 8px rgba(99, 102, 241, 0.3)'; }}
               onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06)'; }}
             >
-              <i className="mdi mdi-folder-plus-outline"></i> Create
+              <i className="mdi mdi-plus"></i> Create
+              <i className={`mdi ${createActionsDropdown ? 'mdi-chevron-up' : 'mdi-chevron-down'}`} style={{ fontSize: 16, marginLeft: 2 }}></i>
             </button>
+
+            {/* Dropdown Menu */}
+            {createActionsDropdown && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  marginTop: 4,
+                  background: '#fff',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: 10,
+                  boxShadow: '0 10px 25px rgba(0,0,0,0.1), 0 4px 10px rgba(0,0,0,0.07)',
+                  zIndex: 1000,
+                  minWidth: 220,
+                  padding: '8px'
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Create Folder Option */}
+                <div style={{ padding: '8px 0' }}>
+                  <div style={{ display: 'flex', gap: 8, padding: '8px 12px' }}>
+                    <input
+                      className="form-control form-control-sm"
+                      style={{
+                        borderRadius: 6,
+                        border: '1px solid #e2e8f0',
+                        padding: '6px 10px',
+                        fontSize: 13
+                      }}
+                      value={newName}
+                      onChange={(e) => setNewName(e.target.value)}
+                      placeholder="Folder name"
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          onMkdir();
+                          setCreateActionsDropdown(false);
+                        }
+                      }}
+                    />
+                    <button
+                      className="btn btn-sm"
+                      style={{
+                        ...btnFilled(colors.indigo, colors.primaryLight),
+                        opacity: !newName ? 0.5 : 1,
+                        cursor: !newName ? 'not-allowed' : 'pointer',
+                        padding: '6px 12px',
+                        fontSize: 12
+                      }}
+                      onClick={() => {
+                        onMkdir();
+                        setCreateActionsDropdown(false);
+                      }}
+                      disabled={!newName}
+                      onMouseEnter={(e) => { if (newName) { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 8px rgba(99, 102, 241, 0.3)'; } }}
+                      onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06)'; }}
+                    >
+                      <i className="mdi mdi-check"></i>
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ height: '1px', background: '#e2e8f0', margin: '4px 0' }}></div>
+
+                {/* Upload File Option */}
+                <label
+                  style={{
+                    padding: '10px 12px',
+                    width: '100%',
+                    textAlign: 'left',
+                    border: 'none',
+                    background: 'transparent',
+                    borderRadius: 6,
+                    fontSize: 14,
+                    fontWeight: 500,
+                    color: '#334155',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    transition: 'all 0.15s ease',
+                    cursor: 'pointer'
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#f1f5f9'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                >
+                  <i className="mdi mdi-file-upload-outline" style={{ color: '#10b981', fontSize: 18 }}></i>
+                  Upload File
+                  <input 
+                    ref={fileInputRef}
+                    type="file" 
+                    hidden 
+                    onChange={(e) => {
+                      onUpload(e);
+                      setCreateActionsDropdown(false);
+                    }} 
+                    disabled={uploading} 
+                  />
+                </label>
+
+                {/* Upload Folder Option */}
+                <label
+                  style={{
+                    padding: '10px 12px',
+                    width: '100%',
+                    textAlign: 'left',
+                    border: 'none',
+                    background: 'transparent',
+                    borderRadius: 6,
+                    fontSize: 14,
+                    fontWeight: 500,
+                    color: '#334155',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    transition: 'all 0.15s ease',
+                    cursor: 'pointer'
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#f1f5f9'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                >
+                  <i className="mdi mdi-folder-upload-outline" style={{ color: '#f59e0b', fontSize: 18 }}></i>
+                  Upload Folder
+                  <input 
+                    ref={folderInputRef}
+                    type="file" 
+                    hidden 
+                    webkitdirectory="" 
+                    directory="" 
+                    multiple 
+                    onChange={(e) => {
+                      onUploadFolderSelect(e);
+                      setCreateActionsDropdown(false);
+                    }} 
+                    disabled={uploading} 
+                  />
+                </label>
+
+                {/* Create Web Link Option */}
+                <button
+                  style={{
+                    padding: '10px 12px',
+                    width: '100%',
+                    textAlign: 'left',
+                    border: 'none',
+                    background: 'transparent',
+                    borderRadius: 6,
+                    fontSize: 14,
+                    fontWeight: 500,
+                    color: '#334155',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    transition: 'all 0.15s ease',
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => {
+                    setWebLinkModal({ name: '', url: '' });
+                    setCreateActionsDropdown(false);
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#f1f5f9'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                >
+                  <i className="mdi mdi-link-variant" style={{ color: '#6366f1', fontSize: 18 }}></i>
+                  Create Web Link
+                </button>
+              </div>
+            )}
           </div>
 
-          <label
-            className="btn btn-sm mb-0"
-            style={{
-              ...btnFilled(colors.green, colors.greenLight),
-              opacity: uploading ? 0.6 : 1,
-              cursor: uploading ? 'not-allowed' : 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6
-            }}
-            onMouseEnter={(e) => { if (!uploading) { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 8px rgba(16, 185, 129, 0.3)'; } }}
-            onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06)'; }}
-          >
-            <i className="mdi mdi-upload"></i> {uploading ? 'Uploading...' : 'File'}
-            <input type="file" hidden onChange={onUpload} disabled={uploading} />
-          </label>
+          {/* Search bar */}
+          <div style={{ marginLeft: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <input
+              className="form-control form-control-sm"
+              placeholder="Search files & folders"
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Escape') setSearchText(''); }}
+              style={{ width: 'min(320px, 40vw)', borderRadius: 8, border: '1px solid #e2e8f0', padding: '8px 12px', fontSize: 14 }}
+            />
+            {searchText && (
+              <button className="btn btn-sm" style={{ ...btnOutline(colors.primary, `${colors.primary}15`), padding: '6px 10px' }} onClick={() => setSearchText('')}>Clear</button>
+            )}
 
-          <label
-            className="btn btn-sm mb-0"
-            style={{
-              ...btnFilled(colors.green, colors.greenLight),
-              opacity: uploading ? 0.6 : 1,
-              cursor: uploading ? 'not-allowed' : 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6
-            }}
-            onMouseEnter={(e) => { if (!uploading) { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 8px rgba(16, 185, 129, 0.3)'; } }}
-            onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06)'; }}
-          >
-            <i className="mdi mdi-folder-upload"></i> {uploading ? 'Uploading...' : 'Folder'}
-            <input type="file" hidden webkitdirectory="" directory="" multiple onChange={onUploadFolderSelect} disabled={uploading} />
-          </label>
+          </div>
 
-          <button
-            className="btn btn-sm mb-0"
-            style={{
-              ...btnFilled(colors.primary, colors.primaryLight),
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6
-            }}
-            onClick={() => setWebLinkModal({ name: '', url: '' })}
-            onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 8px rgba(99, 102, 241, 0.3)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06)'; }}
-          >
-            <i className="mdi mdi-link-variant"></i> Web Link
-          </button>
           {/* Action buttons with modern styling */}
           <div className="d-flex align-items-center gap-2 flex-wrap"
             style={{
@@ -750,7 +903,7 @@ const DocumentsPage = () => {
           ) : (
             <>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 12, minHeight: 180, flex: 1, padding: '16px' }} onClick={() => setContextMenu(null)}>
-                {items.map((it, index) => (
+                {filteredItems.map((it, index) => (
                   <div
                     key={`${it.type}-${it.path}-${index}`}
                     style={{
