@@ -38,7 +38,7 @@ const DocsApi = {
     return api.post('/admin/docs/upload-folder', fd, { 
       headers: { 'Content-Type': 'multipart/form-data' },
       timeout: 60000 // 60 second timeout for large folders
-    }).then(r => r.data);
+    }, { timeout: 300000 }).then(r => r.data); // increased timeout for large folder uploads (5 minutes)
   },
   rename: (p, name) => api.put('/admin/docs/rename', { path: p, name }).then(r => r.data),
   move: (fromPath, toPath) => api.put('/admin/docs/move', { fromPath, toPath }).then(r => r.data),

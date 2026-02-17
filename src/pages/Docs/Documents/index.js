@@ -52,6 +52,54 @@ const DocumentsPage = () => {
     if (!q) return items;
     return items.filter(i => (i?.name || '').toLowerCase().includes(q));
   }, [items, searchText]);
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'table'
+
+  const formatBytes = (bytes) => {
+    if (!bytes && bytes !== 0) return '-';
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    if (bytes === 0) return '0 B';
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return `${(bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 2)} ${sizes[i]}`;
+  };
+  const formatDate = (d) => {
+    if (!d) return '-';
+    const dt = new Date(d);
+    if (Number.isNaN(dt.getTime())) return '-';
+    return dt.toLocaleString();
+  };
+  const getAclDisplay = (it) => {
+    if (!it?.acl) return 'Public';
+    const parts = [];
+    const rUsers = it.acl.readUsers || [];
+    const rTeams = it.acl.readTeams || [];
+    if (rUsers.length > 0) {
+      const names = rUsers.map(uid => {
+        const u = users.find(us => String(us._id) === String(uid._id || uid));
+        return u ? `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email : String(uid);
+      }).filter(Boolean);
+      if (names.length) parts.push(names.join(', '));
+    }
+    if (rTeams.length > 0) {
+      const tnames = rTeams.map(tid => {
+        const t = teams.find(te => String(te._id) === String(tid._id || tid));
+        return t ? t.title : String(tid);
+      }).filter(Boolean);
+      if (tnames.length) parts.push(tnames.join(', '));
+    }
+    return parts.length ? parts.join(' • ') : 'Public';
+  };
+  // Pagination for table view
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(20);
+  const totalPages = Math.max(1, Math.ceil(filteredItems.length / perPage));
+  const paginatedItems = useMemo(() => {
+    const start = (page - 1) * perPage;
+    return filteredItems.slice(start, start + perPage);
+  }, [filteredItems, page, perPage]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(1);
+  }, [filteredItems.length, perPage]);
 
   const load = async (path = cwd) => {
     setLoading(true);
@@ -772,17 +820,37 @@ const DocumentsPage = () => {
 
           {/* Search bar */}
           <div style={{ marginLeft: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <input
+              <input
               className="form-control form-control-sm"
               placeholder="Search files & folders"
               value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Escape') setSearchText(''); }}
+              onChange={(e) => { setSearchText(e.target.value); setPage(1); }}
+              onKeyDown={(e) => { if (e.key === 'Escape') { setSearchText(''); setPage(1); } }}
               style={{ width: 'min(320px, 40vw)', borderRadius: 8, border: '1px solid #e2e8f0', padding: '8px 12px', fontSize: 14 }}
             />
             {searchText && (
               <button className="btn btn-sm" style={{ ...btnOutline(colors.primary, `${colors.primary}15`), padding: '6px 10px' }} onClick={() => setSearchText('')}>Clear</button>
             )}
+
+            {/* View toggle */}
+            <div style={{ display: 'flex', gap: 6, marginLeft: 8 }}>
+              <button
+                className="btn btn-sm"
+                title="Grid view"
+                onClick={() => setViewMode('grid')}
+                style={{ ...(viewMode === 'grid' ? btnFilled(colors.primary, colors.primaryLight) : btnOutline(colors.primary, `${colors.primary}15`)), padding: '6px 8px' }}
+              >
+                <i className="mdi mdi-view-grid" />
+              </button>
+              <button
+                className="btn btn-sm"
+                title="Table view"
+                onClick={() => setViewMode('table')}
+                style={{ ...(viewMode === 'table' ? btnFilled(colors.primary, colors.primaryLight) : btnOutline(colors.primary, `${colors.primary}15`)), padding: '6px 8px' }}
+              >
+                <i className="mdi mdi-table" />
+              </button>
+            </div>
 
           </div>
 
@@ -863,7 +931,7 @@ const DocumentsPage = () => {
               onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline'; }}
               onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none'; }}
             >
-              Root
+              Kāinga
             </a>
             {parts.map((seg, idx) => {
               const p = '/' + parts.slice(0, idx + 1).join('/');
@@ -902,112 +970,125 @@ const DocumentsPage = () => {
             </div>
           ) : (
             <>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 12, minHeight: 180, flex: 1, padding: '16px' }} onClick={() => setContextMenu(null)}>
-                {filteredItems.map((it, index) => (
-                  <div
-                    key={`${it.type}-${it.path}-${index}`}
-                    style={{
-                      ...tileStyles.tile(selected === it.path),
-                      position: 'relative'
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelected(it.path);
-                      setContextMenu(null);
-                    }}
-                    onContextMenu={(e) => { e.preventDefault(); setSelected(it.path); setContextMenu({ x: e.clientX, y: e.clientY, item: it }); }}
-                    onDoubleClick={() => {
-                      if (it.type === 'folder') {
-                        goInto(it.name);
-                      } else if (it.type !== 'weblink') {
-                        window.open(DocsApi.downloadUrl(it.path), '_blank');
-                      }
-                    }}
-                    onMouseEnter={(e) => {
-                      if (selected !== it.path) {
-                        e.currentTarget.style.transform = 'translateY(-4px)';
-                        e.currentTarget.style.boxShadow = '0 8px 20px rgba(0,0,0,0.12), 0 2px 4px rgba(0,0,0,0.08)';
-                        e.currentTarget.style.borderColor = '#cbd5e1';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (selected !== it.path) {
-                        e.currentTarget.style.transform = 'translateY(0)';
-                        e.currentTarget.style.boxShadow = selected === it.path
-                          ? '0 4px 12px rgba(99, 102, 241, 0.15), 0 2px 4px rgba(0,0,0,0.1)'
-                          : '0 2px 4px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)';
-                        e.currentTarget.style.borderColor = selected === it.path ? '#6366f1' : 'transparent';
-                      }
-                    }}
-                  >
-                    <div style={{ fontSize: 48, transition: 'transform 0.2s ease' }}>
-                      {it.type === 'folder' ? (
-                        <i className="mdi mdi-folder" style={{ color: '#f59e0b', filter: 'drop-shadow(0 2px 4px rgba(245, 158, 11, 0.2))' }}></i>
-                      ) : it.type === 'weblink' ? (
-                        <i className="mdi mdi-link-variant" style={{ color: '#6366f1', filter: 'drop-shadow(0 2px 4px rgba(99, 102, 241, 0.2))' }}></i>
-                      ) : (
-                        <i className="mdi mdi-file" style={{ color: '#64748b' }}></i>
-                      )}
-                    </div>
-                    <div style={tileStyles.name} title={it.name}>{it.name}</div>
-                    {/* Access List Tooltip */}
-                    {hoveredItem?.path === it.path && (
-                      <div style={{
-                        position: 'absolute',
-                        bottom: '100%',
-                        left: '50%',
-                        transform: 'translateX(-50%)',
-                        marginBottom: 8,
-                        background: '#1e293b',
-                        color: '#fff',
-                        padding: '8px 12px',
-                        borderRadius: 8,
-                        fontSize: 12,
-                        zIndex: 1000,
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-                        pointerEvents: 'none',
-                        maxWidth: 300,
-                        whiteSpace: 'normal'
-                      }}>
-                        <div style={{ fontWeight: 600, marginBottom: 4 }}>Access Control:</div>
-                        {it.acl && ((it.acl.readUsers || []).length > 0 || (it.acl.readTeams || []).length > 0) ? (
-                          <div>
-                            {it.acl.readUsers?.length > 0 && (
-                              <div style={{ marginBottom: 4 }}>
-                                <strong>Users:</strong> {it.acl.readUsers.map((uid) => {
-                                  const u = users.find(us => String(us._id) === String(uid._id || uid));
-                                  return u ? `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email : '';
-                                }).filter(Boolean).join(', ')}
-                              </div>
-                            )}
-                            {it.acl.readTeams?.length > 0 && (
-                              <div>
-                                <strong>Teams:</strong> {it.acl.readTeams.map((tid) => {
-                                  const t = teams.find(te => String(te._id) === String(tid._id || tid));
-                                  return t ? t.title : '';
-                                }).filter(Boolean).join(', ')}
-                              </div>
-                            )}
-                          </div>
+              {viewMode === 'grid' ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 12, minHeight: 180, flex: 1, padding: '16px' }} onClick={() => setContextMenu(null)}>
+                  {filteredItems.map((it, index) => (
+                    <div
+                      key={`${it.type}-${it.path}-${index}`}
+                      style={{
+                        ...tileStyles.tile(selected === it.path),
+                        position: 'relative'
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelected(it.path);
+                        setContextMenu(null);
+                      }}
+                      onContextMenu={(e) => { e.preventDefault(); setSelected(it.path); setContextMenu({ x: e.clientX, y: e.clientY, item: it }); }}
+                      onDoubleClick={() => {
+                        if (it.type === 'folder') {
+                          goInto(it.name);
+                        } else if (it.type !== 'weblink') {
+                          window.open(DocsApi.downloadUrl(it.path), '_blank');
+                        }
+                      }}
+                      onMouseEnter={(e) => {
+                        if (selected !== it.path) {
+                          e.currentTarget.style.transform = 'translateY(-4px)';
+                          e.currentTarget.style.boxShadow = '0 8px 20px rgba(0,0,0,0.12), 0 2px 4px rgba(0,0,0,0.08)';
+                          e.currentTarget.style.borderColor = '#cbd5e1';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (selected !== it.path) {
+                          e.currentTarget.style.transform = 'translateY(0)';
+                          e.currentTarget.style.boxShadow = selected === it.path
+                            ? '0 4px 12px rgba(99, 102, 241, 0.15), 0 2px 4px rgba(0,0,0,0.1)'
+                            : '0 2px 4px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)';
+                          e.currentTarget.style.borderColor = selected === it.path ? '#6366f1' : 'transparent';
+                        }
+                      }}
+                    >
+                      <div style={{ fontSize: 48, transition: 'transform 0.2s ease' }}>
+                        {it.type === 'folder' ? (
+                          <i className="mdi mdi-folder" style={{ color: '#f59e0b', filter: 'drop-shadow(0 2px 4px rgba(245, 158, 11, 0.2))' }}></i>
+                        ) : it.type === 'weblink' ? (
+                          <i className="mdi mdi-link-variant" style={{ color: '#6366f1', filter: 'drop-shadow(0 2px 4px rgba(99, 102, 241, 0.2))' }}></i>
                         ) : (
-                          <div style={{ opacity: 0.7 }}>Public (no restrictions)</div>
+                          <i className="mdi mdi-file" style={{ color: '#64748b' }}></i>
                         )}
                       </div>
-                    )}
-                  </div>
-                ))}
-                {items.length === 0 && (
-                  <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 48 }}>
-                    <div style={{ textAlign: 'center', color: '#94a3b8' }}>
-                      <div style={{ fontSize: 72, lineHeight: 1, marginBottom: 16, opacity: 0.5 }}>
-                        <i className="mdi mdi-folder-open-outline"></i>
+                      <div style={tileStyles.name} title={it.name}>{it.name}</div>
+                      <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 8, textAlign: 'center' }}>{formatDate(it.createdAt)}</div>
+                    </div>
+                  ))}
+                  {filteredItems.length === 0 && (
+                    <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 48 }}>
+                      <div style={{ textAlign: 'center', color: '#94a3b8' }}>
+                        <div style={{ fontSize: 72, lineHeight: 1, marginBottom: 16, opacity: 0.5 }}>
+                          <i className="mdi mdi-folder-open-outline"></i>
+                        </div>
+                        <div style={{ fontSize: 16, fontWeight: 500, color: '#64748b' }}>No items match your search</div>
+                        <div style={{ fontSize: 14, color: '#94a3b8', marginTop: 4 }}>Try a different search term or clear the filter</div>
                       </div>
-                      <div style={{ fontSize: 16, fontWeight: 500, color: '#64748b' }}>This folder is empty</div>
-                      <div style={{ fontSize: 14, color: '#94a3b8', marginTop: 4 }}>Upload files or create a new folder to get started</div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div style={{ padding: '12px 16px', flex: 1, overflow: 'auto' }}>
+                  <table className="table table-sm table-hover" style={{ minWidth: 900 }}>
+                    <thead>
+                      <tr>
+                        <th style={{ width: '30%' }}>Name</th>
+                        <th style={{ width: '10%' }}>Type</th>
+                        <th style={{ width: '10%' }}>Size</th>
+                        <th style={{ width: '20%' }}>Access</th>
+                        <th style={{ width: '15%' }}>Owner</th>
+                        <th style={{ width: '15%' }}>Created</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedItems.map((it, idx) => (
+                        <tr key={`${it.path}-${idx}`} onClick={(e) => { e.stopPropagation(); setSelected(it.path); setContextMenu(null); }} onDoubleClick={() => { if (it.type === 'folder') goInto(it.name); else if (it.type !== 'weblink') window.open(DocsApi.downloadUrl(it.path), '_blank'); }} style={{ cursor: 'pointer' }}>
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <div style={{ fontSize: 20 }}>
+                                {it.type === 'folder' ? <i className="mdi mdi-folder" style={{ color: '#f59e0b' }}></i> : it.type === 'weblink' ? <i className="mdi mdi-link-variant" style={{ color: '#6366f1' }}></i> : <i className="mdi mdi-file" style={{ color: '#64748b' }}></i>}
+                              </div>
+                              <div style={{ fontWeight: 600 }}>{it.name}</div>
+                            </div>
+                          </td>
+                          <td>{it.type || '-'}</td>
+                          <td>{it.size ? formatBytes(it.size) : (it.type === 'folder' ? '-' : '-')}</td>
+                          <td style={{ maxWidth: 240, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{getAclDisplay(it)}</td>
+                          <td>{(() => { const o = it.owner || it.ownerId || null; if (!o) return '-'; const u = users.find(us => String(us._id) === String(o)); return u ? `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email : String(o); })()}</td>
+                          <td>{formatDate(it.createdAt)}</td>
+                        </tr>
+                      ))}
+                      {filteredItems.length === 0 && (
+                        <tr>
+                          <td colSpan={6} style={{ textAlign: 'center', color: '#94a3b8', padding: 40 }}>No items match your search</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                  {/* Pagination Controls */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 4px' }}>
+                    
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <select className="form-select form-select-sm" value={perPage} onChange={(e) => { setPerPage(Number(e.target.value)); setPage(1); }} style={{ width: 80 }}>
+                        <option value={10}>10</option>
+                        <option value={20}>20</option>
+                        <option value={50}>50</option>
+                        <option value={100}>100</option>
+                      </select>
+                      <button className="btn btn-sm" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>Prev</button>
+                      <div style={{ minWidth: 64, textAlign: 'center' }}>{page} / {totalPages}</div>
+                      <button className="btn btn-sm" disabled={page >= totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>Next</button>
                     </div>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
               {/* Modern Context Menu */}
               {contextMenu && (
                 <div 

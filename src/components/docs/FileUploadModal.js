@@ -156,10 +156,6 @@ const FileUploadModal = ({
               onAdd={handleAddAcl}
               onRemove={handleRemoveAcl}
             />
-
-            <small className="text-muted d-block mt-2">
-              Leave empty for public access.
-            </small>
           </div>
 
           {/* Buttons */}

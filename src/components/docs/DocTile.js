@@ -116,9 +116,6 @@ const WebLinkModal = ({
               onAdd={onAddAcl}
               onRemove={onRemoveAcl}
             />
-            <small className="text-muted d-block mt-2">
-              Leave empty for public access.
-            </small>
           </div>
 
           {/* Buttons */}

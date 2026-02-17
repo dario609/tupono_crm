@@ -99,9 +99,6 @@ const AclEditModal = ({
               onRemove={handleRemove}
             />
 
-            <small className="text-muted d-block mt-2">
-              Leave empty for public access.
-            </small>
           </div>
 
           {/* Buttons */}
