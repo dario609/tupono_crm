@@ -30,7 +30,7 @@ export default function AssignTeam({ teams = [], teamMembers = [], team_id = "",
     if (loading) {
         return (
             <div className="col-md-4 mt-2">
-                    <label>Assign Team</label>
+                    <label className="mb-1">Assign Team</label>
                     <div className="skeleton skeleton-line" style={{ height: '38px', borderRadius: '4px' }} />
                     <div className="mt-3 d-flex flex-wrap gap-2">
                         <div className="skeleton skeleton-line" style={{ width: '120px', height: '32px', borderRadius: '20px' }} />
@@ -40,10 +40,10 @@ export default function AssignTeam({ teams = [], teamMembers = [], team_id = "",
     }
 
     return (
-        <div className="col-md-4 mt-2">
-                <label className="mb-1">Assign Team</label>
+        <div className="col-md-4">
+                <label className="mb-2" style={{fontSize: '14px'}}>Assign Team</label>
                 <select
-                    className="form-control form-select"
+                    className="form-control form-select mt-1"
                     value={selectedTeam}
                     onChange={(e) => handleAddTeam(e.target.value)}
                     disabled={loading}

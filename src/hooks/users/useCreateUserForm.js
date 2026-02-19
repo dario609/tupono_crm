@@ -20,6 +20,7 @@ const initialForm = {
   marae: "",
   maunga: "",
   awa: "",
+  project_id: "",
 };
 
 export const useCreateUserForm = ({ pushNotification }) => {
@@ -40,6 +41,7 @@ export const useCreateUserForm = ({ pushNotification }) => {
       form.password &&
       form.confirm_password &&
       form.role_id &&
+      form.project_id &&
       form.password === form.confirm_password
     );
   }, [form]);

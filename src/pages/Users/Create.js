@@ -3,12 +3,14 @@ import { useNavigate, Link } from "react-router-dom";
 import RolesApi from "../../api/rolesApi";
 import { useNotifications } from "../../context/NotificationProvider";
 import { useCreateUserForm } from "../../hooks/users/useCreateUserForm";
+import ProjectsApi from "../../api/projectsApi";
 
 import { UserBasicFields } from "../../components/users/UserBasicForm";
 import { UserPasswordFields } from "../../components/users/UserPasswordFields";
 import { UserContactFields } from "../../components/users/UserContactFields";
 import { UserProfileImage } from "../../components/users/UserProfileImage";
 import { UserRoleField } from "../../components/users/UserRoleField";
+import { UserProjectField } from "../../components/users/UserProjectField";
 import { UserKaupapaFields } from "../../components/users/UserKaupapaFields";
 import HapuListsApi from "../../api/hapulistsApi";
 
@@ -33,6 +35,7 @@ const CreateUser = () => {
 
   const [roles, setRoles] = useState([]);
   const [hapus, setHapus] = useState([]);
+  const [projects, setProjects] = useState([]);
 
   useEffect(() => {
     RolesApi.list({ perpage: -1 }).then((json) => {
@@ -42,6 +45,11 @@ const CreateUser = () => {
       setHapus(json?.data || []);
     }).catch(() => {
       setHapus([]);
+    });
+    ProjectsApi.list({ perpage: -1 }).then((json) => {
+      setProjects(json?.data || []);
+    }).catch(() => {
+      setProjects([]);
     });
   }, []);
 
@@ -84,6 +92,7 @@ const CreateUser = () => {
               <UserContactFields form={form} onChange={onChange} />
               <UserProfileImage profileImage={profileImage} setProfileImage={setProfileImage} />
               <UserRoleField roles={roles} form={form} onChange={onChange} />
+              <UserProjectField projects={projects} form={form} onChange={onChange} />
               <UserKaupapaFields form={form} onChange={onChange} hapus={hapus} onAdd={handleAddHapu} />
             </div>
 

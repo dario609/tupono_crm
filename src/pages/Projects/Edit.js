@@ -493,6 +493,22 @@ const EditProject = () => {
                             <textarea className="form-control" maxLength={500} id="description" name="description" value={form.description} onChange={onChange} placeholder="Description" rows={3}></textarea>
                           </div>
                         </div>
+
+                        <div className="col-md-12 mt-4">
+                          <h5>Project Users</h5>
+                          {teamMembers.length > 0 ? (
+                            <ul className="list-group">
+                              {teamMembers.map((user) => (
+                                <li key={user._id} className="list-group-item">
+                                  {user.name} ({user.email})
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p>No users assigned to this project.</p>
+                          )}
+                        </div>
+
                         <div className="d-flex align-items-center justify-content-between mb-2 mt-4">
                           <h5 className="mb-0">Tasks ({projectTasks.length} Tasks)</h5>
                           <div className="d-flex align-items-center gap-2" style={{ fontSize: "0.875rem", color: "#6c757d" }}>

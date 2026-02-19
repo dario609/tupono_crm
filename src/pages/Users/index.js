@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
+import * as XLSX from "xlsx";
 import UsersApi from "../../api/usersApi";
 import PermissionsApi from "../../api/permissionsApi";
 import { AuthApi } from "../../api/authApi";
@@ -168,16 +169,86 @@ const UsersPage = ({ user, permissions }) => {
 
     const showingStarted = total === 0 ? 0 : (perpage === -1 ? 1 : (page - 1) * perpage + 1);
     const currentShowing = perpage === -1 ? total : Math.min(page * perpage, total);
+    
+    const handleDownload = async () => {
+        try {
+            const json = await UsersApi.list({ perpage: -1, search: "" });
+            const users = json?.data || [];
+
+            if (users.length === 0) {
+                await Swal.fire({
+                    icon: "info",
+                    title: "No Data",
+                    text: "No users to download."
+                });
+                return;
+            }
+
+            // Prepare rows as objects (better for XLSX)
+            const rows = users.map(user => ({
+                "First Name": user.first_name || "",
+                "Last Name": user.last_name || "",
+                "Email": user.email || "",
+                "Phone": user.phone || "",
+                "City": user.city || "",
+                "Country": user.country || "",
+                "Zip Code": user.zip_code || "",
+                "Address": user.address || "",
+                "Role": user.role_id?.role_name || "",
+                "Hapu": (user.hapu || []).join("; "),
+                "Iwi": (user.iwi || []).join("; "),
+                "Marae": (user.marae || []).join("; "),
+                "Maunga": (user.maunga || []).join("; "),
+                "Awa": (user.awa || []).join("; "),
+                "Status": user.status ? "Active" : "Inactive",
+                "Created At": new Date(user.createdAt).toLocaleDateString()
+            }));
+
+            // Create worksheet
+            const worksheet = XLSX.utils.json_to_sheet(rows);
+
+            // Create workbook
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Users");
+
+            // Auto column width (nice touch)
+            const colWidths = Object.keys(rows[0]).map(key => ({
+                wch: Math.max(
+                    key.length,
+                    ...rows.map(r => String(r[key] || "").length)
+                )
+            }));
+            worksheet["!cols"] = colWidths;
+
+            // Download file
+            XLSX.writeFile(
+                workbook,
+                `users_list_${new Date().toISOString().split("T")[0]}.xlsx`
+            );
+
+        } catch (error) {
+            await Swal.fire({
+                icon: "error",
+                title: "Error",
+                text: "Failed to download users list."
+            });
+        }
+    };
 
     return (
         <div className="card mt-3">
             <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-24 p-3">
                 <h6 className="fw-semibold mb-0">Users Management</h6>
-                {canAdd && (
-                    <NavLink to="/users/create" className="btn btn-primary btn-rounded btn-fw">
-                        <i className="menu-icon mdi mdi-account-plus-outline"></i> Add User
-                    </NavLink>
-                )}
+                <div className="d-flex gap-2">
+                    <button onClick={handleDownload} className="btn btn-secondary btn-rounded btn-fw">
+                        <i className="menu-icon mdi mdi-download"></i> Download
+                    </button>
+                    {canAdd && (
+                        <NavLink to="/users/create" className="btn btn-primary btn-rounded btn-fw">
+                            <i className="menu-icon mdi mdi-account-plus-outline"></i> Add User
+                        </NavLink>
+                    )}
+                </div>
             </div>
 
             <div className="row card-body pt-0">
