@@ -1,11 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import Select from "react-select";
 import UsersApi from "../../api/usersApi";
 import TeamsApi from "../../api/teamsApi";
+import HapuListsApi from "../../api/hapulistsApi";
 
 const initialForm = {
   title: "",
   status: "active",
+  hapu: "",
   description: "",
   user_id: [],
 }
@@ -18,42 +21,39 @@ const EditTeam = () => {
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
   const [users, setUsers] = useState([]);
-  const [teams, setTeams] = useState([]);
+  const [hapus, setHapus] = useState([]);
   const [form, setForm] = useState(initialForm);
   const [titleGhost, setTitleGhost] = useState("");
   const [descGhost, setDescGhost] = useState("");
-  const [userInput, setUserInput] = useState("");
 
   const userLabel = (u) => `${u.first_name ?? ''} ${u.last_name ?? ''}`.trim() || u.email || 'User';
-  const combinedOptions = [
-    ...teams.map(t => ({
-      type: "team",
-      label: `[Team] ${t.title}`,
-      value: t._id
-    })),
-    ...users.map(u => ({
-      type: "user",
-      label: `[User] ${userLabel(u)}`,
-      value: u._id
-    }))
-  ];
-  
+  const userHapus = (u) => {
+    if (Array.isArray(u?.hapu)) return u.hapu;
+    if (typeof u?.hapu === "string" && u.hapu.trim()) return [u.hapu.trim()];
+    return [];
+  };
+  const normalizedSelectedHapu = String(form.hapu || "").toLowerCase().trim();
+  const filteredUsers = users.filter((u) =>
+    userHapus(u).some((h) => String(h).toLowerCase().trim() === normalizedSelectedHapu)
+  );
 
   useEffect(() => {
     (async () => {
       try {
-        const [uJson, tJson, teamJson] = await Promise.all([
+        const [uJson, hapusJson, tJson] = await Promise.all([
           UsersApi.list({ perpage: -1 }),
+          HapuListsApi.list({ perpage: -1 }),
           TeamsApi.getById(id),
-          TeamsApi.list()
         ]);
         setUsers(uJson?.data || []);
-        setTeams(teamJson?.data || []);
+        setHapus(hapusJson?.data || []);
 
         if (tJson?.data) {
+          const teamHapu = tJson.data.hapu && String(tJson.data.hapu).trim() ? tJson.data.hapu : "";
           setForm({
             title: tJson.data.title || "",
             status: tJson.data.status || "active",
+            hapu: teamHapu,
             description: tJson.data.description || "",
             user_id: Array.isArray(tJson.data.user_id) ? tJson.data.user_id : [],
           });
@@ -61,81 +61,23 @@ const EditTeam = () => {
       } catch { }
     })();
   }, [id]);
-  const handleCombinedSelection = async (label) => {
-    setUserInput("");
-
-    const opt = combinedOptions.find(
-      o => o.label.toLowerCase() === label.toLowerCase()
-    );
-    if (!opt) return;
-
-    // USER SELECTED
-    if (opt.type === "user") {
-      if (!form.user_id.includes(opt.value)) {
-        setForm((f) => ({
-          ...f,
-          user_id: [...f.user_id, opt.value]
-        }));
-      }
-      return;
-    }
-
-    // TEAM SELECTED → import team members
-    if (opt.type === "team") {
-      try {
-        const teamUsers = teams.find((t) => String(t._id) === String(opt.value)).assigned_users;
-
-        setUsers((prev) => {
-          const merged = [...prev];
-          teamUsers.forEach((u) => {
-            if (!merged.some((x) => x._id === u._id)) {
-              merged.push({
-                _id: u._id,
-                first_name: u.name?.split(" ")[0] ?? "",
-                last_name: u.name?.split(" ")[1] ?? "",
-                email: u.email
-              });
-            }
-          });
-          return merged;
-        });
-
-        // 2) Add assigned user IDs into form.user_id
-        setForm((f) => {
-          const mergedIds = [...f.user_id];
-          teamUsers.forEach((u) => {
-            if (!mergedIds.includes(u._id)) mergedIds.push(u._id);
-          });
-          return { ...f, user_id: mergedIds };
-        });
-
-      } catch (err) {
-        console.error("Team load failed", err);
-      }
-    }
-  };
-
 
   const onChange = (e) => {
     const { name, value } = e.target;
+    if (name === "hapu") {
+      setForm((f) => ({ ...f, hapu: value, user_id: [] }));
+      return;
+    }
     setForm((f) => ({ ...f, [name]: value }));
   };
 
-  // ghost overlay placeholders (no backend suggestion yet)
   const handleSuggest = (_field, setter) => () => setter("");
 
-
-  const parseUserIdFromOption = (val) => {
-    const match = users.find((x) => userLabel(x).toLowerCase() === String(val).toLowerCase());
-    return match?._id || null;
-  };
-  const addUser = (val) => {
-    const idParsed = parseUserIdFromOption(val);
-    if (!idParsed) return setUserInput("");
-    setForm((f) => ({ ...f, user_id: f.user_id.includes(idParsed) ? f.user_id : [...f.user_id, idParsed] }));
-    setUserInput("");
-  };
-  const removeUser = (uid) => setForm((f) => ({ ...f, user_id: f.user_id.filter((x) => x !== uid) }));
+  const canSubmit =
+    form.title.trim().length > 0 &&
+    String(form.status || "").trim().length > 0 &&
+    String(form.hapu || "").trim().length > 0 &&
+    form.user_id.length > 0;
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -143,6 +85,10 @@ const EditTeam = () => {
     setSuccess("");
     if (formRef.current && !formRef.current.checkValidity()) {
       formRef.current.reportValidity();
+      return;
+    }
+    if (!canSubmit) {
+      setError("Please fill Team Name, Status, Select Hapu and Select Team members.");
       return;
     }
     try {
@@ -212,42 +158,46 @@ const EditTeam = () => {
                     </div>
 
                     <div className="col-md-6 mt-0">
+                      <div className="form-group mb-2">
+                        <label>Select Hapu <span className="text-danger">*</span></label>
+                        <select
+                          name="hapu"
+                          className="form-control form-select"
+                          required
+                          value={form.hapu}
+                          onChange={onChange}
+                        >
+                          <option value="">Select Hapu</option>
+                          {hapus.map((h) => {
+                            const hapuName = h?.hapu_name || h?.name || "";
+                            if (!hapuName) return null;
+                            return (
+                              <option key={h._id || hapuName} value={hapuName}>
+                                {hapuName}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="col-md-6 mt-0">
                       <div className="form-group">
-                        <label className="form-label">Select Team members</label>
-                        <input
-                          className="form-control"
-                          placeholder="Search and select team or user"
-                          list="combinedOptionsList"
-                          value={userInput}
-                          onChange={(e) => setUserInput(e.target.value)}
-                          onBlur={(e) => handleCombinedSelection(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              handleCombinedSelection(userInput);
-                            }
-                          }}
+                        <label className="form-label">Select Team members <span className="text-danger">*</span></label>
+                        <Select
+                          isMulti
+                          options={filteredUsers.map((u) => ({ value: u._id, label: userLabel(u) }))}
+                          value={form.user_id.map((uid) => {
+                            const u = users.find((x) => x._id === uid);
+                            return u ? { value: u._id, label: userLabel(u) } : null;
+                          }).filter(Boolean)}
+                          onChange={(selected) => setForm((f) => ({ ...f, user_id: selected ? selected.map((s) => s.value) : [] }))}
+                          isDisabled={!form.hapu}
+                          placeholder={form.hapu ? "Select team members..." : "Select hapu first"}
+                          noOptionsMessage={() => (form.hapu ? "No users in this hapu" : "Select hapu first")}
+                          className="react-select-container"
+                          classNamePrefix="react-select"
                         />
-
-                        <datalist id="combinedOptionsList">
-                          {combinedOptions.map((opt) => (
-                            <option key={opt.value} value={opt.label} />
-                          ))}
-                        </datalist>
-
-                        {form.user_id.length > 0 && (
-                          <div className="mt-2" style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                            {form.user_id.map((uid) => {
-                              const u = users.find((x) => x._id === uid);
-                              if (!u) return null;
-                              return (
-                                <span key={`tag-user-${uid}`} className="badge badge-primary" style={{ padding: '0px 10px' }}>
-                                  {userLabel(u)} <button type="button" className="btn btn-link btn-sm" onClick={() => removeUser(uid)} style={{ color: '#fff', textDecoration: 'none', marginLeft: 6 }}>×</button>
-                                </span>
-                              );
-                            })}
-                          </div>
-                        )}
                       </div>
                     </div>
 
@@ -266,7 +216,7 @@ const EditTeam = () => {
 
                 <div className="modal-footer1 text-center mt-3">
                   <button type="button" className="btn btn-danger btn-rounded btn-fw" onClick={() => navigate('/teams')}>Cancel</button>
-                  <button type="submit" disabled={loading} className="btn btn-primary btn-rounded btn-fw" style={{ marginLeft: '8px' }}>{loading ? 'Saving...' : 'Save'}</button>
+                  <button type="submit" disabled={loading || !canSubmit} className="btn btn-primary btn-rounded btn-fw" style={{ marginLeft: '8px' }}>{loading ? 'Saving...' : 'Save'}</button>
                 </div>
               </form>
             </div>

@@ -108,6 +108,7 @@ const TeamsPage = () => {
         <tr aria-hidden="true">
             <td><div className="skeleton skeleton-sm" style={{ width: 28 }} /></td>
             <td><div className="skeleton skeleton-line" style={{ width: "80%" }} /></td>
+            <td><div className="skeleton skeleton-line" style={{ width: "60%" }} /></td>
             <td><div className="skeleton skeleton-line" style={{ width: "70%" }} /></td>
             <td><div className="skeleton skeleton-sm" style={{ width: 90 }} /></td>
             <td><div className="skeleton skeleton-sm" style={{ width: 120 }} /></td>
@@ -154,6 +155,7 @@ const TeamsPage = () => {
                                 <tr>
                                     <th>SN</th>
                                     <th>Name</th>
+                                    <th>Hapu</th>
                                     <th>Assigned Users</th>
                                     <th>Status</th>
                                     <th style={{ width: 120, minWidth: 120 }} className="text-center">Actions</th>
@@ -168,6 +170,7 @@ const TeamsPage = () => {
                                         <tr key={r._id} id={`row-${r._id}`}>
                                             <td>{sn}</td>
                                             <td>{r.title || '-'}</td>
+                                            <td>{r.hapu && String(r.hapu).trim() ? r.hapu : 'No hapu'}</td>
                                             <td>
                                                 {Array.isArray(r.assigned_users) && r.assigned_users.length > 0 ? (
                                                     r.assigned_users.map((u) => (
@@ -221,7 +224,7 @@ const TeamsPage = () => {
                                 })}
                                 {!loading && rows.length === 0 && (
                                     <tr className="text-center">
-                                        <td colSpan={5} className="py-4">No Records found</td>
+                                        <td colSpan={6} className="py-4">No Records found</td>
                                     </tr>
                                 )}
                             </tbody>
