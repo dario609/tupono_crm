@@ -15,6 +15,9 @@ export const RolesApi = {
         },
     });
   },
+  async createRole({ role_name }) {
+    return api.post("/admin/roles/create", { role_name });
+  },
   async editRole({ roleId, role_name }) {
     return api.post(`/admin/roles/edit`, { roleId  });
   },
@@ -27,6 +30,13 @@ export const RolesApi = {
     return api.post(`/admin/roles/${roleId}/permissions`, permissions);
   },
 
+  async deleteRole({ roleId }) {
+    return api.delete(`/admin/roles/${roleId}`);
+  },
+
+  async manageRoleStatus({ roleId }) {
+    return api.put(`/admin/roles/${roleId}/status`, { roleId });
+  },
 };
 
 export default RolesApi;

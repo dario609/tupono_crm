@@ -122,7 +122,7 @@ const RolesPermissions = () => {
       Swal.fire("Success", "Role created successfully", "success");
       fetchRoles();
     } catch (err) {
-      Swal.fire("Error", err.response?.data?.message || "Failed to add role", "error");
+      Swal.fire("Error", err.response?.data?.message || err.message || "Failed to add role", "error");
     }
   };
 
