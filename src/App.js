@@ -24,6 +24,7 @@ import CreateTeam from "./pages/Teams/Create";
 import TeamsPage from "./pages/Teams";
 import EditTeam from "./pages/Teams/Edit";
 import RoheHapuPage from "./pages/Docs/RoheHapu";
+import HapuDetailPage from "./pages/Docs/HapuDetail";
 import DocumentsPage from "./pages/Docs/Documents";
 import CalendarPage from "./pages/Calendar";
 import CalendarCreate from "./pages/Calendar/Create";
@@ -89,6 +90,7 @@ function App() {
                 <Route path="/teams/create" element={<CreateTeam />} />
                 <Route path="/teams/:id/edit" element={<EditTeam />} />
                 <Route path="/docs/rohe-hapu" element={<RoheHapuPage />} />
+                <Route path="/docs/hapu/:id" element={<HapuDetailPage />} />
                 <Route path="/documents" element={<DocumentsPage />} />
                 <Route path="/engagement-tracker" element={<EngagementTrackerPage />} />
                 <Route path="/engagement-tracker/create" element={<EngagementTrackerCreatePage />} />

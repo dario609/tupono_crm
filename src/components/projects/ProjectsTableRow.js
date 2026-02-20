@@ -4,6 +4,7 @@ import {
   formatRoheName,
   formatTeamName,
   formatHapuNames,
+  HapuLinks,
   StatusBadge,
 } from "../../utils/projects/projectFormatters";
 import ProjectActions from "./ProjectActions";
@@ -67,7 +68,7 @@ const ProjectsTableRow = ({
         )}
       </td>
       <td>{formatRoheName(rohe)}</td>   
-      <td>{formatHapuNames(hapus)}</td>
+      <td><HapuLinks hapus={hapus} /></td>
       <td><StatusBadge status={status} /></td>
       <td className="text-center">
         <ProjectActions

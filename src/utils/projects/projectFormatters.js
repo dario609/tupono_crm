@@ -1,3 +1,5 @@
+import { NavLink } from "react-router-dom";
+
 export const formatOwnerName = (owner) =>
     owner ? `${owner.first_name ?? ""} ${owner.last_name ?? ""}`.trim() : "-";
   
@@ -13,6 +15,26 @@ export const formatOwnerName = (owner) =>
     Array.isArray(hapus) && hapus.length
       ? hapus.map((h) => h?.name).filter(Boolean).join(", ")
       : "-";
+
+  export const HapuLinks = ({ hapus }) => {
+    if (!Array.isArray(hapus) || hapus.length === 0) return "-";
+    return (
+      <>
+        {hapus.map((h, i) => (
+          <span key={h?._id || i}>
+            {i > 0 && ", "}
+            {h?._id ? (
+              <NavLink to={`/docs/hapu/${h._id}`} className="text-primary" style={{ textDecoration: "none", fontWeight: 500 }}>
+                {h?.name || "—"}
+              </NavLink>
+            ) : (
+              h?.name || "—"
+            )}
+          </span>
+        ))}
+      </>
+    );
+  };
   
   export const formatStatus = (status) => {
     if (typeof status === "number") {

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import Swal from "sweetalert2";
 import RoheApi from "../../../api/roheApi";
 import HapuListsApi from "../../../api/hapulistsApi";
@@ -264,8 +265,10 @@ const RoheHapuPage = () => {
                 <ul className="list-group list-group-flush">
                   {hapu.map((h) => (
                     <li key={h._id} className="list-group-item rohe-hapu-item d-flex justify-content-between align-items-center px-3 py-2 border-0">
-                      <span className="fw-medium">{h.name || h.hapu_name}</span>
-                      <button className="btn btn-sm btn-danger" onClick={() => deleteHapu(h._id)} title="Delete Hapū">
+                      <Link to={`/docs/hapu/${h._id}`} className="fw-medium text-decoration-none text-dark flex-grow-1" style={{ cursor: "pointer" }}>
+                        {h.name || h.hapu_name}
+                      </Link>
+                      <button className="btn btn-sm btn-danger" onClick={(e) => { e.stopPropagation(); deleteHapu(h._id); }} title="Delete Hapū">
                         <i className="ti ti-trash" />
                       </button>
                     </li>
