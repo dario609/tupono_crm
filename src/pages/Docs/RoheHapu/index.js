@@ -284,11 +284,11 @@ const RoheHapuPage = () => {
                     <li key={h._id} className="list-group-item rohe-hapu-item d-flex justify-content-between align-items-center px-3 py-2 border-0">
                       <span className="fw-medium">{h.name || h.hapu_name}</span>
                       <div className="d-flex gap-1">
-                        <Link to={`/docs/hapu/${h._id}`} className="btn btn-sm btn-outline-primary" title="View Hapū details">
-                          View
+                        <Link to={`/docs/hapu/${h._id}`} className="btn btn-sm btn-secondary text-white" title="View Hapū details">
+                        <i className="ti ti-eye" />
                         </Link>
                         <button className="btn btn-sm btn-danger" onClick={(e) => { e.stopPropagation(); deleteHapu(h._id); }} title="Delete Hapū">
-                          <i className="mdi mdi-trash" />
+                          <i className="ti ti-trash" />
                         </button>
                       </div>
                     </li>
