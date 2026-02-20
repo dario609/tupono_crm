@@ -10,7 +10,7 @@ const RoheHapuPage = () => {
   const [hapu, setHapu] = useState([]);
   const [loading, setLoading] = useState(false);
   const [newRohe, setNewRohe] = useState("");
-  const [selectedRohe, setSelectedRohe] = useState("");
+  const [selectedRohe, setSelectedRohe] = useState("all");
   const [newHapu, setNewHapu] = useState("");
 
   const loadRohes = async () => {
@@ -22,7 +22,8 @@ const RoheHapuPage = () => {
 
   const loadHapu = async (roheId = "") => {
     try {
-      const json = await HapuListsApi.list(roheId ? { rohe_id: roheId } : {});
+      const params = roheId && roheId !== "all" ? { rohe_id: roheId } : { perpage: -1 };
+      const json = await HapuListsApi.list(params);
       setHapu(json?.data || []);
     } catch { }
   };
@@ -31,7 +32,7 @@ const RoheHapuPage = () => {
     (async () => {
       setLoading(true);
       await loadRohes();
-      await loadHapu();
+      await loadHapu(selectedRohe);
       setLoading(false);
     })();
   }, []);
@@ -68,11 +69,11 @@ const RoheHapuPage = () => {
       setLoading(true);
       await RoheApi.remove(id);
       if (selectedRohe === id) {
-        setSelectedRohe("");
+        setSelectedRohe("all");
         setHapu([]);
       }
       await loadRohes();
-      await loadHapu(selectedRohe === id ? "" : selectedRohe);
+      await loadHapu(selectedRohe === id ? "all" : selectedRohe);
       Swal.fire({ title: "Deleted", text: "Region removed successfully.", icon: "success", timer: 1500, showConfirmButton: false });
     } finally {
       setLoading(false);
@@ -81,7 +82,7 @@ const RoheHapuPage = () => {
 
   const addHapu = async () => {
     const name = newHapu.trim();
-    if (!name || !selectedRohe) return;
+    if (!name || !selectedRohe || selectedRohe === "all") return;
     try {
       setLoading(true);
       await HapuListsApi.create({ name, rohe_id: selectedRohe });
@@ -206,7 +207,7 @@ const RoheHapuPage = () => {
                 <div>
                   <h6 className="fw-semibold mb-0" style={{ color: "#1a1a2e" }}>Hapū</h6>
                   <small className="text-muted">
-                    {selectedRohe ? `Hapū in ${selectedRoheName}` : "Select a region to manage its Hapū"}
+                    {selectedRohe === "all" ? "All Hapū" : selectedRohe ? `Hapū in ${selectedRoheName}` : "Select a region to manage its Hapū"}
                   </small>
                 </div>
               </div>
@@ -221,7 +222,7 @@ const RoheHapuPage = () => {
                     loadHapu(e.target.value);
                   }}
                 >
-                  <option value="">— Select a region —</option>
+                  <option value="all">All Hapū</option>
                   {rohes.map((r) => (
                     <option key={r._id} value={r._id}>{r.name}</option>
                   ))}
@@ -236,9 +237,9 @@ const RoheHapuPage = () => {
                   value={newHapu}
                   onChange={(e) => setNewHapu(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && addHapu()} 
-                  disabled={!selectedRohe}
+                  disabled={!selectedRohe || selectedRohe === "all"}
                 />
-                <button className="btn btn-success px-4 text-light" disabled={loading || !selectedRohe || !newHapu.trim()} onClick={addHapu}>
+                <button className="btn btn-success px-4 text-light" disabled={loading || !selectedRohe || selectedRohe === "all" || !newHapu.trim()} onClick={addHapu}>
                   {loading ? (
                     <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
                   ) : (
@@ -249,12 +250,28 @@ const RoheHapuPage = () => {
                 </button>
               </div>
 
-              {!selectedRohe ? (
+              {selectedRohe === "all" && hapu.length === 0 ? (
                 <div className="text-center py-4 rounded-3" style={{ backgroundColor: "#fff", border: "1px dashed #dee2e6" }}>
-                  <i className="ti ti-arrow-left text-muted" style={{ fontSize: 32 }} />
-                  <p className="text-muted mb-0 mt-2">Select a region first</p>
-                  <p className="small text-muted mb-0">Choose a region from the dropdown above to add or view Hapū</p>
+                  <i className="mdi mdi-account-group text-muted" style={{ fontSize: 32 }} />
+                  <p className="text-muted mb-0 mt-2">No Hapū yet</p>
+                  <p className="small text-muted mb-0">Select a region above to add Hapū, or add regions first</p>
                 </div>
+              ) : selectedRohe === "all" ? (
+                <ul className="list-group list-group-flush">
+                  {hapu.map((h) => (
+                    <li key={h._id} className="list-group-item rohe-hapu-item d-flex justify-content-between align-items-center px-3 py-2 border-0">
+                      <span className="fw-medium">{h.name || h.hapu_name}</span>
+                      <div className="d-flex gap-1">
+                        <Link to={`/docs/hapu/${h._id}`} className="btn btn-sm btn-secondary" title="View Hapū details">
+                         <i className="mdi mdi-eye" />
+                        </Link>
+                        <button className="btn btn-sm btn-danger" onClick={(e) => { e.stopPropagation(); deleteHapu(h._id); }} title="Delete region">
+                          <i className="ti ti-trash" />
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
               ) : hapu.length === 0 ? (
                 <div className="text-center py-4 rounded-3" style={{ backgroundColor: "#fff", border: "1px dashed #dee2e6" }}>
                   <i className="ti ti-users-group text-muted" style={{ fontSize: 32 }} />
@@ -265,12 +282,15 @@ const RoheHapuPage = () => {
                 <ul className="list-group list-group-flush">
                   {hapu.map((h) => (
                     <li key={h._id} className="list-group-item rohe-hapu-item d-flex justify-content-between align-items-center px-3 py-2 border-0">
-                      <Link to={`/docs/hapu/${h._id}`} className="fw-medium text-decoration-none text-dark flex-grow-1" style={{ cursor: "pointer" }}>
-                        {h.name || h.hapu_name}
-                      </Link>
-                      <button className="btn btn-sm btn-danger" onClick={(e) => { e.stopPropagation(); deleteHapu(h._id); }} title="Delete Hapū">
-                        <i className="ti ti-trash" />
-                      </button>
+                      <span className="fw-medium">{h.name || h.hapu_name}</span>
+                      <div className="d-flex gap-1">
+                        <Link to={`/docs/hapu/${h._id}`} className="btn btn-sm btn-outline-primary" title="View Hapū details">
+                          View
+                        </Link>
+                        <button className="btn btn-sm btn-danger" onClick={(e) => { e.stopPropagation(); deleteHapu(h._id); }} title="Delete Hapū">
+                          <i className="mdi mdi-trash" />
+                        </button>
+                      </div>
                     </li>
                   ))}
                 </ul>

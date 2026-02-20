@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import api from "../api/axiosInstance";
 import Select from "react-select";
 import { Bar, Doughnut } from "react-chartjs-2";
@@ -32,6 +32,7 @@ const Dashboard = () => {
   const [projectsList, setProjectsList] = useState([]);
   const [selectedProject, setSelectedProject] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [hapusList, setHapusList] = useState([]);
   const [chartData, setChartData] = useState({
     bar: { labels: [], datasets: [] },
     doughnut: { labels: [], data: [], backgroundColor: [], borderColor: [] },
@@ -61,6 +62,7 @@ const Dashboard = () => {
         }))
       );
       setChartData(res.chartData);
+      setHapusList(res.hapus_list || []);
     } catch (error) {
       console.error("Error loading dashboard:", error);
     } finally {
@@ -232,6 +234,37 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
+
+        {/* All Hapū Section - Super Admin only */}
+        {/* {isSuperAdmin && ( */}
+          <div className="card mt-3">
+            <div className="card-body">
+              <div className="d-flex align-items-center justify-content-between mb-3">
+                <h5 className="card-title card-title-dash mb-0">All Hapū</h5>
+                <Link to="/docs/rohe-hapu" className="btn btn-sm btn-outline-primary">
+                  Manage Rohe & Hapū
+                </Link>
+              </div>
+              {hapusList.length > 0 ? (
+                <div className="d-flex flex-wrap gap-2">
+                  {hapusList.map((h) => (
+                    <Link
+                      key={h._id}
+                      to={`/docs/hapu/${h._id}`}
+                      className="badge bg-opacity-10 text-primary text-decoration-none px-3 py-2"
+                      style={{ fontSize: "0.9rem" }}
+                    >
+                      {h.name || "Hapū"}
+                      {h.rohe_id?.name && <span className="text-muted ms-1">({h.rohe_id.name})</span>}
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-muted mb-0 small">No Hapū yet. <Link to="/docs/rohe-hapu">Add regions and Hapū</Link></p>
+              )}
+            </div>
+          </div>
+        {/* )}   */}
 
         {/* ====== Charts Section ====== */}
         <div className="row mt-3">
