@@ -55,7 +55,7 @@ const HapuDetail = () => {
   const roheName = hapu?.rohe?.name || "—";
 
   return (
-    <div className="card mt-3 hapu-detail-card">
+    <div className="card mt-3">
       {/* Header */}
       <div className="card-body border-bottom bg-light">
         <div className="d-flex flex-wrap align-items-center justify-content-between gap-3">

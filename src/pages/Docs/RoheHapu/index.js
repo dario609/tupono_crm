@@ -120,7 +120,7 @@ const RoheHapuPage = () => {
   const selectedRoheName = rohes.find((r) => r._id === selectedRohe)?.name || "";
 
   return (
-    <div className="card mt-3" style={{ maxWidth: 1200, marginLeft: "auto", marginRight: "auto" }}>
+    <div className="card mt-3" style={{ marginLeft: "auto", marginRight: "auto" }}>
       {/* Header with explanation */}
       <div className="card-body pb-0">
         <h5 className="fw-semibold mb-2" style={{ color: "#1a1a2e" }}>
