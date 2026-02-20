@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import Select from "react-select";
 import UsersApi from "../../api/usersApi";
 import TeamsApi from "../../api/teamsApi";
+import HapuListsApi from "../../api/hapulistsApi";
 
 const CreateTeam = () => {
   const navigate = useNavigate();
@@ -10,29 +12,38 @@ const CreateTeam = () => {
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
   const [users, setUsers] = useState([]);
+  const [hapus, setHapus] = useState([]);
 
   const [form, setForm] = useState({
     title: "",
     status: "active",
+    hapu: "",
     description: "",
     user_id: [],
   });
 
   const [titleGhost, setTitleGhost] = useState("");
   const [descGhost, setDescGhost] = useState("");
-  const [userInput, setUserInput] = useState("");
 
   useEffect(() => {
     (async () => {
       try {
-        const json = await UsersApi.list({ perpage: -1 });
-        setUsers(json?.data || []);
+        const [usersJson, hapusJson] = await Promise.all([
+          UsersApi.list({ perpage: -1 }),
+          HapuListsApi.list({ perpage: -1 }),
+        ]);
+        setUsers(usersJson?.data || []);
+        setHapus(hapusJson?.data || []);
       } catch {}
     })();
   }, []);
 
   const onChange = (e) => {
     const { name, value } = e.target;
+    if (name === "hapu") {
+      setForm((f) => ({ ...f, hapu: value, user_id: [] }));
+      return;
+    }
     setForm((f) => ({ ...f, [name]: value }));
   };
 
@@ -43,17 +54,20 @@ const CreateTeam = () => {
   };
 
   const userLabel = (u) => `${u.first_name ?? ''} ${u.last_name ?? ''}`.trim() || u.email || 'User';
-  const parseUserIdFromOption = (val) => {
-    const match = users.find((x) => userLabel(x).toLowerCase() === String(val).toLowerCase());
-    return match?._id || null;
+  const userHapus = (u) => {
+    if (Array.isArray(u?.hapu)) return u.hapu;
+    if (typeof u?.hapu === "string" && u.hapu.trim()) return [u.hapu.trim()];
+    return [];
   };
-  const addUser = (val) => {
-    const id = parseUserIdFromOption(val);
-    if (!id) return setUserInput("");
-    setForm((f) => ({ ...f, user_id: f.user_id.includes(id) ? f.user_id : [...f.user_id, id] }));
-    setUserInput("");
-  };
-  const removeUser = (id) => setForm((f) => ({ ...f, user_id: f.user_id.filter((x) => x !== id) }));
+  const normalizedSelectedHapu = String(form.hapu || "").toLowerCase().trim();
+  const filteredUsers = users.filter((u) =>
+    userHapus(u).some((h) => String(h).toLowerCase().trim() === normalizedSelectedHapu)
+  );
+  const canSubmit =
+    form.title.trim().length > 0 &&
+    String(form.status || "").trim().length > 0 &&
+    String(form.hapu || "").trim().length > 0 &&
+    form.user_id.length > 0;
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -61,6 +75,10 @@ const CreateTeam = () => {
     setSuccess("");
     if (formRef.current && !formRef.current.checkValidity()) {
       formRef.current.reportValidity();
+      return;
+    }
+    if (!canSubmit) {
+      setError("Please fill Team Name, Status, Select Hapu and Select Team members.");
       return;
     }
     try {
@@ -133,35 +151,46 @@ const CreateTeam = () => {
                       </div>
 
                       <div className="col-md-6 mt-0">
+                        <div className="form-group mb-2">
+                          <label>Select Hapu <span className="text-danger">*</span></label>
+                          <select
+                            name="hapu"
+                            className="form-control form-select"
+                            required
+                            value={form.hapu}
+                            onChange={onChange}
+                          >
+                            <option value="">Select Hapu</option>
+                            {hapus.map((h) => {
+                              const hapuName = h?.hapu_name || h?.name || "";
+                              if (!hapuName) return null;
+                              return (
+                                <option key={h._id || hapuName} value={hapuName}>
+                                  {hapuName}
+                                </option>
+                              );
+                            })}
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="col-md-6 mt-0">
                         <div className="form-group">
-                          <label className="form-label">Select Team members</label>
-                          <input
-                            className="form-control"
-                            placeholder="Search and select user"
-                            list="teamUserOptions"
-                            value={userInput}
-                            onChange={(e) => setUserInput(e.target.value)}
-                            onBlur={(e) => addUser(e.target.value)}
-                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addUser(userInput); } }}
+                          <label className="form-label">Select Team members <span className="text-danger">*</span></label>
+                          <Select
+                            isMulti
+                            options={filteredUsers.map((u) => ({ value: u._id, label: userLabel(u) }))}
+                            value={form.user_id.map((id) => {
+                              const u = users.find((x) => x._id === id);
+                              return u ? { value: u._id, label: userLabel(u) } : null;
+                            }).filter(Boolean)}
+                            onChange={(selected) => setForm((f) => ({ ...f, user_id: selected ? selected.map((s) => s.value) : [] }))}
+                            isDisabled={!form.hapu}
+                            placeholder={form.hapu ? "Select team members..." : "Select hapu first"}
+                            noOptionsMessage={() => (form.hapu ? "No users in this hapu" : "Select hapu first")}
+                            className="react-select-container"
+                            classNamePrefix="react-select"
                           />
-                          <datalist id="teamUserOptions">
-                            {users.map((u) => (
-                              <option key={u._id} value={userLabel(u)} />
-                            ))}
-                          </datalist>
-                          {form.user_id.length > 0 && (
-                            <div className="mt-2" style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                              {form.user_id.map((id) => {
-                                const u = users.find((x) => x._id === id);
-                                if (!u) return null;
-                                return (
-                                  <span key={`tag-user-${id}`} className="badge badge-primary" style={{ padding: '6px 10px' }}>
-                                    {userLabel(u)} <button type="button" className="btn btn-link btn-sm" onClick={() => removeUser(id)} style={{ color: '#fff', textDecoration: 'none', marginLeft: 6 }}>×</button>
-                                  </span>
-                                );
-                              })}
-                            </div>
-                          )}
                         </div>
                       </div>
 
@@ -180,7 +209,7 @@ const CreateTeam = () => {
 
                   <div className="modal-footer1 text-center mt-3">
                     <button type="button" className="btn btn-danger btn-rounded btn-fw" onClick={() => navigate('/teams')}>Cancel</button>
-                    <button type="submit" disabled={loading} className="btn btn-primary btn-rounded btn-fw" style={{marginLeft: '8px'}}>{loading ? 'Saving...' : 'Save'}</button>
+                    <button type="submit" disabled={loading || !canSubmit} className="btn btn-primary btn-rounded btn-fw" style={{marginLeft: '8px'}}>{loading ? 'Saving...' : 'Save'}</button>
                   </div>
                 </form>
               </div>
