@@ -176,7 +176,7 @@ const RoheHapuPage = () => {
                   {rohes.map((r) => (
                     <li
                       key={r._id}
-                      className="list-group-item rohe-hapu-item d-flex justify-content-between align-items-center px-3 py-2 border-0"
+                      className={`list-group-item rohe-hapu-item d-flex justify-content-between align-items-center px-3 py-2 border-0 ${selectedRohe === r._id ? "rohe-hapu-item--selected" : ""}`}
                       style={{ cursor: "pointer" }}
                       onClick={() => {
                         setSelectedRohe(r._id);

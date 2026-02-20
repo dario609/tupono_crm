@@ -6,3 +6,11 @@
 .rohe-hapu-item:hover {
   background-color: rgba(13, 110, 253, 0.1) !important;
 }
+
+.rohe-hapu-item.rohe-hapu-item--selected {
+  background-color: rgba(13, 110, 253, 0.15) !important;
+}
+
+.rohe-hapu-item.rohe-hapu-item--selected:hover {
+  background-color: rgba(13, 110, 253, 0.22) !important;
+}
