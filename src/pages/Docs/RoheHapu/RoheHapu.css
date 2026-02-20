@@ -1,0 +1,8 @@
+.rohe-hapu-item {
+  border-radius: 6px;
+  transition: background-color 0.2s ease;
+}
+
+.rohe-hapu-item:hover {
+  background-color: rgba(13, 110, 253, 0.1) !important;
+}
