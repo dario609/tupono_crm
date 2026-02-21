@@ -3,9 +3,11 @@ import { NavLink, useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 import * as XLSX from "xlsx";
 import UsersApi from "../../api/usersApi";
+import HapuListsApi from "../../api/hapulistsApi";
 import PermissionsApi from "../../api/permissionsApi";
 import { AuthApi } from "../../api/authApi";
 import { SkeletonTableRow } from "../../components/common/SkelentonTableRow.js";
+import "../../styles/engagementAdd.css";
 
 const UsersPage = ({ user, permissions }) => {
     const [loading, setLoading] = useState(false);
@@ -17,6 +19,16 @@ const UsersPage = ({ user, permissions }) => {
     const [total, setTotal] = useState(0);
     const [perms, setPerms] = useState({});
     const [currentUser, setCurrentUser] = useState(null);
+    const [selectedIds, setSelectedIds] = useState(new Set());
+    const [selectedUsersMap, setSelectedUsersMap] = useState(new Map());
+    const [emailModalOpen, setEmailModalOpen] = useState(false);
+    const [emailSubject, setEmailSubject] = useState("");
+    const [emailBody, setEmailBody] = useState("");
+    const [emailSending, setEmailSending] = useState(false);
+    const [hapuFilter, setHapuFilter] = useState("");
+    const [hapus, setHapus] = useState([]);
+    const [emailRecipientIds, setEmailRecipientIds] = useState([]);
+    const [emailRecipientUsers, setEmailRecipientUsers] = useState([]);
     const lastPage = useMemo(() => {
         if (perpage === -1) return 1;
         return Math.max(1, Math.ceil(total / (perpage || 10)));
@@ -27,7 +39,12 @@ const UsersPage = ({ user, permissions }) => {
     const load = async (opts = {}) => {
         setLoading(true);
         try {
-            const json = await UsersApi.list({ perpage: opts.perpage ?? perpage, page: opts.page ?? page, search: opts.search ?? search });
+            const json = await UsersApi.list({
+                perpage: opts.perpage ?? perpage,
+                page: opts.page ?? page,
+                search: opts.search ?? search,
+                hapu: opts.hapu !== undefined ? opts.hapu : hapuFilter,
+            });
             setRows(json?.data || []);
             setTotal(json?.total || 0);
             setPage(json?.current_page || 1);
@@ -38,7 +55,6 @@ const UsersPage = ({ user, permissions }) => {
     };
 
     useEffect(() => {
-        // permissions for gating Add button
         (async () => {
             try {
                 const pJson = await PermissionsApi.me();
@@ -51,9 +67,16 @@ const UsersPage = ({ user, permissions }) => {
                 if (uJson?.authenticated) setCurrentUser(uJson.user);
             } catch { }
         })();
-        load({ page: 1 });
+        HapuListsApi.list({ perpage: -1 })
+            .then((json) => setHapus(json?.data || []))
+            .catch(() => setHapus([]));
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    useEffect(() => {
+        load({ page: 1, hapu: hapuFilter });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [hapuFilter]);
 
 
     const [updatingId, setUpdatingId] = useState(null);
@@ -149,6 +172,85 @@ const UsersPage = ({ user, permissions }) => {
         }
     };
 
+    const toggleSelectAll = () => {
+        if (selectedIds.size === rows.length) {
+            setSelectedIds(new Set());
+            setSelectedUsersMap(new Map());
+        } else {
+            const nextIds = new Set(rows.map((r) => r._id));
+            const nextMap = new Map(rows.map((r) => [r._id, r]));
+            setSelectedIds(nextIds);
+            setSelectedUsersMap(nextMap);
+        }
+    };
+
+    const toggleSelect = (id, row) => {
+        setSelectedIds((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+        setSelectedUsersMap((prev) => {
+            const next = new Map(prev);
+            if (next.has(id)) next.delete(id);
+            else if (row) next.set(id, row);
+            return next;
+        });
+    };
+
+    const openEmailModal = (idsOrRows) => {
+        let targetIds, targetUsers;
+        if (Array.isArray(idsOrRows) && idsOrRows.length > 0) {
+            const first = idsOrRows[0];
+            if (typeof first === "object" && first._id) {
+                targetUsers = idsOrRows;
+                targetIds = new Set(targetUsers.map((u) => u._id));
+            } else {
+                targetIds = new Set(idsOrRows);
+                targetUsers = Array.from(targetIds).map((id) => selectedUsersMap.get(id) || rows.find((r) => String(r._id) === String(id))).filter(Boolean);
+            }
+        } else {
+            targetIds = selectedIds;
+            targetUsers = Array.from(targetIds).map((id) => selectedUsersMap.get(id) || rows.find((r) => String(r._id) === String(id))).filter(Boolean);
+        }
+        if (targetIds.size === 0) return;
+        setEmailRecipientIds(Array.from(targetIds));
+        setEmailRecipientUsers(targetUsers);
+        setEmailSubject("");
+        setEmailBody("");
+        setEmailModalOpen(true);
+    };
+
+    const removeEmailRecipient = (id) => {
+        setEmailRecipientIds((prev) => prev.filter((x) => String(x) !== String(id)));
+        setEmailRecipientUsers((prev) => prev.filter((u) => String(u._id) !== String(id)));
+    };
+
+    const handleSendBulkEmail = async () => {
+        const recipients = emailRecipientUsers.map((r) => r.email).filter(Boolean);
+        if (recipients.length === 0) {
+            await Swal.fire({ icon: "warning", text: "No valid recipient emails." });
+            return;
+        }
+        setEmailSending(true);
+        try {
+            const data = await UsersApi.sendBulkEmail({
+                to: recipients,
+                subject: emailSubject || "Message from Tupono",
+                message: emailBody || "",
+            });
+            if (data?.success === false) throw new Error(data?.message || "Failed to send");
+            await Swal.fire({ icon: "success", title: "Sent", text: data?.message || "Email sent successfully.", timer: 2000, showConfirmButton: false });
+            setEmailModalOpen(false);
+            setSelectedIds(new Set());
+        } catch (e) {
+            await Swal.fire({ icon: "error", title: "Error", text: e.message || "Failed to send email." });
+        } finally {
+            setEmailSending(false);
+        }
+    };
+
     // legacy-like pagination blocks
     const pagesToShow = useMemo(() => {
         const items = [];
@@ -240,6 +342,11 @@ const UsersPage = ({ user, permissions }) => {
             <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-24 p-3">
                 <h6 className="fw-semibold mb-0">Users Management</h6>
                 <div className="d-flex gap-2">
+                    {selectedIds.size > 0 && (
+                        <button onClick={() => openEmailModal()} className="btn btn-info btn-rounded btn-fw">
+                            <i className="menu-icon mdi mdi-email-send-outline"></i> Send Email ({selectedIds.size})
+                        </button>
+                    )}
                     <button onClick={handleDownload} className="btn btn-secondary btn-rounded btn-fw">
                         <i className="menu-icon mdi mdi-download"></i> Download
                     </button>
@@ -289,9 +396,11 @@ const UsersPage = ({ user, permissions }) => {
 
                         `}</style>
 
-                    <div className="d-flex align-items-center justify-content-between p-2">
-                        <div className="d-flex align-items-center">
-                            <label className="mb-0 me-2" htmlFor="perpage">Show</label>
+                    <div className="d-flex align-items-center justify-content-between p-2 flex-wrap gap-2">
+                        <div className="d-flex align-items-center flex-wrap gap-2">
+                            
+                            <div className="d-flex align-items-center">
+                                <label className="mb-0 me-2" htmlFor="perpage">Show</label>
                             <select
                                 id="perpage"
                                 className="form-control w-auto me-2"
@@ -309,9 +418,26 @@ const UsersPage = ({ user, permissions }) => {
                                 <option value={100}>100</option>
                             </select>
                             <span>entries</span>
+                            </div>
                         </div>
 
                         <div className="input-group" style={{ maxWidth: 360 }}>
+                        <div className="d-flex align-items-center" style={{marginRight: 10}}>
+                                <label className="mb-0 me-2" htmlFor="hapu-filter">Hapu</label>
+                                <select
+                                    id="hapu-filter"
+                                    className="form-control form-select w-auto"
+                                    value={hapuFilter}
+                                    onChange={(e) => setHapuFilter(e.target.value)}
+                                >
+                                    <option value="">All Hapū</option>
+                                    {hapus.map((h) => (
+                                        <option key={h._id} value={h.name || h.hapu_name || ""}>
+                                            {h.name || h.hapu_name || ""}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
                             <input
                                 type="text"
                                 placeholder="Search"
@@ -330,9 +456,18 @@ const UsersPage = ({ user, permissions }) => {
                         <table className="table table-striped">
                             <thead>
                                 <tr>
+                                    <th style={{ width: "36px" }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={rows.length > 0 && selectedIds.size === rows.length}
+                                            onChange={toggleSelectAll}
+                                            title="Select all"
+                                        />
+                                    </th>
                                     <th style={{ width: "5%" }}>SN</th>
                                     <th>Full Name</th>
                                     <th>Email</th>
+                                    <th>Hapu</th>
                                     <th>Role</th>
                                     <th>Nga Rōpu</th>
                                     <th>Status</th>
@@ -357,13 +492,36 @@ const UsersPage = ({ user, permissions }) => {
                                             .filter(Boolean)
                                         : [];
 
+                                    const hapuDisplay = Array.isArray(r.hapu) ? r.hapu.filter(Boolean).join(", ") : (r.hapu || "");
+
                                     return (
                                         <tr key={r._id}>
+                                            <td>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedIds.has(r._id)}
+                                                    onChange={() => toggleSelect(r._id, r)}
+                                                />
+                                            </td>
                                             <td>{sn}</td>
 
                                             <td>{name ? `${name.charAt(0).toUpperCase()}${name.slice(1)}` : '-'}</td>
 
-                                            <td>{r.email}</td>
+                                            <td>
+                                                <span className="d-inline-flex align-items-center gap-1">
+                                                    {r.email}
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-sm btn-link p-0"
+                                                        title="Send email"
+                                                        onClick={() => openEmailModal([r])}
+                                                    >
+                                                        <i className="mdi mdi-email-send-outline"></i>
+                                                    </button>
+                                                </span>
+                                            </td>
+
+                                            <td>{hapuDisplay || "–"}</td>
 
                                             <td>{r.role_id?.role_name || '-'}</td>
 
@@ -417,8 +575,8 @@ const UsersPage = ({ user, permissions }) => {
                                                 </div>
                                             </td>
 
-                                            {(canView || canEdit || canDelete) && (
-                                                <td className="actions-column">
+                                            <td className="actions-column">
+                                                {(canView || canEdit || canDelete) ? (
                                                     <div className="actions-wrapper">
                                                         {canView && (
                                                             <button className="btn badge-info btn-sm btn-rounded btn-icon" title="View Activity" onClick={() => navigate(`/users/${r._id}/report`)} >
@@ -463,18 +621,20 @@ const UsersPage = ({ user, permissions }) => {
                                                             </button>
                                                         )}
                                                     </div>
-                                                </td>
-                                            )}
+                                                ) : (
+                                                    <span className="text-muted">–</span>
+                                                )}
+                                            </td>
                                         </tr>
                                     );
                                 })}
 
                                 {rows.length === 0 && (
                                     loading ? (
-                                        <SkeletonTableRow rows={5} cols={7} />
+                                        <SkeletonTableRow rows={5} cols={9} />
                                     ) : (
                                         <tr className="text-center">
-                                            <td colSpan={6} className="py-4">No Records found</td>
+                                            <td colSpan={9} className="py-4">No Records found</td>
                                         </tr>
                                     )
                                 )}
@@ -530,6 +690,68 @@ const UsersPage = ({ user, permissions }) => {
                     )}
                 </div>
             </div>
+
+            {emailModalOpen && (
+                <div className="modal d-block" style={{ backgroundColor: "rgba(0,0,0,0.5)" }} tabIndex={-1}>
+                    <div className="modal-dialog modal-dialog-centered">
+                        <div className="modal-content">
+                            <div className="modal-header">
+                                <h5 className="modal-title">Send Email</h5>
+                                <button type="button" className="btn-close" onClick={() => setEmailModalOpen(false)} aria-label="Close"></button>
+                            </div>
+                            <div className="modal-body">
+                                <div className="mb-3">
+                                    <label className="form-label">Recipients</label>
+                                    <div className="d-flex flex-wrap gap-2 mt-2">
+                                        {emailRecipientUsers.map((u) => (
+                                            <div key={u._id} className="hapu-chip">
+                                                <span>{`${u.first_name || ""} ${u.last_name || ""}`.trim() || u.email}</span>
+                                                <button
+                                                    type="button"
+                                                    className="remove-btn"
+                                                    onClick={() => removeEmailRecipient(u._id)}
+                                                    title="Remove"
+                                                >
+                                                    ×
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    {emailRecipientUsers.length === 0 && (
+                                        <p className="text-muted small mb-0">No recipients selected.</p>
+                                    )}
+                                </div>
+                                <div className="mb-3">
+                                    <label className="form-label">Subject</label>
+                                    <input
+                                        type="text"
+                                        className="form-control"
+                                        placeholder="Email subject"
+                                        value={emailSubject}
+                                        onChange={(e) => setEmailSubject(e.target.value)}
+                                    />
+                                </div>
+                                <div className="mb-3">
+                                    <label className="form-label">Message</label>
+                                    <textarea
+                                        className="form-control"
+                                        rows={6}
+                                        placeholder="Write your message..."
+                                        value={emailBody}
+                                        onChange={(e) => setEmailBody(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                            <div className="modal-footer">
+                                <button type="button" className="btn btn-secondary" onClick={() => setEmailModalOpen(false)}>Cancel</button>
+                                <button type="button" className="btn btn-primary" onClick={handleSendBulkEmail} disabled={emailSending || emailRecipientUsers.length === 0}>
+                                    {emailSending ? "Sending…" : "Send"}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

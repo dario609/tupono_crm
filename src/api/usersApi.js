@@ -11,6 +11,7 @@ const UsersApi = {
   removeProfileImage: (id) => api.post(`/admin/users/${id}/profile-image/remove`),
   updateProfile: (id, formData) => api.put(`/admin/users/${id}/profile`, formData, { headers: { "Content-Type": "multipart/form-data" } }),
   changePassword: (id, data) => api.post(`/admin/users/${id}/change-password`, data),
+  sendBulkEmail: (data) => api.post("/admin/users/send-bulk-email", data),
 };
 
 export default UsersApi;
