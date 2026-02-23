@@ -12,24 +12,29 @@ const ReportsPage = () => {
   const [perpage, setPerpage] = useState(10);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+  const [sortBy, setSortBy] = useState("start_date");
+  const [sortOrder, setSortOrder] = useState("desc");
   const lastPage = useMemo(() => {
     if (perpage === -1) return 1;
     return Math.max(1, Math.ceil(total / (perpage || 10)));
   }, [total, perpage]);
 
   const load = async (opts = {}) => {
-    const q = new URLSearchParams({
-      perpage: String(opts.perpage ?? perpage),
-      page: String(opts.page ?? page),
-      search: String(opts.search ?? search),
-    }).toString();
     setLoading(true);
     try {
-      const json = await ReportsApi.list({ perpage: opts.perpage ?? perpage, page: opts.page ?? page, search: opts.search ?? search });
+      const json = await ReportsApi.list({
+        perpage: opts.perpage ?? perpage,
+        page: opts.page ?? page,
+        search: opts.search ?? search,
+        sortBy: opts.sortBy ?? sortBy,
+        sortOrder: opts.sortOrder ?? sortOrder,
+      });
       setRows(json?.data || []);
       setTotal(json?.total || 0);
       setPage(json?.current_page || 1);
       setPerpage(json?.per_page ?? 10);
+      if (opts.sortBy !== undefined) setSortBy(opts.sortBy);
+      if (opts.sortOrder !== undefined) setSortOrder(opts.sortOrder);
     } finally {
       setLoading(false);
     }
@@ -42,6 +47,13 @@ const ReportsPage = () => {
 
   const onSearchKeyDown = (e) => {
     if (e.key === "Enter") load({ page: 1 });
+  };
+
+  const toggleStartDateSort = () => {
+    const nextOrder = sortBy === "start_date" && sortOrder === "desc" ? "asc" : "desc";
+    setSortBy("start_date");
+    setSortOrder(nextOrder);
+    load({ page: 1, sortBy: "start_date", sortOrder: nextOrder });
   };
 
   const handleDelete = async (id) => {
@@ -169,7 +181,20 @@ const ReportsPage = () => {
                   <th>Assigned To</th>
                   <th>Description</th>
                   <th>Status</th>
-                  <th>Start Date</th>
+                  <th>
+                    <button
+                      type="button"
+                      className="btn btn-link p-0 text-decoration-none text-white fw-semibold"
+                      style={{fontSize: 14}}
+                      onClick={toggleStartDateSort}
+                      title={sortBy === "start_date" ? `Sorted ${sortOrder === "asc" ? "ascending" : "descending"} (click to toggle)` : "Sort by Start Date"}
+                    >
+                      Start Date
+                      {sortBy === "start_date" && (
+                        <i className={`mdi mdi-arrow-${sortOrder === "asc" ? "up" : "down"} ms-1`} style={{ fontSize: 14 }} />
+                      )}
+                    </button>
+                  </th>
                   <th>End Date</th>
                   <th>Report Type</th>
                   <th>Report Phase</th>
