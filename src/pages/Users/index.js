@@ -27,6 +27,8 @@ const UsersPage = ({ user, permissions }) => {
     const [emailSending, setEmailSending] = useState(false);
     const [hapuFilter, setHapuFilter] = useState("");
     const [hapus, setHapus] = useState([]);
+    const [sortBy, setSortBy] = useState("full_name");
+    const [sortOrder, setSortOrder] = useState("asc");
     const [emailRecipientIds, setEmailRecipientIds] = useState([]);
     const [emailRecipientUsers, setEmailRecipientUsers] = useState([]);
     const lastPage = useMemo(() => {
@@ -44,11 +46,15 @@ const UsersPage = ({ user, permissions }) => {
                 page: opts.page ?? page,
                 search: opts.search ?? search,
                 hapu: opts.hapu !== undefined ? opts.hapu : hapuFilter,
+                sortBy: opts.sortBy ?? sortBy,
+                sortOrder: opts.sortOrder ?? sortOrder,
             });
             setRows(json?.data || []);
             setTotal(json?.total || 0);
             setPage(json?.current_page || 1);
             setPerpage(json?.per_page ?? 10);
+            if (opts.sortBy !== undefined) setSortBy(opts.sortBy);
+            if (opts.sortOrder !== undefined) setSortOrder(opts.sortOrder);
         } finally {
             setLoading(false);
         }
@@ -170,6 +176,16 @@ const UsersPage = ({ user, permissions }) => {
         if (e.key === "Enter") {
             load({ page: 1 });
         }
+    };
+
+    const toggleFullNameSort = () => {
+        const nextOrder = sortBy === "full_name" && sortOrder === "desc" ? "asc" : "desc";
+        load({ page: 1, sortBy: "full_name", sortOrder: nextOrder });
+    };
+
+    const toggleEmailSort = () => {
+        const nextOrder = sortBy === "email" && sortOrder === "desc" ? "asc" : "desc";
+        load({ page: 1, sortBy: "email", sortOrder: nextOrder });
     };
 
     const toggleSelectAll = () => {
@@ -465,8 +481,16 @@ const UsersPage = ({ user, permissions }) => {
                                         />
                                     </th>
                                     <th style={{ width: "5%" }}>SN</th>
-                                    <th>Full Name</th>
-                                    <th>Email</th>
+                                    <th>
+                                        <button type="button" className="btn btn-link p-0 text-decoration-none text-dark fw-semibold" onClick={toggleFullNameSort} title={sortBy === "full_name" ? `Sorted ${sortOrder === "asc" ? "A–Z" : "Z–A"} (click to toggle)` : "Sort by Full Name"}>
+                                            Full Name <i className={`mdi mdi-arrow-${sortOrder === "asc" ? "up" : "down"} ms-1`} style={{ fontSize: 14, opacity: sortBy === "full_name" ? 1 : 0.4 }} />
+                                        </button>
+                                    </th>
+                                    <th>
+                                        <button type="button" className="btn btn-link p-0 text-decoration-none text-dark fw-semibold" onClick={toggleEmailSort} title={sortBy === "email" ? `Sorted ${sortOrder === "asc" ? "A–Z" : "Z–A"} (click to toggle)` : "Sort by Email"}>
+                                            Email <i className={`mdi mdi-arrow-${sortOrder === "asc" ? "up" : "down"} ms-1`} style={{ fontSize: 14, opacity: sortBy === "email" ? 1 : 0.4 }} />
+                                        </button>
+                                    </th>
                                     <th>Hapu</th>
                                     <th>Role</th>
                                     <th>Nga Rōpu</th>
