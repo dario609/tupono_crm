@@ -645,9 +645,6 @@ const UsersPage = ({ user, permissions }) => {
                     {total > 0 && (
                         <div className="row p-2">
                             <div className="col-sm-12 col-md-5">
-                                <div className="dataTables_info" role="status" aria-live="polite">
-                                    <p>Showing {showingStarted} to {currentShowing} of {total} entries</p>
-                                </div>
                             </div>
                             <div className="col-sm-12 col-md-7">
                                 <div className="dataTables_paginate paging_simple_numbers">
