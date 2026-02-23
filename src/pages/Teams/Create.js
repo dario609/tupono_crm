@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import Select from "react-select";
 import UsersApi from "../../api/usersApi";
 import TeamsApi from "../../api/teamsApi";
-import HapuListsApi from "../../api/hapulistsApi";
+import ProjectsApi from "../../api/projectsApi";
 
 const CreateTeam = () => {
   const navigate = useNavigate();
@@ -12,12 +12,12 @@ const CreateTeam = () => {
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
   const [users, setUsers] = useState([]);
-  const [hapus, setHapus] = useState([]);
+  const [projects, setProjects] = useState([]);
 
   const [form, setForm] = useState({
     title: "",
     status: "active",
-    hapu: "",
+    project_id: "",
     description: "",
     user_id: [],
   });
@@ -28,45 +28,44 @@ const CreateTeam = () => {
   useEffect(() => {
     (async () => {
       try {
-        const [usersJson, hapusJson] = await Promise.all([
-          UsersApi.list({ perpage: -1 }),
-          HapuListsApi.list({ perpage: -1 }),
-        ]);
-        setUsers(usersJson?.data || []);
-        setHapus(hapusJson?.data || []);
+        const projectsJson = await ProjectsApi.list({ perpage: -1 });
+        setProjects(projectsJson?.data || []);
       } catch {}
     })();
   }, []);
 
+  useEffect(() => {
+    if (!form.project_id) {
+      setUsers([]);
+      return;
+    }
+    (async () => {
+      try {
+        const usersJson = await UsersApi.list({ perpage: -1, project: form.project_id });
+        setUsers(usersJson?.data || []);
+      } catch {
+        setUsers([]);
+      }
+    })();
+  }, [form.project_id]);
+
   const onChange = (e) => {
     const { name, value } = e.target;
-    if (name === "hapu") {
-      setForm((f) => ({ ...f, hapu: value, user_id: [] }));
+    if (name === "project_id") {
+      setForm((f) => ({ ...f, project_id: value, user_id: [] }));
       return;
     }
     setForm((f) => ({ ...f, [name]: value }));
   };
 
-  // lightweight ghost overlay behavior
-  const handleSuggest = (field, setter) => (e) => {
-    // Until backend suggestion is wired, do not mirror typed text in ghost overlay
-    setter("");
-  };
+  const handleSuggest = (field, setter) => (e) => setter("");
 
   const userLabel = (u) => `${u.first_name ?? ''} ${u.last_name ?? ''}`.trim() || u.email || 'User';
-  const userHapus = (u) => {
-    if (Array.isArray(u?.hapu)) return u.hapu;
-    if (typeof u?.hapu === "string" && u.hapu.trim()) return [u.hapu.trim()];
-    return [];
-  };
-  const normalizedSelectedHapu = String(form.hapu || "").toLowerCase().trim();
-  const filteredUsers = users.filter((u) =>
-    userHapus(u).some((h) => String(h).toLowerCase().trim() === normalizedSelectedHapu)
-  );
+
   const canSubmit =
     form.title.trim().length > 0 &&
     String(form.status || "").trim().length > 0 &&
-    String(form.hapu || "").trim().length > 0 &&
+    String(form.project_id || "").trim().length > 0 &&
     form.user_id.length > 0;
 
   const onSubmit = async (e) => {
@@ -78,7 +77,7 @@ const CreateTeam = () => {
       return;
     }
     if (!canSubmit) {
-      setError("Please fill Team Name, Status, Select Hapu and Select Team members.");
+      setError("Please fill Team Name, Status, Select Project and Select Team members.");
       return;
     }
     try {
@@ -152,24 +151,20 @@ const CreateTeam = () => {
 
                       <div className="col-md-6 mt-0">
                         <div className="form-group mb-2">
-                          <label>Select Hapu <span className="text-danger">*</span></label>
+                          <label>Select Project <span className="text-danger">*</span></label>
                           <select
-                            name="hapu"
+                            name="project_id"
                             className="form-control form-select"
                             required
-                            value={form.hapu}
+                            value={form.project_id}
                             onChange={onChange}
                           >
-                            <option value="">Select Hapu</option>
-                            {hapus.map((h) => {
-                              const hapuName = h?.hapu_name || h?.name || "";
-                              if (!hapuName) return null;
-                              return (
-                                <option key={h._id || hapuName} value={hapuName}>
-                                  {hapuName}
-                                </option>
-                              );
-                            })}
+                            <option value="">Select Project</option>
+                            {projects.map((p) => (
+                              <option key={p._id} value={p._id}>
+                                {p.name}
+                              </option>
+                            ))}
                           </select>
                         </div>
                       </div>
@@ -179,15 +174,15 @@ const CreateTeam = () => {
                           <label className="form-label">Select Team members <span className="text-danger">*</span></label>
                           <Select
                             isMulti
-                            options={filteredUsers.map((u) => ({ value: u._id, label: userLabel(u) }))}
+                            options={users.map((u) => ({ value: u._id, label: userLabel(u) }))}
                             value={form.user_id.map((id) => {
                               const u = users.find((x) => x._id === id);
                               return u ? { value: u._id, label: userLabel(u) } : null;
                             }).filter(Boolean)}
                             onChange={(selected) => setForm((f) => ({ ...f, user_id: selected ? selected.map((s) => s.value) : [] }))}
-                            isDisabled={!form.hapu}
-                            placeholder={form.hapu ? "Select team members..." : "Select hapu first"}
-                            noOptionsMessage={() => (form.hapu ? "No users in this hapu" : "Select hapu first")}
+                            isDisabled={!form.project_id}
+                            placeholder={form.project_id ? "Select team members..." : "Select project first"}
+                            noOptionsMessage={() => (form.project_id ? "No users in this project" : "Select project first")}
                             className="react-select-container"
                             classNamePrefix="react-select"
                           />

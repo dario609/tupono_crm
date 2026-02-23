@@ -3,7 +3,8 @@ import { useNavigate, useParams, Link } from "react-router-dom";
 import RolesApi from "../../api/rolesApi";
 import UsersApi from "../../api/usersApi";
 import HapuListsApi from "../../api/hapulistsApi";
-import { formatPhone, onlyLetters, formatZip } from "../../utils/formatPhone";
+import ProjectsApi from "../../api/projectsApi";
+import { formatPhone, onlyLetters } from "../../utils/formatPhone";
 
 
 const initialForm = {
@@ -13,11 +14,9 @@ const initialForm = {
   password: "",
   confirm_password: "",
   phone: "",
-  city: "",
-  country: "",
-  zip_code: "",
-  address: "",
+  organisation: "",
   role_id: "",
+  project_id: "",
   hapu: "",
   iwi: "",
   marae: "",
@@ -30,6 +29,7 @@ const EditUser = () => {
   const navigate = useNavigate();
   const [roles, setRoles] = useState([]);
   const [hapus, setHapus] = useState([]);
+  const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState(initialForm);
   const [showPwd, setShowPwd] = useState(false);
@@ -44,28 +44,34 @@ const EditUser = () => {
   useEffect(() => {
     (async () => {
       try {
-        const [rolesJson, userJson, hapusJson] = await Promise.all([
+        const [rolesJson, userJson, hapusJson, projectsJson] = await Promise.all([
           RolesApi.list({ perpage: -1 }),
           UsersApi.getById(id),
           HapuListsApi.list({ perpage: -1 }).catch(() => ({ data: [] })),
+          ProjectsApi.list({ perpage: -1 }).catch(() => ({ data: [] })),
         ]);
         setRoles(rolesJson?.data || []);
         setHapus(hapusJson?.data || []);
+        let projectsList = [...(projectsJson?.data || [])];
         if (userJson?.success && userJson?.data) {
           const u = userJson.data;
+          // Ensure user's current project is in the dropdown (may be missing due to visibility filter)
+          const hasUserProject = u.project_id || u.project;
+          const userProjectId = String(u.project_id || u.project?._id || "");
+          if (hasUserProject && userProjectId && !projectsList.some((p) => String(p._id) === userProjectId)) {
+            projectsList = [{ _id: userProjectId, name: u.project?.name || "Current Project" }, ...projectsList];
+          }
           // Find hapu name from hapu list if user has hapu
           let hapuValue = "";
           if (Array.isArray(u.hapu) && u.hapu.length > 0 && hapusJson?.data) {
-            // Find the hapu object that matches the user's hapu name
-            const userHapuName = u.hapu[0]; // Get first hapu name
+            const userHapuName = u.hapu[0];
             const matchingHapu = hapusJson.data.find(h => (h.hapu_name || h.name || "") === userHapuName);
             if (matchingHapu) {
               hapuValue = matchingHapu.hapu_name || matchingHapu.name || "";
             } else {
-              hapuValue = userHapuName; // Fallback to the name itself
+              hapuValue = userHapuName;
             }
           }
-          
           setForm({
             first_name: u.first_name || "",
             last_name: u.last_name || "",
@@ -73,11 +79,9 @@ const EditUser = () => {
             password: "",
             confirm_password: "",
             phone: u.phone || "",
-            city: u.city || "",
-            country: u.country || "",
-            zip_code: u.zip_code || "",
-            address: u.address || "",
+            organisation: u.organisation || "",
             role_id: u.role_id?._id || u.role_id || "",
+            project_id: (u.project_id || u.project?._id) ? String(u.project_id || u.project._id) : "",
             hapu: hapuValue,
             iwi: Array.isArray(u.iwi) ? u.iwi.join(", ") : "",
             marae: Array.isArray(u.marae) ? u.marae.join(", ") : "",
@@ -86,6 +90,7 @@ const EditUser = () => {
           });
           setExistingProfile(u.profile_image || "");
         }
+        setProjects(projectsList);
       } catch { }
     })();
   }, [id]);
@@ -101,10 +106,8 @@ const EditUser = () => {
     let next = value;
     if (name === "first_name" || name === "last_name") next = onlyLetters(value).slice(0, 30);
     else if (name === "phone") next = formatPhone(value);
-    else if (name === "zip_code") next = formatZip(value);
     setForm((prev) => {
       const updated = { ...prev, [name]: next };
-      // No password validation needed
       return updated;
     });
   };
@@ -130,6 +133,7 @@ const EditUser = () => {
       fd.set("marae", JSON.stringify(toArray(form.marae)));
       fd.set("maunga", JSON.stringify(toArray(form.maunga)));
       fd.set("awa", JSON.stringify(toArray(form.awa)));
+      fd.set("project_id", form.project_id || "");
       if (profileImage) fd.append("profile_image", profileImage);
       const data = await UsersApi.update(id, fd);
       if (data?.success === false) throw new Error(data?.message || "Failed to update user");
@@ -243,34 +247,6 @@ const EditUser = () => {
                       </div>
                     </div>
 
-                    <div className="col-md-4">
-                      <div className="form-group mb-2">
-                        <label>City</label>
-                        <input type="text" className="form-control" name="city" value={form.city} onChange={onChange} placeholder="City" maxLength={50} />
-                      </div>
-                    </div>
-
-                    <div className="col-md-4">
-                      <div className="form-group mb-2">
-                        <label>Country</label>
-                        <input type="text" className="form-control" name="country" value={form.country} onChange={onChange} placeholder="County" maxLength={50} />
-                      </div>
-                    </div>
-
-                    <div className="col-md-4">
-                      <div className="form-group mb-2">
-                        <label>Postal Code</label>
-                        <input type="text" className="form-control" name="zip_code" value={form.zip_code} onChange={onChange} placeholder="Postal Code" maxLength={10} />
-                      </div>
-                    </div>
-
-                    <div className="col-md-4">
-                      <div className="form-group mb-2">
-                        <label>Address</label>
-                        <input type="text" className="form-control" name="address" value={form.address} onChange={onChange} placeholder="Address" maxLength={150} />
-                      </div>
-                    </div>
-
                     <div className="col-md-4" id="assign-div">
                       <div className="form-group">
                         <label>Assign Role <span className="text-danger">*</span></label>
@@ -278,6 +254,25 @@ const EditUser = () => {
                           <option value="">Select Role</option>
                           {roles.map((r) => (
                             <option key={r._id} value={r._id}>{r.role_name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="col-md-4">
+                      <div className="form-group mb-2">
+                        <label>Organisation</label>
+                        <input type="text" className="form-control" name="organisation" value={form.organisation || ""} onChange={onChange} placeholder="Organisation" maxLength={100} />
+                      </div>
+                    </div>
+
+                    <div className="col-md-4">
+                      <div className="form-group mb-2">
+                        <label>Project</label>
+                        <select className="form-select" name="project_id" value={form.project_id} onChange={onChange}>
+                          <option value="">Select Project</option>
+                          {projects.map((p) => (
+                            <option key={p._id} value={String(p._id)}>{p.name}</option>
                           ))}
                         </select>
                       </div>
