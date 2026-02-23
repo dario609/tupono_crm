@@ -33,6 +33,18 @@ export const UserBasicFields = ({ form, onChange }) => (
           onChange={onChange}
         />
       </div>
+
+      <div className="col-md-4 mb-2">
+        <label>Organisation</label>
+        <input
+          type="text"
+          className="form-control mt-1"
+          name="organisation"
+          value={form.organisation || ""}
+          onChange={onChange}
+          placeholder="Organisation"
+        />
+      </div>
     </>
   );
   

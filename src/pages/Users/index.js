@@ -4,6 +4,7 @@ import Swal from "sweetalert2";
 import * as XLSX from "xlsx";
 import UsersApi from "../../api/usersApi";
 import HapuListsApi from "../../api/hapulistsApi";
+import ProjectsApi from "../../api/projectsApi";
 import PermissionsApi from "../../api/permissionsApi";
 import { AuthApi } from "../../api/authApi";
 import { SkeletonTableRow } from "../../components/common/SkelentonTableRow.js";
@@ -27,6 +28,8 @@ const UsersPage = ({ user, permissions }) => {
     const [emailSending, setEmailSending] = useState(false);
     const [hapuFilter, setHapuFilter] = useState("");
     const [hapus, setHapus] = useState([]);
+    const [projectFilter, setProjectFilter] = useState("");
+    const [projects, setProjects] = useState([]);
     const [sortBy, setSortBy] = useState("full_name");
     const [sortOrder, setSortOrder] = useState("asc");
     const [emailRecipientIds, setEmailRecipientIds] = useState([]);
@@ -46,6 +49,7 @@ const UsersPage = ({ user, permissions }) => {
                 page: opts.page ?? page,
                 search: opts.search ?? search,
                 hapu: opts.hapu !== undefined ? opts.hapu : hapuFilter,
+                project: opts.project !== undefined ? opts.project : projectFilter,
                 sortBy: opts.sortBy ?? sortBy,
                 sortOrder: opts.sortOrder ?? sortOrder,
             });
@@ -76,6 +80,9 @@ const UsersPage = ({ user, permissions }) => {
         HapuListsApi.list({ perpage: -1 })
             .then((json) => setHapus(json?.data || []))
             .catch(() => setHapus([]));
+        ProjectsApi.list({ perpage: -1, search: "" })
+            .then((res) => setProjects(res?.data || []))
+            .catch(() => setProjects([]));
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -83,6 +90,11 @@ const UsersPage = ({ user, permissions }) => {
         load({ page: 1, hapu: hapuFilter });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [hapuFilter]);
+
+    useEffect(() => {
+        load({ page: 1, project: projectFilter });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [projectFilter]);
 
 
     const [updatingId, setUpdatingId] = useState(null);
@@ -186,6 +198,11 @@ const UsersPage = ({ user, permissions }) => {
     const toggleEmailSort = () => {
         const nextOrder = sortBy === "email" && sortOrder === "desc" ? "asc" : "desc";
         load({ page: 1, sortBy: "email", sortOrder: nextOrder });
+    };
+
+    const toggleProjectSort = () => {
+        const nextOrder = sortBy === "project" && sortOrder === "desc" ? "asc" : "desc";
+        load({ page: 1, sortBy: "project", sortOrder: nextOrder });
     };
 
     const toggleSelectAll = () => {
@@ -314,6 +331,7 @@ const UsersPage = ({ user, permissions }) => {
                 "Address": user.address || "",
                 "Role": user.role_id?.role_name || "",
                 "Hapu": (user.hapu || []).join("; "),
+                "Project": Array.isArray(user.projects) ? user.projects.map(p => p.name).filter(Boolean).join("; ") : "",
                 "Iwi": (user.iwi || []).join("; "),
                 "Marae": (user.marae || []).join("; "),
                 "Maunga": (user.maunga || []).join("; "),
@@ -437,7 +455,7 @@ const UsersPage = ({ user, permissions }) => {
                             </div>
                         </div>
 
-                        <div className="input-group" style={{ maxWidth: 360 }}>
+                        <div className="input-group" style={{ maxWidth: 520 }}>
                             <div className="d-flex align-items-center" style={{ marginRight: 10 }}>
                                 <label className="mb-0 me-2" htmlFor="hapu-filter">Hapu</label>
                                 <select
@@ -450,6 +468,22 @@ const UsersPage = ({ user, permissions }) => {
                                     {hapus.map((h) => (
                                         <option key={h._id} value={h.name || h.hapu_name || ""}>
                                             {h.name || h.hapu_name || ""}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="d-flex align-items-center" style={{ marginRight: 10 }}>
+                                <label className="mb-0 me-2" htmlFor="project-filter">Project</label>
+                                <select
+                                    id="project-filter"
+                                    className="form-control form-select w-auto"
+                                    value={projectFilter}
+                                    onChange={(e) => setProjectFilter(e.target.value)}
+                                >
+                                    <option value="">All Projects</option>
+                                    {projects.map((p) => (
+                                        <option key={p._id} value={p._id}>
+                                            {p.name || p.title || "Unnamed"}
                                         </option>
                                     ))}
                                 </select>
@@ -503,6 +537,17 @@ const UsersPage = ({ user, permissions }) => {
                                         </button>
                                     </th>
                                     <th>Hapu</th>
+                                    <th>
+                                        <button
+                                            type="button"
+                                            className="btn btn-link p-0 text-decoration-none text-white fw-semibold"
+                                            style={{ fontSize: 14 }}
+                                            onClick={toggleProjectSort}
+                                            title={sortBy === "project" ? `Sorted ${sortOrder === "asc" ? "A–Z" : "Z–A"} (click to toggle)` : "Sort by Project"}>
+                                            Project
+                                            <i className={`mdi mdi-arrow-${sortOrder === "asc" ? "up" : "down"} ms-1`} style={{ fontSize: 14, opacity: sortBy === "project" ? 1 : 0.4 }} />
+                                        </button>
+                                    </th>
                                     <th>Role</th>
                                     <th>Nga Rōpu</th>
                                     <th>Status</th>
@@ -557,6 +602,25 @@ const UsersPage = ({ user, permissions }) => {
                                             </td>
 
                                             <td>{hapuDisplay || "–"}</td>
+
+                                            <td>
+                                                {Array.isArray(r.projects) && r.projects.length > 0 ? (
+                                                    r.projects.map((proj, i) => (
+                                                        <span key={proj._id}>
+                                                            <NavLink
+                                                                to={`/projects/${proj._id}/edit`}
+                                                                className="text-primary"
+                                                                style={{ textDecoration: "underline", cursor: "pointer" }}
+                                                            >
+                                                                {proj.name || "Unnamed"}
+                                                            </NavLink>
+                                                            {i < r.projects.length - 1 ? ", " : ""}
+                                                        </span>
+                                                    ))
+                                                ) : (
+                                                    <span className="text-muted">–</span>
+                                                )}
+                                            </td>
 
                                             <td>{r.role_id?.role_name || '-'}</td>
 
@@ -666,10 +730,10 @@ const UsersPage = ({ user, permissions }) => {
 
                                 {rows.length === 0 && (
                                     loading ? (
-                                        <SkeletonTableRow rows={5} cols={9} />
+                                        <SkeletonTableRow rows={5} cols={10} />
                                     ) : (
                                         <tr className="text-center">
-                                            <td colSpan={9} className="py-4">No Records found</td>
+                                            <td colSpan={10} className="py-4">No Records found</td>
                                         </tr>
                                     )
                                 )}
