@@ -287,7 +287,7 @@ const UsersPage = ({ user, permissions }) => {
 
     const showingStarted = total === 0 ? 0 : (perpage === -1 ? 1 : (page - 1) * perpage + 1);
     const currentShowing = perpage === -1 ? total : Math.min(page * perpage, total);
-    
+
     const handleDownload = async () => {
         try {
             const json = await UsersApi.list({ perpage: -1, search: "" });
@@ -414,31 +414,31 @@ const UsersPage = ({ user, permissions }) => {
 
                     <div className="d-flex align-items-center justify-content-between p-2 flex-wrap gap-2">
                         <div className="d-flex align-items-center flex-wrap gap-2">
-                            
+
                             <div className="d-flex align-items-center">
                                 <label className="mb-0 me-2" htmlFor="perpage">Show</label>
-                            <select
-                                id="perpage"
-                                className="form-control w-auto me-2"
-                                value={perpage}
-                                onChange={(e) => {
-                                    const v = parseInt(e.target.value, 10);
-                                    setPerpage(v);
-                                    load({ perpage: v, page: 1 });
-                                }}
-                            >
-                                <option value={-1}>All</option>
-                                <option value={10}>10</option>
-                                <option value={20}>20</option>
-                                <option value={50}>50</option>
-                                <option value={100}>100</option>
-                            </select>
-                            <span>entries</span>
+                                <select
+                                    id="perpage"
+                                    className="form-control w-auto me-2"
+                                    value={perpage}
+                                    onChange={(e) => {
+                                        const v = parseInt(e.target.value, 10);
+                                        setPerpage(v);
+                                        load({ perpage: v, page: 1 });
+                                    }}
+                                >
+                                    <option value={-1}>All</option>
+                                    <option value={10}>10</option>
+                                    <option value={20}>20</option>
+                                    <option value={50}>50</option>
+                                    <option value={100}>100</option>
+                                </select>
+                                <span>entries</span>
                             </div>
                         </div>
 
                         <div className="input-group" style={{ maxWidth: 360 }}>
-                        <div className="d-flex align-items-center" style={{marginRight: 10}}>
+                            <div className="d-flex align-items-center" style={{ marginRight: 10 }}>
                                 <label className="mb-0 me-2" htmlFor="hapu-filter">Hapu</label>
                                 <select
                                     id="hapu-filter"
@@ -482,12 +482,23 @@ const UsersPage = ({ user, permissions }) => {
                                     </th>
                                     <th style={{ width: "5%" }}>SN</th>
                                     <th>
-                                        <button type="button" className="btn btn-link p-0 text-decoration-none text-dark fw-semibold" onClick={toggleFullNameSort} title={sortBy === "full_name" ? `Sorted ${sortOrder === "asc" ? "A–Z" : "Z–A"} (click to toggle)` : "Sort by Full Name"}>
-                                            Full Name <i className={`mdi mdi-arrow-${sortOrder === "asc" ? "up" : "down"} ms-1`} style={{ fontSize: 14, opacity: sortBy === "full_name" ? 1 : 0.4 }} />
+                                        <button
+                                            type="button"
+                                            className="btn btn-link p-0 text-decoration-none text-white fw-semibold"
+                                            onClick={toggleFullNameSort} 
+                                            style={{fontSize: 14}}
+                                            title={sortBy === "full_name" ? `Sorted ${sortOrder === "asc" ? "A–Z" : "Z–A"} (click to toggle)` : "Sort by Full Name"}>
+                                            Full Name 
+                                            <i className={`mdi mdi-arrow-${sortOrder === "asc" ? "up" : "down"} ms-1`} style={{ fontSize: 14, opacity: sortBy === "full_name" ? 1 : 0.4 }} />
                                         </button>
                                     </th>
                                     <th>
-                                        <button type="button" className="btn btn-link p-0 text-decoration-none text-dark fw-semibold" onClick={toggleEmailSort} title={sortBy === "email" ? `Sorted ${sortOrder === "asc" ? "A–Z" : "Z–A"} (click to toggle)` : "Sort by Email"}>
+                                        <button 
+                                         type="button" 
+                                         className="btn btn-link p-0 text-decoration-none text-white fw-semibold"
+                                         style={{fontSize: 14}}
+                                         onClick={toggleEmailSort} 
+                                         title={sortBy === "email" ? `Sorted ${sortOrder === "asc" ? "A–Z" : "Z–A"} (click to toggle)` : "Sort by Email"}>
                                             Email <i className={`mdi mdi-arrow-${sortOrder === "asc" ? "up" : "down"} ms-1`} style={{ fontSize: 14, opacity: sortBy === "email" ? 1 : 0.4 }} />
                                         </button>
                                     </th>
