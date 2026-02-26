@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import Swal from "sweetalert2";
-import { Modal, Button, Form } from "react-bootstrap";
+import { Modal, Button, Form, Offcanvas } from "react-bootstrap";
 import { RolesApi } from "../api/rolesApi";
 import { basePermissionList } from "../constants";
 import "bootstrap/dist/css/bootstrap.min.css";
@@ -22,10 +22,17 @@ const RolesPermissions = () => {
   const [showPermissions, setShowPermissions] = useState(false);
 
   const [roleName, setRoleName] = useState("");
-  const [editRole, setEditRole] = useState({ id: "", name: "" });
+  const [roleDescription, setRoleDescription] = useState("");
+  const [editRole, setEditRole] = useState({ id: "", name: "", description: "" });
   const [selectedRole, setSelectedRole] = useState(null);
 
   const [permissions, setPermissions] = useState([]);
+
+  // User list (offcanvas)
+  const [showUserList, setShowUserList] = useState(false);
+  const [userListRole, setUserListRole] = useState(null);
+  const [userListData, setUserListData] = useState({ data: [], total: 0, page: 1, last_page: 1 });
+  const [userListLoading, setUserListLoading] = useState(false);
 
   const handleSavePermissions = async () => {
     if (!selectedRole?._id) {
@@ -116,8 +123,9 @@ const RolesPermissions = () => {
   const handleAddRole = async (e) => {
     e.preventDefault();
     try {
-      await RolesApi.createRole({ role_name: roleName });
+      await RolesApi.createRole({ role_name: roleName, description: roleDescription });
       setRoleName("");
+      setRoleDescription("");
       setShowAdd(false);
       Swal.fire("Success", "Role created successfully", "success");
       fetchRoles();
@@ -129,12 +137,36 @@ const RolesPermissions = () => {
   const handleEditRole = async (e) => {
     e.preventDefault();
     try {
-      await RolesApi.editRole({ roleId: editRole.id, role_name: editRole.name });
+      await RolesApi.editRole({ roleId: editRole.id, role_name: editRole.name, description: editRole.description });
       setShowEdit(false);
       Swal.fire("Updated!", "Role updated successfully", "success");
       fetchRoles();
     } catch (err) {
       Swal.fire("Error", "Failed to update role", "error");
+    }
+  };
+
+  const openUserList = async (role) => {
+    setUserListRole(role);
+    setShowUserList(true);
+    setUserListData({ data: [], total: 0, page: 1, last_page: 1 });
+    loadUserList(role._id, 1);
+  };
+
+  const loadUserList = async (roleId, page = 1) => {
+    setUserListLoading(true);
+    try {
+      const res = await RolesApi.getUsersByRole({ roleId, page, perpage: 15 });
+      setUserListData({
+        data: res.data || [],
+        total: res.total || 0,
+        page: res.page || 1,
+        last_page: res.last_page || 1,
+      });
+    } catch {
+      setUserListData({ data: [], total: 0, page: 1, last_page: 1 });
+    } finally {
+      setUserListLoading(false);
     }
   };
 
@@ -155,28 +187,6 @@ const RolesPermissions = () => {
       fetchRoles();
     } catch (err) {
       Swal.fire("Error", "Failed to delete role", "error");
-    }
-  };
-
-  const toggleStatus = async (role) => {
-    const confirm = await Swal.fire({
-      text: "Are you sure you want to change the status?",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonText: "Yes",
-      cancelButtonText: "No",
-      confirmButtonColor: "#3085d6", // Blue (default confirm)
-      cancelButtonColor: "#d33",     // Red cancel
-    });
-    if (!confirm.isConfirmed) return;
-
-    try {
-      await RolesApi.manageRoleStatus({
-        roleId: role._id,
-      });
-      fetchRoles();
-    } catch (err) {
-      Swal.fire("Error", "Failed to change status", "error");
     }
   };
 
@@ -299,13 +309,12 @@ const RolesPermissions = () => {
                     <table className="table table-striped table-bordered table-responsive">
                       <thead>
                         <tr>
-                          <th style={{ width: "80px" }}>SN</th>
+                          <th style={{ width: "50px" }}>SN</th>
                           <th>Role</th>
+                          <th>Description</th>
+                          <th style={{ width: "120px" }}>User List</th>
                           <th style={{ width: "115px" }}>Module Permission</th>
-                          <th style={{ width: "105px" }}>Status</th>
-                          <th style={{ width: "140px" }}>
-                            Actions
-                          </th>
+                          <th style={{ width: "140px" }}>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -313,42 +322,34 @@ const RolesPermissions = () => {
                           <SkeletonTableRow rows={10} cols={5} />
                         ) : roles.length === 0 ? (
                           <tr className="text-center">
-                            <td colSpan="5">No Records found</td>
+                            <td colSpan="6">No Records found</td>
                           </tr>
                         ) : (
                           roles.map((item, index) => (
-                            <tr key={item.id}>
+                            <tr key={item._id || item.id}>
                               <td>{(page - 1) * perPage + index + 1}</td>
                               <td>{item.role_name}</td>
+                              <td className="text-muted small" style={{ maxWidth: 200 }} title={item.description || "-"}>
+                                {(item.description || "-").slice(0, 50)}{(item.description || "").length > 50 ? "…" : ""}
+                              </td>
+                              <td>
+                                <button
+                                  type="button"
+                                  className="btn btn-secondary btn-sm d-flex align-items-center gap-1"
+                                  onClick={() => openUserList(item)}
+                                  title="View users in this role"
+                                >
+                                  <i className="mdi mdi-account-group" style={{ fontSize: 18 }}></i>
+                                  <span>{item.userCount ?? 0} users</span>
+                                </button>
+                              </td>
                               <td>
                                 <button
                                   className="btn btn-primary btn-sm"
-                                  onClick={() => {
-                                    handleOpenPermissions(item)
-                                  }}
+                                  onClick={() => handleOpenPermissions(item)}
                                 >
                                   Set Permissions
                                 </button>
-                              </td>
-
-                              <td>
-                                <div className="custom-switch-wrapper">
-                                  <input
-                                    type="checkbox"
-                                    id={`switch_status_${item._id}`}
-                                    className="custom-switch-input"
-                                    checked={item.status === 'active'}
-                                    onChange={() => toggleStatus(item)}
-                                  />
-                                  <label
-                                    htmlFor={`switch_status_${item._id}`}
-                                    className="custom-switch-label"
-                                  >
-                                    <span className="switch-text on">Active</span>
-                                    <span className="switch-text off">Inactive</span>
-                                    <span className="switch-handle"></span>
-                                  </label>
-                                </div>
                               </td>
 
                               {/* Actions */}
@@ -357,7 +358,7 @@ const RolesPermissions = () => {
                                   className="btn btn-success btn-sm btn-rounded me-2"
                                   title="Edit"
                                   onClick={() => {
-                                    setEditRole({ id: item.id, name: item.role_name });
+                                    setEditRole({ id: item._id, name: item.role_name, description: item.description || "" });
                                     setShowEdit(true);
                                   }}
                                 >
@@ -484,7 +485,7 @@ const RolesPermissions = () => {
         </Modal.Header>
         <Form onSubmit={handleAddRole}>
           <Modal.Body>
-            <Form.Group controlId="roleName">
+            <Form.Group controlId="roleName" className="mb-3">
               <Form.Label>Role Title</Form.Label>
               <Form.Control
                 type="text"
@@ -493,6 +494,16 @@ const RolesPermissions = () => {
                 value={roleName}
                 onChange={(e) => setRoleName(e.target.value)}
                 maxLength={50}
+              />
+            </Form.Group>
+            <Form.Group controlId="roleDescription">
+              <Form.Label>Description</Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={2}
+                placeholder="Optional description"
+                value={roleDescription}
+                onChange={(e) => setRoleDescription(e.target.value)}
               />
             </Form.Group>
           </Modal.Body>
@@ -524,17 +535,27 @@ const RolesPermissions = () => {
               </div>
               <form onSubmit={handleEditRole}>
                 <div className="modal-body pt-2">
-                  <label>Role Title</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    required
-                    value={editRole.name}
-                    onChange={(e) =>
-                      setEditRole({ ...editRole, name: e.target.value })
-                    }
-                    maxLength={50}
-                  />
+                  <div className="mb-3">
+                    <label>Role Title</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      required
+                      value={editRole.name}
+                      onChange={(e) => setEditRole({ ...editRole, name: e.target.value })}
+                      maxLength={50}
+                    />
+                  </div>
+                  <div>
+                    <label>Description</label>
+                    <textarea
+                      className="form-control"
+                      rows={2}
+                      placeholder="Optional description"
+                      value={editRole.description || ""}
+                      onChange={(e) => setEditRole({ ...editRole, description: e.target.value })}
+                    />
+                  </div>
                 </div>
                 <div className="modal-footer text-center justify-content-center">
                   <button
@@ -654,6 +675,79 @@ const RolesPermissions = () => {
           </div>
         </div>
       )}
+
+      {/* User List Offcanvas */}
+      <Offcanvas
+        show={showUserList}
+        onHide={() => setShowUserList(false)}
+        placement="end"
+        style={{ maxWidth: 400 }}
+      >
+        <Offcanvas.Header closeButton>
+          <Offcanvas.Title>
+            Users in <span className="text-primary">{userListRole?.role_name || "Role"}</span>
+          </Offcanvas.Title>
+        </Offcanvas.Header>
+        <Offcanvas.Body>
+          {userListLoading && userListData.data.length === 0 ? (
+            <div className="text-center py-4">
+              <div className="spinner-border text-primary" role="status" />
+              <p className="mt-2 mb-0">Loading users…</p>
+            </div>
+          ) : userListData.total === 0 ? (
+            <p className="text-muted mb-0">No users assigned to this role.</p>
+          ) : (
+            <>
+              <div className="border rounded" style={{ maxHeight: 360, overflowY: "auto" }}>
+                <table className="table table-sm table-hover mb-0">
+                  <thead className="table-light sticky-top">
+                    <tr>
+                      <th>Name</th>
+                      <th>Email</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {userListData.data.map((u) => (
+                      <tr key={u._id}>
+                        <td>{[u.first_name, u.last_name].filter(Boolean).join(" ") || "-"}</td>
+                        <td className="small text-muted">{u.email || "-"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {userListData.last_page > 1 && (
+                <div className="d-flex justify-content-between align-items-center mt-2">
+                  <span className="small text-muted">
+                    {userListData.data.length} of {userListData.total} users
+                  </span>
+                  <div>
+                    <Button
+                      size="sm"
+                      variant="outline-secondary"
+                      disabled={userListData.page <= 1}
+                      onClick={() => loadUserList(userListRole?._id, userListData.page - 1)}
+                    >
+                      Prev
+                    </Button>
+                    <span className="mx-2 small">
+                      {userListData.page} / {userListData.last_page}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="outline-secondary"
+                      disabled={userListData.page >= userListData.last_page}
+                      onClick={() => loadUserList(userListRole?._id, userListData.page + 1)}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </Offcanvas.Body>
+      </Offcanvas>
     </>
   );
 };

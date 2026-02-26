@@ -15,11 +15,15 @@ export const RolesApi = {
         },
     });
   },
-  async createRole({ role_name }) {
-    return api.post("/admin/roles/create", { role_name });
+  async createRole({ role_name, description }) {
+    return api.post("/admin/roles/create", { role_name, description });
   },
-  async editRole({ roleId, role_name }) {
-    return api.post(`/admin/roles/edit`, { roleId  });
+  async editRole({ roleId, role_name, description }) {
+    return api.post("/admin/roles/edit", { roleId, role_name, description });
+  },
+
+  async getUsersByRole({ roleId, page = 1, perpage = 20 }) {
+    return api.get(`/admin/roles/${roleId}/users`, { params: { page, perpage } });
   },
 
   async getPermissions({ roleId }) {
@@ -32,10 +36,6 @@ export const RolesApi = {
 
   async deleteRole({ roleId }) {
     return api.delete(`/admin/roles/${roleId}`);
-  },
-
-  async manageRoleStatus({ roleId }) {
-    return api.put(`/admin/roles/${roleId}/status`, { roleId });
   },
 };
 
