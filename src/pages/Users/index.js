@@ -10,12 +10,20 @@ import { AuthApi } from "../../api/authApi";
 import { SkeletonTableRow } from "../../components/common/SkelentonTableRow.js";
 import "../../styles/engagementAdd.css";
 
+const VALID_PERPAGE = [10, 20, 50, 100, -1];
+const getStoredPerpage = () => {
+    try {
+        const v = parseInt(localStorage.getItem("users_list_perpage"), 10);
+        return VALID_PERPAGE.includes(v) ? v : 10;
+    } catch { return 10; }
+};
+
 const UsersPage = ({ user, permissions }) => {
     const [loading, setLoading] = useState(false);
     const [rows, setRows] = useState([]);
     const navigate = useNavigate();
     const [search, setSearch] = useState("");
-    const [perpage, setPerpage] = useState(10);
+    const [perpage, setPerpage] = useState(getStoredPerpage);
     const [page, setPage] = useState(1);
     const [total, setTotal] = useState(0);
     const [perms, setPerms] = useState({});
@@ -56,7 +64,7 @@ const UsersPage = ({ user, permissions }) => {
             setRows(json?.data || []);
             setTotal(json?.total || 0);
             setPage(json?.current_page || 1);
-            setPerpage(json?.per_page ?? 10);
+            setPerpage(json?.per_page ?? perpage);
             if (opts.sortBy !== undefined) setSortBy(opts.sortBy);
             if (opts.sortOrder !== undefined) setSortOrder(opts.sortOrder);
         } finally {
@@ -442,6 +450,7 @@ const UsersPage = ({ user, permissions }) => {
                                     onChange={(e) => {
                                         const v = parseInt(e.target.value, 10);
                                         setPerpage(v);
+                                        try { localStorage.setItem("users_list_perpage", String(v)); } catch { }
                                         load({ perpage: v, page: 1 });
                                     }}
                                 >
