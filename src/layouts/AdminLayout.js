@@ -45,7 +45,7 @@ const AdminLayout = ({ children }) => {
       <div className="container-fluid page-body-wrapper">
         <Sidebar user={user} permissions={permissions} supportBadge={0} />
         <div className="main-panel">
-          <div className="content-wrapper pt-0">{children ?? <Outlet />}</div>
+          <div className="content-wrapper pt-0">{children ?? <Outlet context={{ permissions, user }} />}</div>
           <Footer />
         </div>
       </div>

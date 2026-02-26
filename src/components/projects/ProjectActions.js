@@ -7,7 +7,7 @@ import DeleteIcon from "../common/icons/DeleteIcon";
  * Project Actions Component
  * Modular action buttons for project table rows
  */
-export default function ProjectActions({ projectId, onEdit, onDelete }) {
+export default function ProjectActions({ projectId, onEdit, onDelete, canEdit = true, canDelete = true }) {
   return (
     <div
       style={{
@@ -21,14 +21,16 @@ export default function ProjectActions({ projectId, onEdit, onDelete }) {
       <ActionButton
         icon={<EditIcon />}
         variant="success"
-        title="Edit"
-        onClick={() => onEdit(projectId)}
+        title={canEdit ? "Edit" : "Edit (no permission)"}
+        onClick={() => canEdit && onEdit(projectId)}
+        disabled={!canEdit}
       />
       <ActionButton
         icon={<DeleteIcon />}
         variant="danger"
-        title="Delete"
-        onClick={() => onDelete(projectId)}
+        title={canDelete ? "Delete" : "Delete (no permission)"}
+        onClick={() => canDelete && onDelete(projectId)}
+        disabled={!canDelete}
       />
     </div>
   );

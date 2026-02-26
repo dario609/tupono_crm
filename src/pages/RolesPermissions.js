@@ -2,12 +2,16 @@ import React, { useEffect, useState } from "react";
 import Swal from "sweetalert2";
 import { Modal, Button, Form, Offcanvas } from "react-bootstrap";
 import { RolesApi } from "../api/rolesApi";
-import { basePermissionList } from "../constants";
+import { basePermissionList, permissionsInputLabel } from "../constants";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "../assets/css/roles.css";
 import { SkeletonTableRow } from "../components/common/SkelentonTableRow";
+import { usePermissions } from "../hooks/usePermissions";
 
 const RolesPermissions = () => {
+  const { canEdit, canDelete } = usePermissions();
+  const canEditRoles = canEdit(permissionsInputLabel.roles_permissions);
+  const canDeleteRoles = canDelete(permissionsInputLabel.roles_permissions);
   const [roles, setRoles] = useState([]);
   const [search, setSearch] = useState("");
   const [perPage, setPerPage] = useState(10);
@@ -356,11 +360,10 @@ const RolesPermissions = () => {
                               <td className="text-center">
                                 <button
                                   className="btn btn-success btn-sm btn-rounded me-2"
-                                  title="Edit"
-                                  onClick={() => {
-                                    setEditRole({ id: item._id, name: item.role_name, description: item.description || "" });
-                                    setShowEdit(true);
-                                  }}
+                                  title={canEditRoles ? "Edit" : "Edit (no permission)"}
+                                  onClick={() => canEditRoles && (setEditRole({ id: item._id, name: item.role_name, description: item.description || "" }), setShowEdit(true))}
+                                  disabled={!canEditRoles}
+                                  style={!canEditRoles ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
                                 >
                                   <svg
                                     xmlns="http://www.w3.org/2000/svg"
@@ -380,8 +383,10 @@ const RolesPermissions = () => {
 
                                 <button
                                   className="btn btn-danger btn-sm btn-rounded"
-                                  title="Delete"
-                                  onClick={() => handleDelete(item._id)}
+                                  title={canDeleteRoles ? "Delete" : "Delete (no permission)"}
+                                  onClick={() => canDeleteRoles && handleDelete(item._id)}
+                                  disabled={!canDeleteRoles}
+                                  style={!canDeleteRoles ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
                                 >
                                   <svg
                                     xmlns="http://www.w3.org/2000/svg"

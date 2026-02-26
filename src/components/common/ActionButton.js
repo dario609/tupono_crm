@@ -6,6 +6,7 @@ export default function ActionButton({
     title,
     onClick,
     className = "",
+    disabled = false,
 }) {
     return (
         <button
@@ -13,7 +14,8 @@ export default function ActionButton({
             className={`btn btn-sm btn-rounded btn-icon badge-${variant} ${className}`}
             title={title}
             onClick={onClick}
-            style={{ minWidth: "32px", minHeight: "32px", display: "flex", alignItems: "center", justifyContent: "center" }}
+            disabled={disabled}
+            style={{ minWidth: "32px", minHeight: "32px", display: "flex", alignItems: "center", justifyContent: "center", ...(disabled && { opacity: 0.5, cursor: "not-allowed" }) }}
         >
             <span style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%" }}>
                 {icon}

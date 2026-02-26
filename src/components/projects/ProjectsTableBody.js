@@ -8,6 +8,8 @@ const ProjectsTableBody = ({
   perpage,
   handleDelete,
   navigate,
+  canEdit = true,
+  canDelete = true,
 }) => {
   const skeletonCount = Math.min(10, perpage === -1 ? 10 : perpage);
 
@@ -28,6 +30,8 @@ const ProjectsTableBody = ({
             perpage={perpage}
             navigate={navigate}
             handleDelete={handleDelete}
+            canEdit={canEdit}
+            canDelete={canDelete}
           />
         ))}
 

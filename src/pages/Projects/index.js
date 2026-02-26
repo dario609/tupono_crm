@@ -8,10 +8,15 @@ import ProjectsTable from "../../components/projects/ProjectsTable";
 import ProjectsControl from "../../components/projects/ProjectsControl";
 
 import ProjectsApi from "../../api/projectsApi";
+import { usePermissions } from "../../hooks/usePermissions";
+import { permissionsInputLabel } from "../../constants";
 
 import Swal from "sweetalert2";
 
 const ProjectsPage = () => {
+  const { canEdit, canDelete } = usePermissions();
+  const canEditProjects = canEdit(permissionsInputLabel.project_management);
+  const canDeleteProjects = canDelete(permissionsInputLabel.project_management);
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState([]);
   const [search, setSearch] = useState("");
@@ -196,6 +201,8 @@ const ProjectsPage = () => {
             page={page}
             perpage={perpage}
             handleDelete={handleDelete}
+            canEdit={canEditProjects}
+            canDelete={canDeleteProjects}
             navigate={navigate} />
 
           <Pagination

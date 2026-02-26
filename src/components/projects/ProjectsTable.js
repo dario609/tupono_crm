@@ -8,6 +8,8 @@ const ProjectsTable = ({
     perpage,
     handleDelete,
     navigate,
+    canEdit = true,
+    canDelete = true,
 }) => {
     return (
         <div className="table-responsive">
@@ -21,6 +23,8 @@ const ProjectsTable = ({
                     perpage={perpage}
                     handleDelete={handleDelete}
                     navigate={navigate}
+                    canEdit={canEdit}
+                    canDelete={canDelete}
                 />
             </table>
         </div>

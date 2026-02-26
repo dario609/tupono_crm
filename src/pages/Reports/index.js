@@ -3,8 +3,13 @@ import { NavLink } from "react-router-dom";
 import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
 import ReportsApi from "../../api/reportsApi";
+import { usePermissions } from "../../hooks/usePermissions";
+import { permissionsInputLabel } from "../../constants";
 
 const ReportsPage = () => {
+  const { canEdit, canDelete } = usePermissions();
+  const canEditReports = canEdit(permissionsInputLabel.report_management);
+  const canDeleteReports = canDelete(permissionsInputLabel.report_management);
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState([]);
@@ -277,12 +282,20 @@ const ReportsPage = () => {
                               <polygon points="3 11 22 2 13 21 11 13 3 11" />
                             </svg>
                           </NavLink>
-                          <NavLink className="btn badge-success btn-sm btn-rounded btn-icon" title="Edit" to={`/reports/${r._id}/edit`}>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="feather feather-edit-2 align-middle">
-                              <polygon points="16 3 21 8 8 21 3 21 3 16 16 3"></polygon>
-                            </svg>
-                          </NavLink>
-                          <button className="btn badge-danger btn-sm btn-rounded btn-icon" title="Delete" onClick={() => handleDelete(r._id)}>
+                          {(canEditReports ? (
+                            <NavLink className="btn badge-success btn-sm btn-rounded btn-icon" title="Edit" to={`/reports/${r._id}/edit`}>
+                              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="feather feather-edit-2 align-middle">
+                                <polygon points="16 3 21 8 8 21 3 21 3 16 16 3"></polygon>
+                              </svg>
+                            </NavLink>
+                          ) : (
+                            <button className="btn badge-success btn-sm btn-rounded btn-icon" title="Edit (no permission)" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+                              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="feather feather-edit-2 align-middle">
+                                <polygon points="16 3 21 8 8 21 3 21 3 16 16 3"></polygon>
+                              </svg>
+                            </button>
+                          ))}
+                          <button className="btn badge-danger btn-sm btn-rounded btn-icon" title="Delete" onClick={() => handleDelete(r._id)} disabled={!canDeleteReports} style={!canDeleteReports ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}>
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="feather feather-trash align-middle">
                               <polyline points="3 6 5 6 21 6"></polyline>
                               <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>

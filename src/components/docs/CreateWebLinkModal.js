@@ -13,6 +13,7 @@ const CreateWebLinkModal = ({
   setAcl,
   loading,
   error,
+  showAcl = true,
 }) => {
   if (!open) return null;
   return (
@@ -65,7 +66,8 @@ const CreateWebLinkModal = ({
             />
           </div>
 
-          {/* Access Control */}
+          {/* Access Control - only Super Admin and Hapu can assign */}
+          {showAcl && (
           <div className="mb-4">
             <label className="form-label fw-semibold">Access Control</label>
             <AclSelectDropdown
@@ -92,6 +94,7 @@ const CreateWebLinkModal = ({
               }}
             />
           </div>
+          )}
 
           {error && <div className="text-danger mb-2">{error}</div>}
 

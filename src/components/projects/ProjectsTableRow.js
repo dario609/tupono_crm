@@ -16,6 +16,8 @@ const ProjectsTableRow = ({
   perpage,
   navigate,
   handleDelete,
+  canEdit = true,
+  canDelete = true,
 }) => {
   const sn = perpage === -1 ? index + 1 : (page - 1) * perpage + index + 1;
 
@@ -75,6 +77,8 @@ const ProjectsTableRow = ({
           projectId={_id}
           onEdit={(id) => navigate(`/projects/${id}/edit`)}
           onDelete={handleDelete}
+          canEdit={canEdit}
+          canDelete={canDelete}
         />
       </td>
     </tr>

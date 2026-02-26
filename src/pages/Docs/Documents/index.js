@@ -9,10 +9,16 @@ import CreateWebLinkModal from '../../../components/docs/CreateWebLinkModal';
 import AclEditModal from '../../../components/docs/AclEditModal';
 import FileUploadModal from '../../../components/docs/FileUploadModal';
 import { tileStyles, colors, btnFilled, btnOutline } from '../../../components/docs/DocsStyles';
+import { usePermissions } from '../../../hooks/usePermissions';
+import { permissionsInputLabel } from '../../../constants';
 
 import '../../../styles/engagementAdd.css';
 
 const DocumentsPage = () => {
+  const { canAdd, canEdit, canDelete, canGiveAccess } = usePermissions();
+  const canAddDocs = canAdd(permissionsInputLabel.document_file_management);
+  const canEditDocs = canEdit(permissionsInputLabel.document_file_management);
+  const canDeleteDocs = canDelete(permissionsInputLabel.document_file_management);
   const { pushNotification } = useNotifications();
   const [cwd, setCwd] = useState('/');
   const [items, setItems] = useState([]);
@@ -640,7 +646,8 @@ const DocumentsPage = () => {
             <i className="mdi mdi-arrow-up-bold"></i>
           </button>
 
-          {/* Create Actions Dropdown */}
+          {/* Create Actions Dropdown - only when canAddDocs */}
+          {canAddDocs && (
           <div 
             ref={dropdownRef}
             style={{ position: 'relative', display: 'inline-block' }}
@@ -828,6 +835,7 @@ const DocumentsPage = () => {
               </div>
             )}
           </div>
+          )}
 
           {/* Search bar */}
           <div style={{ marginLeft: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -884,8 +892,8 @@ const DocumentsPage = () => {
                 alignItems: 'center',
                 gap: 6
               }}
-              disabled={!selectedItem}
-              onClick={() => { if (!selectedItem) return; onRename(selectedItem.path); }}
+              disabled={!selectedItem || !canEditDocs}
+              onClick={() => { if (!selectedItem || !canEditDocs) return; onRename(selectedItem.path); }}
               onMouseEnter={(e) => { if (selectedItem) { e.currentTarget.style.background = `${colors.primary}15`; e.currentTarget.style.transform = 'translateY(-1px)'; } }}
               onMouseLeave={(e) => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.transform = 'translateY(0)'; }}
             >
@@ -900,8 +908,8 @@ const DocumentsPage = () => {
                 alignItems: 'center',
                 gap: 6
               }}
-              disabled={!selectedItem || deleting}
-              onClick={() => { if (!selectedItem || deleting) return; confirmDelete(selectedItem.path, selectedItem.name); }}
+              disabled={!selectedItem || deleting || !canDeleteDocs}
+              onClick={() => { if (!selectedItem || deleting || !canDeleteDocs) return; confirmDelete(selectedItem.path, selectedItem.name); }}
               onMouseEnter={(e) => { if (selectedItem && !deleting) { e.currentTarget.style.background = `${colors.danger}15`; e.currentTarget.style.transform = 'translateY(-1px)'; } }}
               onMouseLeave={(e) => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.transform = 'translateY(0)'; }}
             >
@@ -1162,13 +1170,15 @@ const DocumentsPage = () => {
                       display: 'flex',
                       alignItems: 'center',
                       gap: 10,
-                      transition: 'all 0.15s ease'
+                      transition: 'all 0.15s ease',
+                      opacity: canEditDocs ? 1 : 0.5,
+                      cursor: canEditDocs ? 'pointer' : 'not-allowed'
                     }}
-                    onClick={() => { onRename(contextMenu.item.path); setContextMenu(null); }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = '#f1f5f9'; }}
+                    onClick={() => { if (canEditDocs) { onRename(contextMenu.item.path); setContextMenu(null); } }}
+                    onMouseEnter={(e) => { if (canEditDocs) e.currentTarget.style.background = '#f1f5f9'; }}
                     onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
                   >
-                    <i className="mdi mdi-rename-box" style={{ color: '#6366f1' }}></i> Rename
+                    <i className="mdi mdi-rename-box" style={{ color: '#6366f1' }}></i> Rename {!canEditDocs && '(no permission)'}
                   </button>
                   <button
                     className="dropdown-item"
@@ -1185,9 +1195,12 @@ const DocumentsPage = () => {
                       display: 'flex',
                       alignItems: 'center',
                       gap: 10,
-                      transition: 'all 0.15s ease'
+                      transition: 'all 0.15s ease',
+                      opacity: canGiveAccess ? 1 : 0.5,
+                      cursor: canGiveAccess ? 'pointer' : 'not-allowed'
                     }}
                     onClick={() => {
+                      if (!canGiveAccess) return;
                       const itemAcl = contextMenu.item.acl || {};
                       // Combine read and write users/teams into single lists
                       const allUsers = [...new Set([
@@ -1210,7 +1223,7 @@ const DocumentsPage = () => {
                     onMouseEnter={(e) => { e.currentTarget.style.background = '#f1f5f9'; }}
                     onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
                   >
-                    <i className="mdi mdi-shield-account" style={{ color: '#6366f1' }}></i> Edit Access Control
+                    <i className="mdi mdi-shield-account" style={{ color: '#6366f1' }}></i> Edit Access Control {!canGiveAccess && '(Super Admin or Hapu only)'}
                   </button>
                   <button
                     className="dropdown-item"
@@ -1228,14 +1241,14 @@ const DocumentsPage = () => {
                       alignItems: 'center',
                       gap: 10,
                       transition: 'all 0.15s ease',
-                      opacity: deleting ? 0.5 : 1
+                      opacity: (deleting || !canDeleteDocs) ? 0.5 : 1
                     }}
-                    disabled={deleting}
-                    onClick={() => { if (deleting) return; confirmDelete(contextMenu.item.path, contextMenu.item.name); setContextMenu(null); }}
+                    disabled={deleting || !canDeleteDocs}
+                    onClick={() => { if (deleting || !canDeleteDocs) return; confirmDelete(contextMenu.item.path, contextMenu.item.name); setContextMenu(null); }}
                     onMouseEnter={(e) => { if (!deleting) { e.currentTarget.style.background = '#fef2f2'; } }}
                     onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
                   >
-                    <i className="mdi mdi-trash-can-outline"></i> Delete
+                    <i className="mdi mdi-trash-can-outline"></i> Delete {!canDeleteDocs && '(no permission)'}
                   </button>
                 </div>
               )}
@@ -1350,7 +1363,8 @@ const DocumentsPage = () => {
                         </div>
                       )}
 
-                      {/* Access Control */}
+                      {/* Access Control - only Super Admin and Hapu can assign */}
+                      {canGiveAccess && (
                       <div className="mb-4">
                         <label className="form-label" style={{ fontWeight: 600, color: '#374151', marginBottom: 8 }}>Access Control</label>
                         <AclSelectDropdown
@@ -1375,6 +1389,7 @@ const DocumentsPage = () => {
                         />
                         <small className="text-muted d-block mt-2">Leave empty for public access.</small>
                       </div>
+                      )}
 
                       {/* Action Buttons */}
                       <div className="d-flex justify-content-end gap-2">
@@ -1457,6 +1472,7 @@ const DocumentsPage = () => {
                 teams={teams}
                 acl={uploadAcl}
                 setAcl={setUploadAcl}
+                showAcl={canGiveAccess}
                 file={fileUploadModal?.file}
                 setFile={(newFile) =>
                   setFileUploadModal((prev) => ({ ...prev, file: newFile }))
@@ -1488,6 +1504,7 @@ const DocumentsPage = () => {
                 teams={teams}
                 acl={uploadAcl}
                 setAcl={setUploadAcl}
+                showAcl={canGiveAccess}
                 loading={creatingWebLink}
                 error={webLinkNameError}
               />

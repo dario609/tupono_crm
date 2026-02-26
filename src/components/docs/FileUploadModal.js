@@ -13,6 +13,7 @@ const FileUploadModal = ({
   teams,
   loading,
   error,
+  showAcl = true,
 }) => {
   const fileInputRef = useRef(null);
 
@@ -144,7 +145,8 @@ const FileUploadModal = ({
             </div>
           )}
 
-          {/* ACL */}
+          {/* ACL - only Super Admin and Hapu can assign access */}
+          {showAcl && (
           <div className="mb-4">
             <label className="form-label fw-semibold">Access Control</label>
 
@@ -157,6 +159,7 @@ const FileUploadModal = ({
               onRemove={handleRemoveAcl}
             />
           </div>
+          )}
 
           {/* Buttons */}
           <div className="d-flex justify-content-end gap-2 mt-4">

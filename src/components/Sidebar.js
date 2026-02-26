@@ -102,7 +102,8 @@ const Sidebar = ({ permissions, supportBadge }) => {
   const isSuperAdmin = (user?.role_id?.role_name === rolesLabel.superAdmin);
   const canView = (key) => (isSuperAdmin || permissions?.[key]?.is_view === 1);
   const canAdd = (key) => (isSuperAdmin || permissions?.[key]?.is_add === 1);
-  const canSeeProjects = isSuperAdmin || permissions?.["task_management"]?.is_view === 1 || !!user;
+  const canEdit = (key) => (isSuperAdmin || permissions?.[key]?.is_edit === 1);
+  const canDelete = (key) => (isSuperAdmin || permissions?.[key]?.is_delete === 1);
 
   return (
     <nav className="sidebar sidebar-offcanvas" id="sidebar" ref={sidebarRef}>
@@ -113,7 +114,7 @@ const Sidebar = ({ permissions, supportBadge }) => {
             <span className="menu-title">Dashboard</span>
           </NavLink>
         </li>
-
+       {canView(permissionsInputLabel.roles_permissions) && (
         <li className="nav-item">
           <a
             href="#!"
@@ -134,7 +135,7 @@ const Sidebar = ({ permissions, supportBadge }) => {
             </ul>
           </div>
         </li>
-
+        )}
         {canView(permissionsInputLabel.user_management) && (
           <li className="nav-item">
             <a
@@ -148,7 +149,7 @@ const Sidebar = ({ permissions, supportBadge }) => {
             </a>
             <div className={`collapse ${openMenu === "users" ? "show" : ""}`}>
               <ul className="nav flex-column sub-menu">
-                {canAdd("user_management") && (
+                {canAdd(permissionsInputLabel.user_management) && (
                   <li className="nav-item">
                     <NavLink to="/users/create" className="nav-link">
                       <i className="bi bi-chevron-double-right"></i> Add User
@@ -339,11 +340,13 @@ const Sidebar = ({ permissions, supportBadge }) => {
             className={`collapse ${openMenu === "engagement" ? "show" : ""}`}
           >
             <ul className="nav flex-column sub-menu">
+              {canAdd(permissionsInputLabel.engagement_tracker) && (
               <li className="nav-item">
                 <NavLink to="/engagement-tracker/create" className="nav-link">
                   <span className="menu-title">Create Engagement</span>
                 </NavLink>
               </li>
+              )}
               <li className="nav-item">
                 <NavLink to="/engagement-tracker" className="nav-link">
                   <span className="menu-title">Engagements</span>
@@ -351,7 +354,8 @@ const Sidebar = ({ permissions, supportBadge }) => {
               </li>
             </ul>
           </div>
-        </li>)}
+        </li>
+        )}
 
         {/* Support Management */}
         {canView(permissionsInputLabel.message_support_management) && (
