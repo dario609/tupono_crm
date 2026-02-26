@@ -225,10 +225,12 @@ const HapuDetail = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {documents.map((d) => (
+                      {documents.map((d) => {
+                        const isArchive = d.type === "file" && /\.(zip|rar|7z|tar|gz|bz2)$/i.test(d.name || "");
+                        return (
                         <tr key={d._id} className="hapu-list-item">
                           <td>
-                            <i className={`ti ${d.type === "folder" ? "ti-folder" : "ti-file"} me-2 text-muted`} />
+                            <i className={`ti ${d.type === "folder" ? "ti-folder" : isArchive ? "ti-zip" : "ti-file"} me-2 text-muted`} />
                             {d.name || "—"}
                           </td>
                           <td className="text-muted small">{d.path || "—"}</td>
@@ -242,7 +244,8 @@ const HapuDetail = () => {
                             </Link>
                           </td>
                         </tr>
-                      ))}
+                      );
+                      })}
                     </tbody>
                   </table>
                 </div>

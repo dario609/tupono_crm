@@ -54,6 +54,11 @@ const DocumentsPage = () => {
   }, [items, searchText]);
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'table'
 
+  const isArchiveFile = (name) => {
+    if (!name || typeof name !== 'string') return false;
+    const ext = name.split('.').pop()?.toLowerCase();
+    return ['zip', 'rar', '7z', 'tar', 'gz', 'bz2'].includes(ext || '');
+  };
   const formatBytes = (bytes) => {
     if (!bytes && bytes !== 0) return '-';
     const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
@@ -1020,6 +1025,8 @@ const DocumentsPage = () => {
                           <i className="mdi mdi-folder" style={{ color: '#f59e0b', filter: 'drop-shadow(0 2px 4px rgba(245, 158, 11, 0.2))' }}></i>
                         ) : it.type === 'weblink' ? (
                           <i className="mdi mdi-link-variant" style={{ color: '#6366f1', filter: 'drop-shadow(0 2px 4px rgba(99, 102, 241, 0.2))' }}></i>
+                        ) : isArchiveFile(it.name) ? (
+                          <i className="mdi mdi-zip-box" style={{ color: '#64748b' }}></i>
                         ) : (
                           <i className="mdi mdi-file" style={{ color: '#64748b' }}></i>
                         )}
@@ -1059,7 +1066,7 @@ const DocumentsPage = () => {
                           <td>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                               <div style={{ fontSize: 20 }}>
-                                {it.type === 'folder' ? <i className="mdi mdi-folder" style={{ color: '#f59e0b' }}></i> : it.type === 'weblink' ? <i className="mdi mdi-link-variant" style={{ color: '#6366f1' }}></i> : <i className="mdi mdi-file" style={{ color: '#64748b' }}></i>}
+                                {it.type === 'folder' ? <i className="mdi mdi-folder" style={{ color: '#f59e0b' }}></i> : it.type === 'weblink' ? <i className="mdi mdi-link-variant" style={{ color: '#6366f1' }}></i> : isArchiveFile(it.name) ? <i className="mdi mdi-zip-box" style={{ color: '#64748b' }}></i> : <i className="mdi mdi-file" style={{ color: '#64748b' }}></i>}
                               </div>
                               <div style={{ fontWeight: 600 }}>{it.name}</div>
                             </div>
@@ -1250,7 +1257,7 @@ const DocumentsPage = () => {
                       <div style={{ background: '#f9fafb', borderRadius: 8, padding: '12px', marginBottom: '20px' }}>
                         <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 4 }}>Item to delete:</div>
                         <div style={{ fontSize: 15, fontWeight: 600, color: '#111827', wordBreak: 'break-word' }}>
-                          <i className={`mdi ${confirm.name.includes('.') ? 'mdi-file' : 'mdi-folder'}`} style={{ marginRight: 6, color: confirm.name.includes('.') ? '#64748b' : '#f59e0b' }}></i>
+                          <i className={`mdi ${confirm.name.includes('.') ? (isArchiveFile(confirm.name) ? 'mdi-zip-box' : 'mdi-file') : 'mdi-folder'}`} style={{ marginRight: 6, color: confirm.name.includes('.') ? '#64748b' : '#f59e0b' }}></i>
                           {confirm.name}
                         </div>
                       </div>
