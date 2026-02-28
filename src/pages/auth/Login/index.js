@@ -85,7 +85,7 @@ const Login = () => {
                       type="email"
                       required
                       className="form-control form-control-lg"
-                      placeholder="Email ID"
+                      placeholder="Email"
                       style={{ fontSize: "0.9375rem" }}
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}

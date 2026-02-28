@@ -77,7 +77,7 @@ const Login = () => {
                       type="email"
                       required
                       className="form-control form-control-lg"
-                      placeholder="Email ID"
+                      placeholder="Email"
                       style={{ fontSize: "0.9375rem" }}
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
@@ -128,9 +128,10 @@ const Login = () => {
                           type="checkbox"
                           className="form-check-input"
                           checked={remember}
+                          style={{marginTop: "-1px"}}
                           onChange={(e) => setRemember(e.target.checked)}
                         />{" "}
-                        Keep me signed in
+                        <span style={{marginTop: "1px"}}>Keep me signed in</span>
                       </label>
                     </div>
                     <a

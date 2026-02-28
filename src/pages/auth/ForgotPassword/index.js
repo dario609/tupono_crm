@@ -92,7 +92,7 @@ const ForgotPassword = () => {
                     <input
                       type="email"
                       className="form-control ps-15 bg-transparent"
-                      placeholder="Email ID"
+                      placeholder="Email"
                       name="email"
                       id="email"
                       value={email}
