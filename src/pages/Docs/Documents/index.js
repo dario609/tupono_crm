@@ -15,10 +15,10 @@ import { permissionsInputLabel } from '../../../constants';
 import '../../../styles/engagementAdd.css';
 
 const DocumentsPage = () => {
-  const { canAdd, canEdit, canDelete, canGiveAccess } = usePermissions();
+  const { canAdd, canEdit, canDelete, canGiveAccess, isSuperAdmin } = usePermissions();
   const canAddDocs = canAdd(permissionsInputLabel.document_file_management);
   const canEditDocs = canEdit(permissionsInputLabel.document_file_management);
-  const canDeleteDocs = canDelete(permissionsInputLabel.document_file_management);
+  const canDeleteDocs = isSuperAdmin;
   const { pushNotification } = useNotifications();
   const [cwd, setCwd] = useState('/');
   const [items, setItems] = useState([]);
@@ -49,6 +49,8 @@ const DocumentsPage = () => {
   const [uploadingFile, setUploadingFile] = useState(false); // Loading state for file upload
   const [webLinkNameError, setWebLinkNameError] = useState(''); // Error message for duplicate web link name
   const [createActionsDropdown, setCreateActionsDropdown] = useState(false); // Dropdown menu visibility
+  const [moveModal, setMoveModal] = useState(null); // { item, destinationPath }
+  const [moveModalFolders, setMoveModalFolders] = useState([]); // subfolders at destination
   const fileInputRef = useRef(null);
   const folderInputRef = useRef(null);
   const dropdownRef = useRef(null);
@@ -135,6 +137,15 @@ const DocumentsPage = () => {
   };
 
   useEffect(() => { load('/'); }, []);
+
+  useEffect(() => {
+    if (moveModal?.destinationPath != null) {
+      DocsApi.list(moveModal.destinationPath).then((res) => {
+        const arr = Array.isArray(res) ? res : [];
+        setMoveModalFolders(arr.filter((i) => i.type === 'folder'));
+      }).catch(() => setMoveModalFolders([]));
+    }
+  }, [moveModal?.destinationPath]);
 
   // Load users and teams for ACL
   useEffect(() => {
@@ -398,6 +409,44 @@ const DocumentsPage = () => {
   const onRename = (p) => {
     const old = p.split('/').pop();
     setRename({ path: p, name: old, value: old });
+  };
+
+  const onMove = (item) => {
+    const itemDir = item.path.replace(/\/[^/]+$/, '') || '/';
+    setMoveModal({ item, destinationPath: itemDir });
+    setMoveModalFolders([]);
+  };
+
+  const doMove = async () => {
+    if (!moveModal) return;
+    const { item, destinationPath } = moveModal;
+    const fromPath = item.path;
+    const baseName = fromPath.split('/').filter(Boolean).pop() || item.name;
+    const toPath = destinationPath === '/' ? `/${baseName}` : `${destinationPath}/${baseName}`;
+    if (toPath === fromPath) {
+      const id = Date.now();
+      setToasts((t) => [...t, { id, text: 'Item is already in this location' }]);
+      setTimeout(() => setToasts((tt) => tt.filter((x) => x.id !== id)), 2000);
+      return;
+    }
+    if (toPath.startsWith(fromPath + '/')) {
+      const id = Date.now();
+      setToasts((t) => [...t, { id, text: 'Cannot move a folder into itself' }]);
+      setTimeout(() => setToasts((tt) => tt.filter((x) => x.id !== id)), 3000);
+      return;
+    }
+    try {
+      await DocsApi.move(fromPath, toPath);
+      setMoveModal(null);
+      const tid = Date.now();
+      setToasts((t) => [...t, { id: tid, text: `Moved to ${toPath}` }]);
+      setTimeout(() => setToasts((tt) => tt.filter((x) => x.id !== tid)), 2200);
+      await load();
+    } catch (err) {
+      const tid = Date.now();
+      setToasts((t) => [...t, { id: tid, text: `Move failed: ${err?.response?.data?.message || err?.message || 'Server error'}` }]);
+      setTimeout(() => setToasts((tt) => tt.filter((x) => x.id !== tid)), 3000);
+    }
   };
   const doRename = async () => {
     if (!rename) return;
@@ -902,6 +951,22 @@ const DocumentsPage = () => {
             <button
               className="btn btn-sm"
               style={{
+                ...btnOutline('#0d9488', '#ccfbf1'),
+                opacity: selectedItem ? 1 : 0.4,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6
+              }}
+              disabled={!selectedItem || !canEditDocs}
+              onClick={() => { if (!selectedItem || !canEditDocs) return; onMove(selectedItem); }}
+              onMouseEnter={(e) => { if (selectedItem) { e.currentTarget.style.background = '#ccfbf1'; e.currentTarget.style.transform = 'translateY(-1px)'; } }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.transform = 'translateY(0)'; }}
+            >
+              <i className="mdi mdi-folder-move"></i> Move to folder
+            </button>
+            <button
+              className="btn btn-sm"
+              style={{
                 ...btnOutline(colors.danger, `${colors.danger}15`),
                 opacity: (selectedItem && !deleting) ? 1 : 0.4,
                 display: 'flex',
@@ -1196,6 +1261,31 @@ const DocumentsPage = () => {
                       alignItems: 'center',
                       gap: 10,
                       transition: 'all 0.15s ease',
+                      opacity: canEditDocs ? 1 : 0.5,
+                      cursor: canEditDocs ? 'pointer' : 'not-allowed'
+                    }}
+                    onClick={() => { if (canEditDocs) { onMove(contextMenu.item); setContextMenu(null); } }}
+                    onMouseEnter={(e) => { if (canEditDocs) e.currentTarget.style.background = '#f1f5f9'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                  >
+                    <i className="mdi mdi-folder-move" style={{ color: '#0d9488' }}></i> Move to folder {!canEditDocs && '(no permission)'}
+                  </button>
+                  <button
+                    className="dropdown-item"
+                    style={{
+                      padding: '10px 16px',
+                      width: '100%',
+                      textAlign: 'left',
+                      border: 'none',
+                      background: 'transparent',
+                      borderRadius: 8,
+                      fontSize: 14,
+                      fontWeight: 500,
+                      color: '#334155',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      transition: 'all 0.15s ease',
                       opacity: canGiveAccess ? 1 : 0.5,
                       cursor: canGiveAccess ? 'pointer' : 'not-allowed'
                     }}
@@ -1248,8 +1338,88 @@ const DocumentsPage = () => {
                     onMouseEnter={(e) => { if (!deleting) { e.currentTarget.style.background = '#fef2f2'; } }}
                     onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
                   >
-                    <i className="mdi mdi-trash-can-outline"></i> Delete {!canDeleteDocs && '(no permission)'}
+                    <i className="mdi mdi-trash-can-outline"></i> Delete {!canDeleteDocs && '(Super Admin only)'}
                   </button>
+                </div>
+              )}
+
+              {/* Move to Folder Modal */}
+              {moveModal && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }} onClick={() => setMoveModal(null)}>
+                  <div className="card" style={{ width: 'min(480px, 92vw)', borderRadius: 16, boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)', border: 'none' }} onClick={(e) => e.stopPropagation()}>
+                    <div className="card-body" style={{ padding: '24px' }}>
+                      <div className="d-flex align-items-center gap-3 mb-3">
+                        <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(13, 148, 136, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <i className="mdi mdi-folder-move" style={{ fontSize: 24, color: '#0d9488' }}></i>
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <h6 className="fw-semibold mb-1" style={{ fontSize: 18, color: '#111827' }}>Move to folder</h6>
+                          <p className="mb-0" style={{ fontSize: 14, color: '#6b7280' }}>Select destination folder (all files and subfolders will be moved)</p>
+                        </div>
+                      </div>
+                      <div style={{ background: '#f9fafb', borderRadius: 8, padding: '12px', marginBottom: '16px' }}>
+                        <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 4 }}>Moving:</div>
+                        <div style={{ fontSize: 15, fontWeight: 600, color: '#111827', wordBreak: 'break-word' }}>
+                          <i className={`mdi ${moveModal.item.type === 'folder' ? 'mdi-folder' : 'mdi-file'}`} style={{ marginRight: 6, color: moveModal.item.type === 'folder' ? '#f59e0b' : '#64748b' }}></i>
+                          {moveModal.item.name}
+                        </div>
+                      </div>
+                      <div style={{ marginBottom: '20px' }}>
+                        <label className="form-label" style={{ fontWeight: 600, color: '#374151', marginBottom: 8 }}>Destination folder</label>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', padding: '12px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10 }}>
+                          <a href="#" onClick={(e) => { e.preventDefault(); setMoveModal((m) => ({ ...m, destinationPath: '/' })); }} style={{ color: '#6366f1', textDecoration: 'none', fontWeight: 600, fontSize: 14 }}>Kāinga</a>
+                          {moveModal.destinationPath !== '/' && moveModal.destinationPath.split('/').filter(Boolean).map((seg, idx) => {
+                            const p = '/' + moveModal.destinationPath.split('/').filter(Boolean).slice(0, idx + 1).join('/');
+                            return (
+                              <span key={idx} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <i className="mdi mdi-chevron-right" style={{ color: '#94a3b8', fontSize: 16 }}></i>
+                                <a href="#" onClick={(e) => { e.preventDefault(); setMoveModal((m) => ({ ...m, destinationPath: p })); }} style={{ color: '#6366f1', textDecoration: 'none', fontWeight: 600, fontSize: 14 }}>{seg}</a>
+                              </span>
+                            );
+                          })}
+                        </div>
+                        <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 6 }}>Click a path segment or subfolder below to choose destination</div>
+                        {moveModalFolders.length > 0 && (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+                            {moveModalFolders.map((f) => {
+                              const fullPath = moveModal.destinationPath === '/' ? `/${f.name}` : `${moveModal.destinationPath}/${f.name}`;
+                              const isItemOrDescendant = moveModal.item.path === fullPath || moveModal.item.path.startsWith(fullPath + '/');
+                              return (
+                                <button
+                                  key={f.path}
+                                  type="button"
+                                  className="btn btn-sm"
+                                  style={{
+                                    background: isItemOrDescendant ? '#fef2f2' : '#f1f5f9',
+                                    color: isItemOrDescendant ? '#9ca3af' : '#334155',
+                                    border: 'none',
+                                    borderRadius: 8,
+                                    padding: '8px 12px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 6,
+                                    cursor: isItemOrDescendant ? 'not-allowed' : 'pointer',
+                                    opacity: isItemOrDescendant ? 0.7 : 1
+                                  }}
+                                  disabled={isItemOrDescendant}
+                                  onClick={() => !isItemOrDescendant && setMoveModal((m) => ({ ...m, destinationPath: fullPath }))}
+                                >
+                                  <i className="mdi mdi-folder" style={{ color: '#f59e0b' }}></i>
+                                  {f.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                      <div className="d-flex justify-content-end gap-2">
+                        <button className="btn btn-sm" style={{ background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: 8, padding: '8px 16px', fontWeight: 600 }} onClick={() => setMoveModal(null)}>Cancel</button>
+                        <button className="btn btn-sm" style={{ background: '#0d9488', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontWeight: 600 }} onClick={doMove}>
+                          <i className="mdi mdi-folder-move-outline me-1"></i> Move
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 
