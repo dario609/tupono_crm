@@ -608,8 +608,41 @@ const CalendarPage = () => {
                             </div>
                           ));
                         }
+                        const MS_PER_DAY = 24 * 60 * 60 * 1000;
+                        const floorToDay = (dt) => new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
+
                         return days.map((d, i) => {
-                          const dayEvents = events.filter(ev => { try { return isSameDay(new Date(ev.start), d); } catch { return false; } });
+                          const cellDay = floorToDay(d);
+                          // For month view we want bars that span between start & end.
+                          // We only start a segment if:
+                          // - it's the actual start day of the event, OR
+                          // - it's the first day (Sunday) of a new week while the event is in progress.
+                          const daySegments = events.reduce((acc, ev) => {
+                            try {
+                              const rawStart = new Date(ev.start);
+                              if (Number.isNaN(rawStart.getTime())) return acc;
+                              const rawEnd = ev.end ? new Date(ev.end) : rawStart;
+                              const startDay = floorToDay(rawStart);
+                              const endDay = floorToDay(rawEnd);
+
+                              if (cellDay < startDay || cellDay > endDay) return acc;
+
+                              const isWeekStart = cellDay.getDay() === 0; // Sunday
+                              const isActualStart = isSameDay(cellDay, startDay);
+                              const isSegmentStart = isActualStart || (isWeekStart && cellDay > startDay);
+                              if (!isSegmentStart) return acc;
+
+                              const daysLeftInWeek = 7 - cellDay.getDay(); // incl today
+                              const daysLeftInEvent = Math.floor((endDay - cellDay) / MS_PER_DAY) + 1;
+                              const spanDays = Math.max(1, Math.min(daysLeftInWeek, daysLeftInEvent));
+                              const isLastSegment = cellDay.getTime() === endDay.getTime() || spanDays === daysLeftInEvent;
+
+                              acc.push({ ev, spanDays, isFirstDay: isActualStart, isLastSegment });
+                              return acc;
+                            } catch {
+                              return acc;
+                            }
+                          }, []);
                           const isOtherMonth = d.getMonth() !== currentDate.getMonth();
                           const isTodayCell = isSameDay(d, now);
                           return (
@@ -621,10 +654,35 @@ const CalendarPage = () => {
                                   <span>{d.getDate()}</span>
                                 )}
                               </div>
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
-                                {dayEvents.map(ev => (
-                                  <div key={ev._id} title={ev.title} onClick={() => setSelectedEvent(ev)} style={{ background: ev.color || '#2563eb', color: 'white', borderRadius: 6, padding: '3px 6px', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer' }}>
-                                    <span style={{ opacity: 0.9 }}>{formatTime(new Date(ev.start))}</span> {ev.title}
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4, position: 'relative' }}>
+                                {daySegments.map(({ ev, spanDays, isFirstDay, isLastSegment }) => (
+                                  <div
+                                    key={ev._id + '-' + cellDay.getTime()}
+                                    title={`${ev.title || 'Meeting'}\n${formatDateTime(new Date(ev.start))}${ev.end ? ' → ' + formatDateTime(new Date(ev.end)) : ''}`}
+                                    onClick={() => setSelectedEvent(ev)}
+                                    style={{
+                                      background: ev.color || '#2563eb',
+                                      color: 'white',
+                                      borderTopLeftRadius: isFirstDay ? 999 : 4,
+                                      borderBottomLeftRadius: isFirstDay ? 999 : 4,
+                                      borderTopRightRadius: isLastSegment ? 999 : 4,
+                                      borderBottomRightRadius: isLastSegment ? 999 : 4,
+                                      padding: '3px 6px',
+                                      fontSize: 12,
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                      cursor: 'pointer',
+                                      width: `calc(${spanDays} * 100% - 4px)`
+                                    }}
+                                  >
+                                    <span style={{ opacity: 0.9, marginRight: 4 }}>
+                                      {isFirstDay ? '●' : '–'}
+                                    </span>
+                                    <span>{ev.title}</span>
+                                    {isLastSegment && ev.end && (
+                                      <span style={{ opacity: 0.9, marginLeft: 6 }}>●</span>
+                                    )}
                                   </div>
                                 ))}
                               </div>
@@ -654,14 +712,80 @@ const CalendarPage = () => {
                           ]);
                         }
                         return hours.flatMap((h, ri) => [
-                          <div key={`hour-${ri}`} style={{ borderRight: '1px solid #cbd5e1', borderBottom: '1px solid #e2e8f0', padding: '8px 10px', fontSize: 12, color: '#475569', fontWeight: 600 }}>{`${h === 0 ? '12 AM' : (h < 12 ? `${h} AM` : (h === 12 ? '12 PM' : `${h-12} PM`))}`}</div>,
+                          <div
+                            key={`hour-${ri}`}
+                            style={{
+                              borderRight: '1px solid #cbd5e1',
+                              borderBottom: '1px solid #e2e8f0',
+                              padding: '8px 10px',
+                              fontSize: 12,
+                              color: '#475569',
+                              fontWeight: 600
+                            }}
+                          >
+                            {`${h === 0 ? '12 AM' : (h < 12 ? `${h} AM` : (h === 12 ? '12 PM' : `${h - 12} PM`))}`}
+                          </div>,
                           ...days.map((d, ci) => {
-                            const slotEvents = events.filter(ev => { try { const sd = new Date(ev.start); const nzHour = Number(new Intl.DateTimeFormat('en-NZ', { hour: 'numeric', hour12: false, timeZone: NZ_TZ }).format(sd)); return isSameDay(sd, d) && nzHour === h; } catch { return false; } });
+                            const slotEvents = events.filter(ev => {
+                              try {
+                                const startDate = new Date(ev.start);
+                                if (!isSameDay(startDate, d)) return false;
+
+                                const startMinutes = startDate.getHours() * 60 + startDate.getMinutes();
+
+                                let endMinutes;
+                                if (ev.end) {
+                                  const endDate = new Date(ev.end);
+                                  if (!isSameDay(endDate, d)) {
+                                    // If event spans multiple days, clamp to end of current day
+                                    endMinutes = 24 * 60;
+                                  } else {
+                                    endMinutes = endDate.getHours() * 60 + endDate.getMinutes();
+                                  }
+                                } else {
+                                  // No end provided, treat as 1-hour block
+                                  endMinutes = startMinutes + 60;
+                                }
+
+                                const slotStart = h * 60;
+                                const slotEnd = (h + 1) * 60;
+
+                                // Event intersects this hour block
+                                return slotStart < endMinutes && slotEnd > startMinutes;
+                              } catch {
+                                return false;
+                              }
+                            });
+
                             return (
-                              <div key={`cell-${ri}-${ci}`} style={{ borderRight: ci<cols-1 ? '1px solid #e2e8f0':'none', borderBottom: '1px solid #e2e8f0', minHeight: 48, padding: 4 }}>
+                              <div
+                                key={`cell-${ri}-${ci}`}
+                                style={{
+                                  borderRight: ci < cols - 1 ? '1px solid #e2e8f0' : 'none',
+                                  borderBottom: '1px solid #e2e8f0',
+                                  minHeight: 48,
+                                  padding: 4
+                                }}
+                              >
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                                   {slotEvents.map(ev => (
-                                    <div key={ev._id} title={ev.title} onClick={() => setSelectedEvent(ev)} style={{ background: ev.color || '#2563eb', color: 'white', borderRadius: 6, padding: '2px 6px', fontSize: 12, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer' }}>
+                                    <div
+                                      key={ev._id}
+                                      title={ev.title}
+                                      onClick={() => setSelectedEvent(ev)}
+                                      style={{
+                                        background: ev.color || '#2563eb',
+                                        color: 'white',
+                                        borderRadius: 6,
+                                        padding: '2px 6px',
+                                        fontSize: 12,
+                                        maxWidth: '100%',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        whiteSpace: 'nowrap',
+                                        cursor: 'pointer'
+                                      }}
+                                    >
                                       {ev.title}
                                     </div>
                                   ))}
@@ -797,17 +921,27 @@ const CalendarPage = () => {
               <h6 className="fw-semibold mb-0" style={{ fontSize: 18 }}>{selectedEvent.title || 'Meeting'}</h6>
               <button className="btn btn-sm" onClick={() => setSelectedEvent(null)} style={{ background: '#06b6d4', color: '#fff', border: 'none', borderRadius: 999, padding: '6px 14px', fontWeight: 700 }}>Close</button>
             </div>
-            <div className="text-muted" style={{ fontSize: 13 }}>{formatDate(new Date(selectedEvent.start))}</div>
             <div className="mb-2" style={{ fontSize: 14 }}>
-              {formatTime(new Date(selectedEvent.start))} – {selectedEvent.end ? formatTime(new Date(selectedEvent.end)) : '-'}
-              {selectedEvent.end && (
-                <span className="text-muted"> · {formatDuration(selectedEvent.start, selectedEvent.end)}</span>
-              )}
+              <div>
+                <strong>Start:</strong>{' '}
+                <span className="text-muted">
+                  {selectedEvent.start ? formatDateTime(new Date(selectedEvent.start)) : '-'}
+                </span>
+              </div>
+              <div>
+                <strong>End:</strong>{' '}
+                <span className="text-muted">
+                  {selectedEvent.end ? formatDateTime(new Date(selectedEvent.end)) : '-'}
+                </span>
+                {selectedEvent.start && selectedEvent.end && (
+                  <span className="text-muted"> · {formatDuration(selectedEvent.start, selectedEvent.end)}</span>
+                )}
+              </div>
             </div>
             {selectedEvent.description && (
               <div className="mb-2"><strong>Description:</strong> <span className="text-muted">{selectedEvent.description}</span></div>
             )}
-            <div className="mb-2"><strong>Created by:</strong> <span className="text-muted">{(selectedEvent.created_by && (selectedEvent.created_by.first_name || selectedEvent.created_by.last_name)) ? `${selectedEvent.created_by.first_name ?? ''} ${selectedEvent.created_by.last_name ?? ''}`.trim() : (selectedEvent.created_by?.email || 'Unknown')}</span></div>
+           
             {selectedEvent.link && (
               <div className="mb-2"><strong>Link:</strong> <a href={selectedEvent.link} target="_blank" rel="noreferrer">Open meeting</a></div>
             )}
