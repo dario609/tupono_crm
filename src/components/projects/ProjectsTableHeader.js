@@ -7,7 +7,7 @@ export const ProjectsTableHeader = () => {
                 <th>Start Date</th>
                 <th>End Date</th>
                 <th>Project Owner</th>
-                <th>Team</th>
+                <th>Teams</th>
                 <th>Rohe</th>
                 <th>Hapū</th>
                 <th>Status</th>

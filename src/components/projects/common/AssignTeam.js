@@ -1,89 +1,96 @@
 import { useState } from "react";
 
-export default function AssignTeam({ teams = [], teamMembers = [], team_id = "", onChange, loading = false }) {
-    const [selectedTeam, setSelectedTeam] = useState("");
+export default function AssignTeam({
+  teams = [],
+  selectedTeams = [],
+  onChange,
+  loading = false,
+}) {
+  const [dropdownValue, setDropdownValue] = useState("");
 
-    const handleAddTeam = (id) => {
-        if (!id) return;
-        setSelectedTeam("");
-        const event = {
-            target: {
-                name: "team_id",
-                value: id
-            }
-        };
-        onChange(event);
-    };
+  const emitTeams = (nextIds) => {
+    onChange({
+      target: {
+        name: "teams",
+        value: nextIds,
+      },
+    });
+  };
 
-    const handleRemoveTeam = () => {
-        const event = {
-            target: {
-                name: "team_id",
-                value: ""
-            }
-        };
-        onChange(event);
-    };
+  const handleAddTeam = (id) => {
+    if (!id || selectedTeams.includes(id)) return;
+    emitTeams([...selectedTeams, id]);
+    setDropdownValue("");
+  };
 
-    const selectedTeamObject = team_id ? teams.find((t) => t._id === team_id) : null;
+  const handleRemoveTeam = (id) => {
+    emitTeams(selectedTeams.filter((tid) => tid !== id));
+  };
 
-    if (loading) {
-        return (
-            <div className="col-md-4 mt-2">
-                    <label className="mb-1">Assign Team</label>
-                    <div className="skeleton skeleton-line" style={{ height: '38px', borderRadius: '4px' }} />
-                    <div className="mt-3 d-flex flex-wrap gap-2">
-                        <div className="skeleton skeleton-line" style={{ width: '120px', height: '32px', borderRadius: '20px' }} />
-                    </div>
-            </div>
-        );
-    }
+  const selectedTeamObjects = teams.filter((t) => selectedTeams.includes(t._id));
 
+  if (loading) {
     return (
-        <div className="col-md-4">
-                <label className="mb-2" style={{fontSize: '14px'}}>Assign Team</label>
-                <select
-                    className="form-control form-select mt-1"
-                    value={selectedTeam}
-                    onChange={(e) => handleAddTeam(e.target.value)}
-                    disabled={loading}
-                >
-                    <option value="">Select Team</option>
-                    {teams.length > 0 &&
-                        teams.map((t) => (
-                            <option
-                                key={t._id}
-                                value={t._id}
-                                disabled={team_id === t._id}
-                            >
-                                {t.title}
-                            </option>
-                        ))
-                    }
-                </select>
+      <div className="col-md-4 mt-2">
+        <label className="mb-1">Assign Teams</label>
+        <div
+          className="skeleton skeleton-line"
+          style={{ height: "38px", borderRadius: "4px" }}
+        />
+        <div className="mt-3 d-flex flex-wrap gap-2">
+          <div
+            className="skeleton skeleton-line"
+            style={{
+              width: "120px",
+              height: "32px",
+              borderRadius: "20px",
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
 
-                {selectedTeamObject && (
-                    <div className="mt-3 d-flex flex-wrap gap-2">
-                        <div key={selectedTeamObject._id} className="hapu-chip">
-                            <span>{selectedTeamObject.title}</span>
-                            <button
-                                type="button"
-                                className="remove-btn"
-                                onClick={handleRemoveTeam}
-                            >
-                                ×
-                            </button>
-                        </div>
-                    </div>
-                )}
+  return (
+    <div className="col-md-4 mt-2">
+      <label className="mb-2" style={{ fontSize: "14px" }}>
+        Assign Teams
+      </label>
+      <select
+        className="form-control form-select mt-1"
+        value={dropdownValue}
+        onChange={(e) => handleAddTeam(e.target.value)}
+        disabled={loading}
+      >
+        <option value="">Select Team</option>
+        {teams.length > 0 &&
+          teams.map((t) => (
+            <option
+              key={t._id}
+              value={t._id}
+              disabled={selectedTeams.includes(t._id)}
+            >
+              {t.title}
+            </option>
+          ))}
+      </select>
 
-                {teamMembers.length > 0 && (
-                    <div className="mt-2" style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                        {teamMembers.map((m) => (
-                            <span key={`tm-${m._id}`} className="badge badge-primary badge-pill" style={{ padding: '4px 10px' }}>{m.name}</span>
-                        ))}
-                    </div>
-                )}
+      {selectedTeamObjects.length > 0 && (
+        <div className="mt-3 d-flex flex-wrap gap-2">
+          {selectedTeamObjects.map((t) => (
+            <div key={t._id} className="hapu-chip">
+              <span>{t.title}</span>
+              <button
+                type="button"
+                className="remove-btn"
+                onClick={() => handleRemoveTeam(t._id)}
+              >
+                ×
+              </button>
             </div>
-    )
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }

@@ -9,7 +9,7 @@ import {
 } from "../../utils/projects/projectFormatters";
 import ProjectActions from "./ProjectActions";
 
-const ProjectsTableRow = ({
+const   ProjectsTableRow = ({
   project,
   index,
   page,
@@ -29,7 +29,8 @@ const ProjectsTableRow = ({
     owner,
     rohe,
     team_id,
-   hapus,
+    teams,
+    hapus,
     status,
   } = project;
 
@@ -57,7 +58,26 @@ const ProjectsTableRow = ({
 
       <td>{formatOwnerName(owner)}</td>
       <td>
-        {team_id?._id ? (
+        {Array.isArray(teams) && teams.length ? (
+          <>
+            {teams.map((t, idx) => (
+              <span key={t._id || idx}>
+                {idx > 0 && ", "}
+                {t._id ? (
+                  <NavLink
+                    to={`/teams/${t._id}/edit`}
+                    className="text-primary"
+                    style={{ textDecoration: "none", fontWeight: 500 }}
+                  >
+                    {formatTeamName(t)}
+                  </NavLink>
+                ) : (
+                  formatTeamName(t)
+                )}
+              </span>
+            ))}
+          </>
+        ) : team_id?._id ? (
           <NavLink
             to={`/teams/${team_id._id}/edit`}
             className="text-primary"

@@ -152,7 +152,11 @@ const TaskModal = ({
               Cancel
             </button>
 
-            <button className="btn btn-primary" onClick={saveTask}>
+            <button
+              className="btn btn-primary"
+              onClick={saveTask}
+              disabled={!task.assignee}
+            >
               Save Task
             </button>
           </div>

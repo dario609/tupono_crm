@@ -88,8 +88,7 @@ const ProjectFormFields = ({
 
       <AssignTeam
         teams={teams}
-        teamMembers={teamMembers}
-        team_id={form.team_id}
+        selectedTeams={form.teams}
         onChange={onChange}
       />
 

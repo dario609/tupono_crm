@@ -67,6 +67,12 @@ const DocumentsPage = () => {
     const ext = name.split('.').pop()?.toLowerCase();
     return ['zip', 'rar', '7z', 'tar', 'gz', 'bz2'].includes(ext || '');
   };
+
+  const isWordFile = (name) => {
+    if (!name || typeof name !== 'string') return false;
+    const ext = name.split('.').pop()?.toLowerCase();
+    return ['doc', 'docx'].includes(ext || '');
+  };
   const formatBytes = (bytes) => {
     if (!bytes && bytes !== 0) return '-';
     const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
@@ -1095,11 +1101,19 @@ const DocumentsPage = () => {
                     >
                       <div style={{ fontSize: 48, transition: 'transform 0.2s ease' }}>
                         {it.type === 'folder' ? (
-                          <i className="mdi mdi-folder" style={{ color: '#f59e0b', filter: 'drop-shadow(0 2px 4px rgba(245, 158, 11, 0.2))' }}></i>
+                          <i
+                            className="mdi mdi-folder"
+                            style={{ color: '#f59e0b', filter: 'drop-shadow(0 2px 4px rgba(245, 158, 11, 0.2))' }}
+                          ></i>
                         ) : it.type === 'weblink' ? (
-                          <i className="mdi mdi-link-variant" style={{ color: '#6366f1', filter: 'drop-shadow(0 2px 4px rgba(99, 102, 241, 0.2))' }}></i>
+                          <i
+                            className="mdi mdi-link-variant"
+                            style={{ color: '#6366f1', filter: 'drop-shadow(0 2px 4px rgba(99, 102, 241, 0.2))' }}
+                          ></i>
                         ) : isArchiveFile(it.name) ? (
                           <i className="mdi mdi-zip-box" style={{ color: '#64748b' }}></i>
+                        ) : isWordFile(it.name) ? (
+                          <i className="mdi mdi-file-word" style={{ color: '#2563eb' }}></i>
                         ) : (
                           <i className="mdi mdi-file" style={{ color: '#64748b' }}></i>
                         )}
@@ -1139,7 +1153,17 @@ const DocumentsPage = () => {
                           <td>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                               <div style={{ fontSize: 20 }}>
-                                {it.type === 'folder' ? <i className="mdi mdi-folder" style={{ color: '#f59e0b' }}></i> : it.type === 'weblink' ? <i className="mdi mdi-link-variant" style={{ color: '#6366f1' }}></i> : isArchiveFile(it.name) ? <i className="mdi mdi-zip-box" style={{ color: '#64748b' }}></i> : <i className="mdi mdi-file" style={{ color: '#64748b' }}></i>}
+                                {it.type === 'folder' ? (
+                                  <i className="mdi mdi-folder" style={{ color: '#f59e0b' }}></i>
+                                ) : it.type === 'weblink' ? (
+                                  <i className="mdi mdi-link-variant" style={{ color: '#6366f1' }}></i>
+                                ) : isArchiveFile(it.name) ? (
+                                  <i className="mdi mdi-zip-box" style={{ color: '#64748b' }}></i>
+                                ) : isWordFile(it.name) ? (
+                                  <i className="mdi mdi-file-word" style={{ color: '#2563eb' }}></i>
+                                ) : (
+                                  <i className="mdi mdi-file" style={{ color: '#64748b' }}></i>
+                                )}
                               </div>
                               <div style={{ fontWeight: 600 }}>{it.name}</div>
                             </div>

@@ -13,7 +13,7 @@ import { taskStatuses } from "../../constants/index.js";
 import AssignHapu from "../../components/projects/common/AssignHapu.js";
 import AssignTeam from "../../components/projects/common/AssignTeam.js";
 import ToggleButton from "../../components/common/ToggleButton.js";
-import { TaskStatusBadge } from "../../utils/tasks/taskFormatters.js";  
+import { TaskStatusBadge } from "../../utils/tasks/taskFormatters.js";
 
 const initialForm = {
   name: "",
@@ -21,6 +21,7 @@ const initialForm = {
   end_date: "",
   owner: "",
   team_id: "",
+  teams: [],
   rohe: "",
   hapus: [],
   status: "0",
@@ -129,6 +130,9 @@ const EditProject = () => {
           end_date: p.end_date,
           owner: p.owner?._id || "",
           team_id: p.team_id?._id || "",
+          teams: Array.isArray(p.teams)
+            ? p.teams.map((t) => t._id || t)
+            : (p.team_id ? [p.team_id._id || p.team_id] : []),
           rohe: p.rohe?._id || "",
           hapus: Array.isArray(p.hapus) ? p.hapus.map((h) => h._id) : [],
           status:
@@ -137,17 +141,17 @@ const EditProject = () => {
               p.status === 1
               ? "1"
               : p.status === "complete" ||
-              p.status === "2" ||
-              p.status === 2
-              ? "2"
-              : "0",
+                p.status === "2" ||
+                p.status === 2
+                ? "2"
+                : "0",
           description: p.description || "",
         });
 
         // Load tasks
         const tasks = p.tasks || [];
         setProjectTasks(tasks);
-        
+
         // Calculate task status counts
         const counts = {
           just_starting: 0,
@@ -163,7 +167,7 @@ const EditProject = () => {
           else if (status === "Complete") counts.complete++;
         });
         setTaskStatusCounts(counts);
-        
+
         // Load Gantt Chart link
         setGanttChartLink(p.gantt_chart_link || "");
 
@@ -193,19 +197,30 @@ const EditProject = () => {
     })();
   }, [form.rohe]);
 
-  // Load team members whenever team changes
+  // Load team members whenever selected teams change
   useEffect(() => {
     (async () => {
-      if (!form.team_id) { setTeamMembers([]); return; }
+      if (!form.teams || form.teams.length === 0) {
+        setTeamMembers([]);
+        return;
+      }
       try {
-        const json = await TeamsApi.getById(form.team_id);
-        const members = json?.data?.members || [];
-        setTeamMembers(members);
+        const allMembers = [];
+        for (const teamId of form.teams) {
+          const json = await TeamsApi.getById(teamId);
+          const members = json?.data?.members || [];
+          allMembers.push(...members);
+        }
+        const byId = new Map();
+        allMembers.forEach((m) => {
+          if (!byId.has(m._id)) byId.set(m._id, m);
+        });
+        setTeamMembers(Array.from(byId.values()));
       } catch {
         setTeamMembers([]);
       }
     })();
-  }, [form.team_id]);
+  }, [form.teams]);
 
   useEffect(() => {
     const endInput = document.getElementById("end_date");
@@ -213,12 +228,21 @@ const EditProject = () => {
   }, [form.start_date]);
 
   const onChange = (e) => {
-    const { name, value, multiple, options } = e.target;
+    const { name, value, multiple, options } = e.target || e;
+
+    if (Array.isArray(value)) {
+      setForm((f) => ({ ...f, [name]: value }));
+      return;
+    }
+
     if (multiple) {
-      const values = Array.from(options).filter(o => o.selected).map(o => o.value);
+      const values = Array.from(options)
+        .filter((o) => o.selected)
+        .map((o) => o.value);
       setForm((f) => ({ ...f, [name]: values }));
       return;
     }
+
     setForm((f) => ({ ...f, [name]: value }));
   };
 
@@ -237,7 +261,8 @@ const EditProject = () => {
         start_date: form.start_date,
         end_date: form.end_date,
         owner: form.owner || undefined,
-        team_id: form.team_id || undefined,
+        team_id: form.team_id || (form.teams && form.teams[0]) || undefined,
+        teams: form.teams || [],
         rohe: form.rohe || undefined,
         hapus: form.hapus,
         status: form.status,
@@ -293,7 +318,7 @@ const EditProject = () => {
     });
     const updatedTasks = projectTasks.filter((t) => t._id !== taskId);
     setProjectTasks(updatedTasks);
-    
+
     // Update task status counts
     const counts = {
       just_starting: 0,
@@ -448,13 +473,26 @@ const EditProject = () => {
 
                         {/* Assigned To removed */}
 
-                        <AssignTeam 
-                          teams={teams} 
-                          teamMembers={teamMembers} 
-                          team_id={form.team_id} 
+                        <AssignTeam
+                          teams={teams}
+                          selectedTeams={form.teams}
                           onChange={onChange}
                           loading={pageLoading}
                         />
+                        <div className="col-md-4 mt-3">
+                          Project Users
+                          {teamMembers.length > 0 && (
+                            <div className="mt-3 d-flex flex-wrap gap-2">
+                              {teamMembers.map((t, i) => (
+                                <div key={i} className="badge bg-light text-dark border-radius-10">
+                                  <span>{t.name}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                        </div>
+
 
                         <div className="col-md-4">
                           <div className="form-group mb-2">
@@ -468,13 +506,14 @@ const EditProject = () => {
                           </div>
                         </div>
 
-                        <AssignHapu 
-                          hapus={hapus} 
-                          selectedHapus={form.hapus} 
-                          onAdd={addHapu} 
-                          onRemove={removeHapu} 
-                          disabled={!form.rohe} 
+                        <AssignHapu
+                          hapus={hapus}
+                          selectedHapus={form.hapus}
+                          onAdd={addHapu}
+                          onRemove={removeHapu}
+                          disabled={!form.rohe}
                         />
+
 
                         <div className="col-md-4">
                           <div className="form-group mb-2">
@@ -494,20 +533,7 @@ const EditProject = () => {
                           </div>
                         </div>
 
-                        <div className="col-md-12 mt-4">
-                          <h5>Project Users</h5>
-                          {teamMembers.length > 0 ? (
-                            <ul className="list-group">
-                              {teamMembers.map((user) => (
-                                <li key={user._id} className="list-group-item">
-                                  {user.name} ({user.email})
-                                </li>
-                              ))}
-                            </ul>
-                          ) : (
-                            <p>No users assigned to this project.</p>
-                          )}
-                        </div>
+
 
                         <div className="d-flex align-items-center justify-content-between mb-2 mt-4">
                           <h5 className="mb-0">Tasks ({projectTasks.length} Tasks)</h5>
@@ -539,16 +565,16 @@ const EditProject = () => {
                           >
                             + Add Task
                           </button>
-                        {ganttChartLink && (
-                          <button
-                            className="btn btn-success btn-sm"
-                            style={{ borderRadius: 20 }}
-                            type="button"
-                            onClick={() => window.open(ganttChartLink, '_blank', 'noopener,noreferrer')}
-                          >
-                            <i className="mdi mdi-link-variant me-1"></i> View Link
-                          </button>
-                        )}
+                          {ganttChartLink && (
+                            <button
+                              className="btn btn-success btn-sm"
+                              style={{ borderRadius: 20 }}
+                              type="button"
+                              onClick={() => window.open(ganttChartLink, '_blank', 'noopener,noreferrer')}
+                            >
+                              <i className="mdi mdi-link-variant me-1"></i> View Link
+                            </button>
+                          )}
                         </div>
 
                         <div className="text-end mb-2">
@@ -659,8 +685,10 @@ const EditProject = () => {
                     onChange={(e) => setTask({ ...task, assignee: e.target.value })}
                   >
                     <option value="">Select</option>
-                    {teamMembers.map((u) => (
-                      <option key={u._id} value={u._id}>{u.name}</option>
+                    {(teamMembers.length ? teamMembers : users).map((u) => (
+                      <option key={u._id} value={u._id}>
+                        {u.name || userLabel(u)}
+                      </option>
                     ))}
                   </select>
                   {taskErrors.assignee && (
@@ -764,7 +792,11 @@ const EditProject = () => {
                   Cancel
                 </button>
 
-                <button className="btn btn-primary" onClick={saveTask}>
+                <button
+                  className="btn btn-primary"
+                  onClick={saveTask}
+                  disabled={!task.assignee}
+                >
                   Save Task
                 </button>
               </div>
