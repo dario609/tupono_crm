@@ -62,16 +62,45 @@ const DocumentsPage = () => {
   }, [items, searchText]);
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'table'
 
+  const getFileExt = (name) => {
+    if (!name || typeof name !== "string") return "";
+    return name.split(".").pop()?.toLowerCase() || "";
+  };
+
   const isArchiveFile = (name) => {
     if (!name || typeof name !== 'string') return false;
-    const ext = name.split('.').pop()?.toLowerCase();
+    const ext = getFileExt(name);
     return ['zip', 'rar', '7z', 'tar', 'gz', 'bz2'].includes(ext || '');
   };
 
   const isWordFile = (name) => {
     if (!name || typeof name !== 'string') return false;
-    const ext = name.split('.').pop()?.toLowerCase();
+    const ext = getFileExt(name);
     return ['doc', 'docx'].includes(ext || '');
+  };
+
+  const isPdfFile = (name) => {
+    if (!name || typeof name !== "string") return false;
+    const ext = getFileExt(name);
+    return ext === "pdf";
+  };
+
+  const isExcelFile = (name) => {
+    if (!name || typeof name !== "string") return false;
+    const ext = getFileExt(name);
+    return ["xls", "xlsx", "csv"].includes(ext || "");
+  };
+
+  const isPptFile = (name) => {
+    if (!name || typeof name !== "string") return false;
+    const ext = getFileExt(name);
+    return ["ppt", "pptx"].includes(ext || "");
+  };
+
+  const isImageFile = (name) => {
+    if (!name || typeof name !== "string") return false;
+    const ext = getFileExt(name);
+    return ["png", "jpg", "jpeg", "gif", "webp"].includes(ext || "");
   };
   const formatBytes = (bytes) => {
     if (!bytes && bytes !== 0) return '-';
@@ -1112,8 +1141,16 @@ const DocumentsPage = () => {
                           ></i>
                         ) : isArchiveFile(it.name) ? (
                           <i className="mdi mdi-zip-box" style={{ color: '#64748b' }}></i>
+                        ) : isPdfFile(it.name) ? (
+                          <i className="mdi mdi-file-pdf-box" style={{ color: '#dc2626' }}></i>
+                        ) : isExcelFile(it.name) ? (
+                          <i className="mdi mdi-file-excel" style={{ color: '#16a34a' }}></i>
+                        ) : isPptFile(it.name) ? (
+                          <i className="mdi mdi-file-powerpoint" style={{ color: '#ea580c' }}></i>
                         ) : isWordFile(it.name) ? (
                           <i className="mdi mdi-file-word" style={{ color: '#2563eb' }}></i>
+                        ) : isImageFile(it.name) ? (
+                          <i className="mdi mdi-file-image" style={{ color: '#0ea5e9' }}></i>
                         ) : (
                           <i className="mdi mdi-file" style={{ color: '#64748b' }}></i>
                         )}
@@ -1159,8 +1196,16 @@ const DocumentsPage = () => {
                                   <i className="mdi mdi-link-variant" style={{ color: '#6366f1' }}></i>
                                 ) : isArchiveFile(it.name) ? (
                                   <i className="mdi mdi-zip-box" style={{ color: '#64748b' }}></i>
+                                ) : isPdfFile(it.name) ? (
+                                  <i className="mdi mdi-file-pdf-box" style={{ color: '#dc2626' }}></i>
+                                ) : isExcelFile(it.name) ? (
+                                  <i className="mdi mdi-file-excel" style={{ color: '#16a34a' }}></i>
+                                ) : isPptFile(it.name) ? (
+                                  <i className="mdi mdi-file-powerpoint" style={{ color: '#ea580c' }}></i>
                                 ) : isWordFile(it.name) ? (
                                   <i className="mdi mdi-file-word" style={{ color: '#2563eb' }}></i>
+                                ) : isImageFile(it.name) ? (
+                                  <i className="mdi mdi-file-image" style={{ color: '#0ea5e9' }}></i>
                                 ) : (
                                   <i className="mdi mdi-file" style={{ color: '#64748b' }}></i>
                                 )}

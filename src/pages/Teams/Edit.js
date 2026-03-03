@@ -3,15 +3,13 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import Select from "react-select";
 import UsersApi from "../../api/usersApi";
 import TeamsApi from "../../api/teamsApi";
-import HapuListsApi from "../../api/hapulistsApi";
 
 const initialForm = {
   title: "",
   status: "active",
-  hapu: "",
   description: "",
   user_id: [],
-}
+};
 const EditTeam = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -21,39 +19,39 @@ const EditTeam = () => {
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
   const [users, setUsers] = useState([]);
-  const [hapus, setHapus] = useState([]);
   const [form, setForm] = useState(initialForm);
   const [titleGhost, setTitleGhost] = useState("");
   const [descGhost, setDescGhost] = useState("");
 
-  const userLabel = (u) => `${u.first_name ?? ''} ${u.last_name ?? ''}`.trim() || u.email || 'User';
+  const userLabel = (u) =>
+    `${u.first_name ?? ""} ${u.last_name ?? ""}`.trim() || u.email || "User";
+
   const userHapus = (u) => {
     if (Array.isArray(u?.hapu)) return u.hapu;
     if (typeof u?.hapu === "string" && u.hapu.trim()) return [u.hapu.trim()];
     return [];
   };
-  const normalizedSelectedHapu = String(form.hapu || "").toLowerCase().trim();
-  const filteredUsers = users.filter((u) =>
-    userHapus(u).some((h) => String(h).toLowerCase().trim() === normalizedSelectedHapu)
-  );
+
+  const userLabelWithHapu = (u) => {
+    const hapus = userHapus(u);
+    const hapuStr = hapus.filter(Boolean).join(", ");
+    const base = userLabel(u);
+    return hapuStr ? `${base} (${hapuStr})` : base;
+  };
 
   useEffect(() => {
     (async () => {
       try {
-        const [uJson, hapusJson, tJson] = await Promise.all([
+        const [uJson, tJson] = await Promise.all([
           UsersApi.list({ perpage: -1 }),
-          HapuListsApi.list({ perpage: -1 }),
           TeamsApi.getById(id),
         ]);
         setUsers(uJson?.data || []);
-        setHapus(hapusJson?.data || []);
 
         if (tJson?.data) {
-          const teamHapu = tJson.data.hapu && String(tJson.data.hapu).trim() ? tJson.data.hapu : "";
           setForm({
             title: tJson.data.title || "",
             status: tJson.data.status || "active",
-            hapu: teamHapu,
             description: tJson.data.description || "",
             user_id: Array.isArray(tJson.data.user_id) ? tJson.data.user_id : [],
           });
@@ -64,10 +62,6 @@ const EditTeam = () => {
 
   const onChange = (e) => {
     const { name, value } = e.target;
-    if (name === "hapu") {
-      setForm((f) => ({ ...f, hapu: value, user_id: [] }));
-      return;
-    }
     setForm((f) => ({ ...f, [name]: value }));
   };
 
@@ -76,7 +70,6 @@ const EditTeam = () => {
   const canSubmit =
     form.title.trim().length > 0 &&
     String(form.status || "").trim().length > 0 &&
-    String(form.hapu || "").trim().length > 0 &&
     form.user_id.length > 0;
 
   const onSubmit = async (e) => {
@@ -88,7 +81,7 @@ const EditTeam = () => {
       return;
     }
     if (!canSubmit) {
-      setError("Please fill Team Name, Status, Select Hapu and Select Team members.");
+      setError("Please fill Team Name, Status, and select at least one team member.");
       return;
     }
     try {
@@ -158,43 +151,23 @@ const EditTeam = () => {
                     </div>
 
                     <div className="col-md-6 mt-0">
-                      <div className="form-group mb-2">
-                        <label>Select Hapu <span className="text-danger">*</span></label>
-                        <select
-                          name="hapu"
-                          className="form-control form-select"
-                          required
-                          value={form.hapu}
-                          onChange={onChange}
-                        >
-                          <option value="">Select Hapu</option>
-                          {hapus.map((h) => {
-                            const hapuName = h?.hapu_name || h?.name || "";
-                            if (!hapuName) return null;
-                            return (
-                              <option key={h._id || hapuName} value={hapuName}>
-                                {hapuName}
-                              </option>
-                            );
-                          })}
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="col-md-6 mt-0">
                       <div className="form-group">
                         <label className="form-label">Select Team members <span className="text-danger">*</span></label>
                         <Select
                           isMulti
-                          options={filteredUsers.map((u) => ({ value: u._id, label: userLabel(u) }))}
+                          options={users.map((u) => ({
+                            value: u._id,
+                            label: userLabelWithHapu(u),
+                          }))}
                           value={form.user_id.map((uid) => {
                             const u = users.find((x) => x._id === uid);
-                            return u ? { value: u._id, label: userLabel(u) } : null;
+                            return u
+                              ? { value: u._id, label: userLabelWithHapu(u) }
+                              : null;
                           }).filter(Boolean)}
                           onChange={(selected) => setForm((f) => ({ ...f, user_id: selected ? selected.map((s) => s.value) : [] }))}
-                          isDisabled={!form.hapu}
-                          placeholder={form.hapu ? "Select team members..." : "Select hapu first"}
-                          noOptionsMessage={() => (form.hapu ? "No users in this hapu" : "Select hapu first")}
+                          placeholder="Select team members..."
+                          noOptionsMessage={() => "No users available"}
                           className="react-select-container"
                           classNamePrefix="react-select"
                         />
