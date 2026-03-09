@@ -41,6 +41,13 @@ const CalendarCreate = () => {
     })();
   }, []);
 
+  const normalizeToUtcIso = (value) => {
+    if (!value) return null;
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toISOString();
+  };
+
   const changeMode = (mode) => {
     setParticipantMode(mode);
     if (mode === 'users') {
@@ -69,7 +76,15 @@ const CalendarCreate = () => {
         ...selectedUserIds.map(id => ({ refType: 'user', refId: id, color })),
         ...selectedTeamIds.map(id => ({ refType: 'team', refId: id, color })),
       ];
-      const res = await CalendarApi.create({ title, description, start, end, color, link, assignments });
+      const res = await CalendarApi.create({
+        title,
+        description,
+        start: normalizeToUtcIso(start),
+        end: normalizeToUtcIso(end),
+        color,
+        link,
+        assignments,
+      });
       const newId = res?.data?.id || res?.data?.data?.id;
       try { if (newId) await CalendarApi.invite(newId, {}); } catch {}
 
